@@ -1,0 +1,2975 @@
+(() => {
+  const translations = {
+    en: {
+      appTitle: "TimePoll",
+      appSubtitle: "Vote on times to agree on schedules.",
+      language: "Language",
+      hello: "Hello,",
+      login: "Login",
+      logout: "Logout",
+      register: "Register",
+      createPoll: "Create new poll",
+      sectionPollList: "Poll list",
+      sectionCreatePoll: "Create poll dialog",
+      sectionSelectedPoll: "Selected poll",
+      workspaceSections: "Workspace sections",
+      noSelectedPoll: "Select a poll from the list.",
+      createHelp: "Select full start/end days. Time slots are generated automatically in 60-minute blocks.",
+      title: "Title",
+      description: "Description",
+      startDate: "Start date",
+      endDate: "End date",
+      timezone: "Timezone",
+      calendarTimezone: "Calendar timezone",
+      calendarTimezonePoll: "Poll creator selected timezone",
+      calendarTimezoneBrowser: "Browser timezone",
+      calendarTimezoneOwn: "Own timezone",
+      voteDisplayMode: "Answer view",
+      voteDisplayModeResults: "Result mode",
+      voteDisplayModeOwn: "Own answers",
+      minYesVotesFilter: "Show rows with at least this many Yes votes",
+      noRowsMatchFilter: "No rows match the current Yes filter.",
+      timezoneHelp: "Start typing to filter IANA timezones, for example Europe/Helsinki or UTC.",
+      timezoneSelected: "Selected timezone",
+      validationRequired: "{field} is required.",
+      validationInvalid: "{field} is invalid.",
+      validationTooLong: "{field} is too long.",
+      validationFormInvalid: "Poll form is invalid.",
+      validationInvalidValue: "Invalid value.",
+      dailyStartHour: "Daily start hour",
+      dailyEndHour: "Daily end hour",
+      allowedWeekdays: "Allowed weekdays",
+      weekdayMon: "Mon",
+      weekdayTue: "Tue",
+      weekdayWed: "Wed",
+      weekdayThu: "Thu",
+      weekdayFri: "Fri",
+      weekdaySat: "Sat",
+      weekdaySun: "Sun",
+      timeOptions: "Time options",
+      optionLabel: "Option label",
+      startsAt: "Starts at",
+      endsAt: "Ends at",
+      removeOption: "Remove option",
+      addOption: "Add option",
+      polls: "Polls",
+      participants: "participants",
+      open: "open",
+      closed: "closed",
+      noPolls: "No polls yet.",
+      noDescription: "No description",
+      createdBy: "Created by",
+      closePoll: "Close poll",
+      reopenPoll: "Reopen poll",
+      deletePoll: "Delete poll",
+      editPoll: "Edit poll",
+      editHelp: "You can edit poll settings. Time slots that already have votes cannot be removed.",
+      saveChanges: "Save changes",
+      cancelEdit: "Cancel edit",
+      pollOpen: "Poll is open",
+      pollClosed: "Poll is closed",
+      availabilityTable: "Availability table",
+      weekOf: "Week of",
+      timeColumn: "Time",
+      daysRange: "Days",
+      prevDays: "Previous days",
+      nextDays: "Next days",
+      timeOption: "Time option",
+      noSlots: "No selectable slots in this poll.",
+      yesVotes: "Yes votes",
+      noVotes: "No votes",
+      maybeVotes: "Maybe votes",
+      myVote: "My vote",
+      actions: "Actions",
+      voteYes: "Yes",
+      voteNo: "No",
+      voteMaybe: "Maybe",
+      noVote: "No vote",
+      deleteVote: "Delete vote",
+      authNeeded: "Enter your name and PIN to continue. A new user is created automatically if needed.",
+      authPrompt: "Use your name and PIN. If the name does not exist yet, a new user is created automatically.",
+      name: "Name",
+      pin: "PIN code",
+      switchToLogin: "Already registered? Login",
+      switchToRegister: "Need an account? Register",
+      createdSuccess: "Poll created successfully.",
+      pollUpdatedSuccess: "Poll updated successfully.",
+      voteDeleted: "Vote deleted.",
+      pollClosedSuccess: "Poll closed.",
+      pollReopenedSuccess: "Poll reopened.",
+      pollDeletedSuccess: "Poll deleted.",
+      loginSuccess: "Logged in.",
+      createdLoginSuccess: "New user created and logged in.",
+      registerSuccess: "Registered and logged in.",
+      logoutSuccess: "Logged out.",
+      confirmDeletePoll: "Delete this poll permanently?",
+      dismissFeedback: "Dismiss notification",
+      profileTitle: "My data",
+      profileRefresh: "Refresh",
+      profileLoading: "Loading your data...",
+      profileEmpty: "No data loaded yet.",
+      profileDownloadJson: "Download JSON",
+      profileDeleteOwnData: "Delete own data",
+      profileDeleteConfirm:
+        "Delete your votes and deletable polls now? Polls with other users' votes will remain.",
+      profileDeleteDone: "Own data deleted where possible.",
+      profileDeleteDoneAccountRemoved: "All personal data removed. Your account was deleted.",
+      profileDeletedVotes: "Deleted votes",
+      profileDeletedPolls: "Deleted polls",
+      profileRemainingPolls: "Remaining created polls",
+      profileRemainingPollsWithOthers: "Remaining polls with other users' votes",
+      profileIdentity: "User details",
+      profileStats: "Statistics",
+      profileCreatedAt: "Created at",
+      profileUpdatedAt: "Updated at",
+      profileCreatedPolls: "Created polls",
+      profileNoCreatedPolls: "No created polls.",
+      profileVotes: "My votes",
+      profileNoVotes: "No votes.",
+      profileVoteTime: "Time",
+      profileOpenPoll: "Open poll",
+      profileVoteCount: "Vote count",
+      profileDistinctVotedPollCount: "Polls voted in"
+    },
+    fi: {
+      appTitle: "TimePoll",
+      appSubtitle: "Äänestä ajoista sopiaksesi aikataulut",
+      language: "Kieli",
+      hello: "Hei,",
+      login: "Kirjaudu",
+      logout: "Kirjaudu ulos",
+      register: "Rekisteröidy",
+      createPoll: "Luo uusi kysely",
+      sectionPollList: "Kyselylista",
+      sectionCreatePoll: "Luo kysely dialogi",
+      sectionSelectedPoll: "Valittu kysely",
+      workspaceSections: "Työtilan osiot",
+      noSelectedPoll: "Valitse kysely listasta.",
+      createHelp: "Valitse alku- ja loppupäivät. Aikavaihtoehdot luodaan automaattisesti 60 minuutin jaksoina.",
+      title: "Otsikko",
+      description: "Kuvaus",
+      startDate: "Alkupäivä",
+      endDate: "Loppupäivä",
+      timezone: "Aikavyöhyke",
+      calendarTimezone: "Kalenterin aikavyöhyke",
+      calendarTimezonePoll: "Kyselyn luojan valitsema aikavyöhyke",
+      calendarTimezoneBrowser: "Selaimen aikavyöhyke",
+      calendarTimezoneOwn: "Oma aikavyöhyke",
+      voteDisplayMode: "Vastausnäkymä",
+      voteDisplayModeResults: "Tulostila",
+      voteDisplayModeOwn: "Omat vastaukset",
+      minYesVotesFilter: "Näytä rivit, joissa vähintään näin monta Kyllä-ääntä",
+      noRowsMatchFilter: "Yksikään rivi ei täytä nykyistä Kyllä-suodatinta.",
+      timezoneHelp: "Ala kirjoittaa suodattaaksesi IANA-aikavyöhykkeitä, esimerkiksi Europe/Helsinki tai UTC.",
+      timezoneSelected: "Valittu aikavyöhyke",
+      validationRequired: "{field} on pakollinen.",
+      validationInvalid: "{field} on virheellinen.",
+      validationTooLong: "{field} on liian pitkä.",
+      validationFormInvalid: "Kyselyn lomaketiedot ovat virheelliset.",
+      validationInvalidValue: "Virheellinen arvo.",
+      dailyStartHour: "Päivän aloitustunti",
+      dailyEndHour: "Päivän lopetustunti",
+      allowedWeekdays: "Sallitut viikonpäivät",
+      weekdayMon: "Ma",
+      weekdayTue: "Ti",
+      weekdayWed: "Ke",
+      weekdayThu: "To",
+      weekdayFri: "Pe",
+      weekdaySat: "La",
+      weekdaySun: "Su",
+      timeOptions: "Aikavaihtoehdot",
+      optionLabel: "Vaihtoehdon nimi",
+      startsAt: "Alkaa",
+      endsAt: "Päättyy",
+      removeOption: "Poista vaihtoehto",
+      addOption: "Lisää vaihtoehto",
+      polls: "Kyselyt",
+      participants: "osallistujaa",
+      open: "auki",
+      closed: "suljettu",
+      noPolls: "Ei kyselyitä vielä.",
+      noDescription: "Ei kuvausta",
+      createdBy: "Luoja",
+      closePoll: "Sulje kysely",
+      reopenPoll: "Avaa kysely",
+      deletePoll: "Poista kysely",
+      editPoll: "Muokkaa kyselyä",
+      editHelp: "Voit muokata kyselyn tietoja. Ääniä saaneita aikaslotteja ei voi poistaa.",
+      saveChanges: "Tallenna muutokset",
+      cancelEdit: "Peru muokkaus",
+      pollOpen: "Kysely on auki",
+      pollClosed: "Kysely on suljettu",
+      availabilityTable: "Saatavuustaulukko",
+      weekOf: "Viikko alkaen",
+      timeColumn: "Aika",
+      daysRange: "Päivät",
+      prevDays: "Edelliset päivät",
+      nextDays: "Seuraavat päivät",
+      timeOption: "Aikavaihtoehto",
+      noSlots: "Tässä kyselyssä ei ole valittavia slotteja.",
+      yesVotes: "Kyllä-äänet",
+      noVotes: "Ei-äänet",
+      maybeVotes: "Ehkä-äänet",
+      myVote: "Oma ääni",
+      actions: "Toiminnot",
+      voteYes: "Kyllä",
+      voteNo: "Ei",
+      voteMaybe: "Ehkä",
+      noVote: "Ei ääntä",
+      deleteVote: "Poista ääni",
+      authNeeded: "Syötä nimi ja PIN-koodi jatkaaksesi. Uusi käyttäjä luodaan automaattisesti tarvittaessa.",
+      authPrompt: "Käytä nimeä ja PIN-koodia. Jos nimeä ei ole vielä olemassa, uusi käyttäjä luodaan automaattisesti.",
+      name: "Nimi",
+      pin: "PIN-koodi",
+      switchToLogin: "Onko tili jo? Kirjaudu",
+      switchToRegister: "Tarvitsetko tilin? Rekisteröidy",
+      createdSuccess: "Kysely luotu.",
+      pollUpdatedSuccess: "Kysely päivitetty.",
+      voteDeleted: "Ääni poistettu.",
+      pollClosedSuccess: "Kysely suljettu.",
+      pollReopenedSuccess: "Kysely avattu uudelleen.",
+      pollDeletedSuccess: "Kysely poistettu.",
+      loginSuccess: "Kirjautuminen onnistui.",
+      createdLoginSuccess: "Uusi käyttäjä luotiin ja kirjautuminen onnistui.",
+      registerSuccess: "Rekisteröityminen onnistui.",
+      logoutSuccess: "Uloskirjautuminen onnistui.",
+      confirmDeletePoll: "Poistetaanko kysely pysyvästi?",
+      dismissFeedback: "Sulje ilmoitus",
+      profileTitle: "Omat tiedot",
+      profileRefresh: "Päivitä",
+      profileLoading: "Ladataan tietojasi...",
+      profileEmpty: "Tietoja ei ole vielä ladattu.",
+      profileDownloadJson: "Lataa JSON",
+      profileDeleteOwnData: "Poista omat tiedot",
+      profileDeleteConfirm:
+        "Poistetaanko äänesi ja poistettavissa olevat kyselyt nyt? Kyselyt, joissa on muiden ääniä, jäävät jäljelle.",
+      profileDeleteDone: "Omat tiedot poistettu siltä osin kuin mahdollista.",
+      profileDeleteDoneAccountRemoved: "Kaikki henkilötiedot poistettiin. Käyttäjätili poistettiin.",
+      profileDeletedVotes: "Poistetut äänet",
+      profileDeletedPolls: "Poistetut kyselyt",
+      profileRemainingPolls: "Jäljellä olevat luodut kyselyt",
+      profileRemainingPollsWithOthers: "Jäljellä olevat kyselyt, joissa on muiden ääniä",
+      profileIdentity: "Käyttäjätiedot",
+      profileStats: "Tilastot",
+      profileCreatedAt: "Luotu",
+      profileUpdatedAt: "Päivitetty",
+      profileCreatedPolls: "Luodut kyselyt",
+      profileNoCreatedPolls: "Ei luotuja kyselyitä.",
+      profileVotes: "Omat äänet",
+      profileNoVotes: "Ei ääniä.",
+      profileVoteTime: "Aika",
+      profileOpenPoll: "Avaa kysely",
+      profileVoteCount: "Äänten määrä",
+      profileDistinctVotedPollCount: "Äänestetyt kyselyt"
+    },
+    sv: {
+      appTitle: "TimePoll",
+      appSubtitle: "Rösta på tider för att komma överens om scheman.",
+      language: "Språk",
+      hello: "Hej,",
+      login: "Logga in",
+      logout: "Logga ut",
+      register: "Registrera",
+      createPoll: "Skapa ny omröstning",
+      sectionPollList: "Omröstningslista",
+      sectionCreatePoll: "Skapa omröstningsdialog",
+      sectionSelectedPoll: "Vald omröstning",
+      workspaceSections: "Arbetsytans sektioner",
+      noSelectedPoll: "Välj en omröstning från listan.",
+      createHelp: "Välj hela start- och slutdagar. Tidsalternativ skapas automatiskt i 60-minutersblock.",
+      title: "Titel",
+      description: "Beskrivning",
+      startDate: "Startdatum",
+      endDate: "Slutdatum",
+      timezone: "Tidszon",
+      calendarTimezone: "Kalenderns tidszon",
+      calendarTimezonePoll: "Skaparens valda tidszon",
+      calendarTimezoneBrowser: "Webbläsarens tidszon",
+      calendarTimezoneOwn: "Egen tidszon",
+      voteDisplayMode: "Svarsvy",
+      voteDisplayModeResults: "Resultatläge",
+      voteDisplayModeOwn: "Egna svar",
+      minYesVotesFilter: "Visa rader med minst så här många Ja-röster",
+      noRowsMatchFilter: "Inga rader matchar det aktuella Ja-filtret.",
+      timezoneHelp: "Börja skriva för att filtrera IANA-tidszoner, till exempel Europe/Helsinki eller UTC.",
+      timezoneSelected: "Vald tidszon",
+      validationRequired: "{field} är obligatoriskt.",
+      validationInvalid: "{field} är ogiltigt.",
+      validationTooLong: "{field} är för långt.",
+      validationFormInvalid: "Omröstningsformuläret är ogiltigt.",
+      validationInvalidValue: "Ogiltigt värde.",
+      dailyStartHour: "Daglig starttimme",
+      dailyEndHour: "Daglig sluttimme",
+      allowedWeekdays: "Tillåtna veckodagar",
+      weekdayMon: "Mån",
+      weekdayTue: "Tis",
+      weekdayWed: "Ons",
+      weekdayThu: "Tor",
+      weekdayFri: "Fre",
+      weekdaySat: "Lör",
+      weekdaySun: "Sön",
+      timeOptions: "Tidsalternativ",
+      optionLabel: "Alternativnamn",
+      startsAt: "Startar",
+      endsAt: "Slutar",
+      removeOption: "Ta bort alternativ",
+      addOption: "Lägg till alternativ",
+      polls: "Omröstningar",
+      participants: "deltagare",
+      open: "öppen",
+      closed: "stängd",
+      noPolls: "Inga omröstningar ännu.",
+      noDescription: "Ingen beskrivning",
+      createdBy: "Skapad av",
+      closePoll: "Stäng omröstning",
+      reopenPoll: "Öppna omröstning igen",
+      deletePoll: "Ta bort omröstning",
+      editPoll: "Redigera omröstning",
+      editHelp: "Du kan redigera omröstningens inställningar. Tidslots med röster kan inte tas bort.",
+      saveChanges: "Spara ändringar",
+      cancelEdit: "Avbryt redigering",
+      pollOpen: "Omröstningen är öppen",
+      pollClosed: "Omröstningen är stängd",
+      availabilityTable: "Tillgänglighetstabell",
+      weekOf: "Vecka från",
+      timeColumn: "Tid",
+      daysRange: "Dagar",
+      prevDays: "Föregående dagar",
+      nextDays: "Nästa dagar",
+      timeOption: "Tidsalternativ",
+      noSlots: "Inga valbara slots i denna omröstning.",
+      yesVotes: "Ja-röster",
+      noVotes: "Nej-röster",
+      maybeVotes: "Kanske-röster",
+      myVote: "Min röst",
+      actions: "Åtgärder",
+      voteYes: "Ja",
+      voteNo: "Nej",
+      voteMaybe: "Kanske",
+      noVote: "Ingen röst",
+      deleteVote: "Ta bort röst",
+      authNeeded: "Ange namn och PIN-kod för att fortsätta. En ny användare skapas automatiskt vid behov.",
+      authPrompt: "Använd namn och PIN-kod. Om namnet inte finns skapas en ny användare automatiskt.",
+      name: "Namn",
+      pin: "PIN-kod",
+      switchToLogin: "Har du konto? Logga in",
+      switchToRegister: "Behöver du konto? Registrera",
+      createdSuccess: "Omröstning skapad.",
+      pollUpdatedSuccess: "Omröstning uppdaterad.",
+      voteDeleted: "Röst borttagen.",
+      pollClosedSuccess: "Omröstning stängd.",
+      pollReopenedSuccess: "Omröstning öppnad igen.",
+      pollDeletedSuccess: "Omröstning borttagen.",
+      loginSuccess: "Inloggad.",
+      createdLoginSuccess: "Ny användare skapad och inloggad.",
+      registerSuccess: "Registrerad och inloggad.",
+      logoutSuccess: "Utloggad.",
+      confirmDeletePoll: "Ta bort denna omröstning permanent?",
+      dismissFeedback: "Stäng meddelande",
+      profileTitle: "Mina uppgifter",
+      profileRefresh: "Uppdatera",
+      profileLoading: "Laddar dina uppgifter...",
+      profileEmpty: "Inga uppgifter laddade ännu.",
+      profileDownloadJson: "Ladda ner JSON",
+      profileDeleteOwnData: "Radera egna uppgifter",
+      profileDeleteConfirm:
+        "Radera dina röster och omröstningar som kan tas bort nu? Omröstningar med andras röster blir kvar.",
+      profileDeleteDone: "Egna uppgifter raderades där det var möjligt.",
+      profileDeleteDoneAccountRemoved: "Alla personuppgifter raderades. Ditt konto togs bort.",
+      profileDeletedVotes: "Raderade röster",
+      profileDeletedPolls: "Raderade omröstningar",
+      profileRemainingPolls: "Kvarvarande skapade omröstningar",
+      profileRemainingPollsWithOthers: "Kvarvarande omröstningar med andras röster",
+      profileIdentity: "Användaruppgifter",
+      profileStats: "Statistik",
+      profileCreatedAt: "Skapad",
+      profileUpdatedAt: "Uppdaterad",
+      profileCreatedPolls: "Skapade omröstningar",
+      profileNoCreatedPolls: "Inga skapade omröstningar.",
+      profileVotes: "Mina röster",
+      profileNoVotes: "Inga röster.",
+      profileVoteTime: "Tid",
+      profileOpenPoll: "Öppna omröstning",
+      profileVoteCount: "Antal röster",
+      profileDistinctVotedPollCount: "Omröstningar du har röstat i"
+    },
+    no: {
+      appTitle: "TimePoll",
+      appSubtitle: "Stem på tider for å avtale timeplaner.",
+      language: "Språk",
+      hello: "Hei,",
+      login: "Logg inn",
+      logout: "Logg ut",
+      register: "Registrer",
+      createPoll: "Opprett ny avstemning",
+      sectionPollList: "Avstemningsliste",
+      sectionCreatePoll: "Opprett avstemningsdialog",
+      sectionSelectedPoll: "Valgt avstemning",
+      workspaceSections: "Arbeidsområdeseksjoner",
+      noSelectedPoll: "Velg en avstemning fra listen.",
+      createHelp: "Velg hele start- og sluttdager. Tidsalternativer opprettes automatisk i 60-minuttersblokker.",
+      title: "Tittel",
+      description: "Beskrivelse",
+      startDate: "Startdato",
+      endDate: "Sluttdato",
+      timezone: "Tidssone",
+      calendarTimezone: "Kalendertidssone",
+      calendarTimezonePoll: "Avstemningsoppretterens valgte tidssone",
+      calendarTimezoneBrowser: "Nettleserens tidssone",
+      calendarTimezoneOwn: "Egen tidssone",
+      voteDisplayMode: "Svarvisning",
+      voteDisplayModeResults: "Resultatmodus",
+      voteDisplayModeOwn: "Egne svar",
+      minYesVotesFilter: "Vis rader med minst så mange Ja-stemmer",
+      noRowsMatchFilter: "Ingen rader samsvarer med gjeldende Ja-filter.",
+      timezoneHelp: "Begynn å skrive for å filtrere IANA-tidssoner, for eksempel Europe/Helsinki eller UTC.",
+      timezoneSelected: "Valgt tidssone",
+      validationRequired: "{field} er obligatorisk.",
+      validationInvalid: "{field} er ugyldig.",
+      validationTooLong: "{field} er for lang.",
+      validationFormInvalid: "Skjemaet for avstemningen er ugyldig.",
+      validationInvalidValue: "Ugyldig verdi.",
+      dailyStartHour: "Daglig starttime",
+      dailyEndHour: "Daglig sluttime",
+      allowedWeekdays: "Tillatte ukedager",
+      weekdayMon: "Man",
+      weekdayTue: "Tir",
+      weekdayWed: "Ons",
+      weekdayThu: "Tor",
+      weekdayFri: "Fre",
+      weekdaySat: "Lør",
+      weekdaySun: "Søn",
+      timeOptions: "Tidsalternativer",
+      optionLabel: "Alternativnavn",
+      startsAt: "Starter",
+      endsAt: "Slutter",
+      removeOption: "Fjern alternativ",
+      addOption: "Legg til alternativ",
+      polls: "Avstemninger",
+      participants: "deltakere",
+      open: "åpen",
+      closed: "lukket",
+      noPolls: "Ingen avstemninger ennå.",
+      noDescription: "Ingen beskrivelse",
+      createdBy: "Opprettet av",
+      closePoll: "Lukk avstemning",
+      reopenPoll: "Åpne avstemning igjen",
+      deletePoll: "Slett avstemning",
+      editPoll: "Rediger avstemning",
+      editHelp: "Du kan redigere avstemningsinnstillingene. Tidsluker som allerede har stemmer kan ikke fjernes.",
+      saveChanges: "Lagre endringer",
+      cancelEdit: "Avbryt redigering",
+      pollOpen: "Avstemningen er åpen",
+      pollClosed: "Avstemningen er lukket",
+      availabilityTable: "Tilgjengelighetstabell",
+      weekOf: "Uke fra",
+      timeColumn: "Tid",
+      daysRange: "Dager",
+      prevDays: "Forrige dager",
+      nextDays: "Neste dager",
+      timeOption: "Tidsalternativ",
+      noSlots: "Ingen valgbare tidsluker i denne avstemningen.",
+      yesVotes: "Ja-stemmer",
+      noVotes: "Nei-stemmer",
+      maybeVotes: "Kanskje-stemmer",
+      myVote: "Min stemme",
+      actions: "Handlinger",
+      voteYes: "Ja",
+      voteNo: "Nei",
+      voteMaybe: "Kanskje",
+      noVote: "Ingen stemme",
+      deleteVote: "Slett stemme",
+      authNeeded: "Skriv inn navn og PIN-kode for å fortsette. En ny bruker opprettes automatisk ved behov.",
+      authPrompt: "Bruk navn og PIN-kode. Hvis navnet ikke finnes ennå, opprettes en ny bruker automatisk.",
+      name: "Navn",
+      pin: "PIN-kode",
+      switchToLogin: "Har du allerede konto? Logg inn",
+      switchToRegister: "Trenger du en konto? Registrer",
+      createdSuccess: "Avstemning opprettet.",
+      pollUpdatedSuccess: "Avstemning oppdatert.",
+      voteDeleted: "Stemme slettet.",
+      pollClosedSuccess: "Avstemning lukket.",
+      pollReopenedSuccess: "Avstemning åpnet på nytt.",
+      pollDeletedSuccess: "Avstemning slettet.",
+      loginSuccess: "Innlogget.",
+      createdLoginSuccess: "Ny bruker opprettet og innlogget.",
+      registerSuccess: "Registrert og innlogget.",
+      logoutSuccess: "Utlogget.",
+      confirmDeletePoll: "Slette denne avstemningen permanent?",
+      dismissFeedback: "Lukk varsel",
+      profileTitle: "Mine data",
+      profileRefresh: "Oppdater",
+      profileLoading: "Laster inn dataene dine...",
+      profileEmpty: "Ingen data lastet inn ennå.",
+      profileDownloadJson: "Last ned JSON",
+      profileDeleteOwnData: "Slett egne data",
+      profileDeleteConfirm:
+        "Slette stemmene dine og avstemninger som kan slettes nå? Avstemninger med andres stemmer blir værende.",
+      profileDeleteDone: "Egne data ble slettet der det var mulig.",
+      profileDeleteDoneAccountRemoved: "Alle personopplysninger ble fjernet. Kontoen din ble slettet.",
+      profileDeletedVotes: "Slettede stemmer",
+      profileDeletedPolls: "Slettede avstemninger",
+      profileRemainingPolls: "Gjenstående opprettede avstemninger",
+      profileRemainingPollsWithOthers: "Gjenstående avstemninger med andres stemmer",
+      profileIdentity: "Brukeropplysninger",
+      profileStats: "Statistikk",
+      profileCreatedAt: "Opprettet",
+      profileUpdatedAt: "Oppdatert",
+      profileCreatedPolls: "Opprettede avstemninger",
+      profileNoCreatedPolls: "Ingen opprettede avstemninger.",
+      profileVotes: "Mine stemmer",
+      profileNoVotes: "Ingen stemmer.",
+      profileVoteTime: "Tid",
+      profileOpenPoll: "Åpne avstemning",
+      profileVoteCount: "Antall stemmer",
+      profileDistinctVotedPollCount: "Avstemninger du har stemt i"
+    },
+    et: {
+      appTitle: "TimePoll",
+      appSubtitle: "Hääleta aegade üle, et ajakavad kokku leppida.",
+      language: "Keel",
+      hello: "Tere,",
+      login: "Logi sisse",
+      logout: "Logi välja",
+      register: "Registreeru",
+      createPoll: "Loo uus küsitlus",
+      sectionPollList: "Küsitluste loend",
+      sectionCreatePoll: "Küsitluse loomise dialoog",
+      sectionSelectedPoll: "Valitud küsitlus",
+      workspaceSections: "Tööala osad",
+      noSelectedPoll: "Vali loendist küsitlus.",
+      createHelp: "Vali täis algus- ja lõpppäevad. Ajavalikud luuakse automaatselt 60-minutiliste plokkidena.",
+      title: "Pealkiri",
+      description: "Kirjeldus",
+      startDate: "Alguskuupäev",
+      endDate: "Lõppkuupäev",
+      timezone: "Ajavöönd",
+      calendarTimezone: "Kalendri ajavöönd",
+      calendarTimezonePoll: "Küsitluse looja valitud ajavöönd",
+      calendarTimezoneBrowser: "Brauseri ajavöönd",
+      calendarTimezoneOwn: "Oma ajavöönd",
+      voteDisplayMode: "Vastuste vaade",
+      voteDisplayModeResults: "Tulemuste vaade",
+      voteDisplayModeOwn: "Minu vastused",
+      minYesVotesFilter: "Näita ridu, kus on vähemalt nii palju Jah-hääli",
+      noRowsMatchFilter: "Ükski rida ei vasta praegusele Jah-filtrile.",
+      timezoneHelp: "IANA ajavööndite filtreerimiseks hakka kirjutama, näiteks Europe/Helsinki või UTC.",
+      timezoneSelected: "Valitud ajavöönd",
+      validationRequired: "{field} on kohustuslik.",
+      validationInvalid: "{field} on vigane.",
+      validationTooLong: "{field} on liiga pikk.",
+      validationFormInvalid: "Küsitluse vormi andmed on vigased.",
+      validationInvalidValue: "Vigane väärtus.",
+      dailyStartHour: "Päeva algustund",
+      dailyEndHour: "Päeva lõputund",
+      allowedWeekdays: "Lubatud nädalapäevad",
+      weekdayMon: "E",
+      weekdayTue: "T",
+      weekdayWed: "K",
+      weekdayThu: "N",
+      weekdayFri: "R",
+      weekdaySat: "L",
+      weekdaySun: "P",
+      timeOptions: "Ajavalikud",
+      optionLabel: "Valiku nimi",
+      startsAt: "Algab",
+      endsAt: "Lõpeb",
+      removeOption: "Eemalda valik",
+      addOption: "Lisa valik",
+      polls: "Küsitlused",
+      participants: "osalejat",
+      open: "avatud",
+      closed: "suletud",
+      noPolls: "Küsitlusi pole veel.",
+      noDescription: "Kirjeldus puudub",
+      createdBy: "Looja",
+      closePoll: "Sulge küsitlus",
+      reopenPoll: "Ava küsitlus uuesti",
+      deletePoll: "Kustuta küsitlus",
+      editPoll: "Muuda küsitlust",
+      editHelp: "Saad küsitluse seadeid muuta. Ajapesasid, millel on hääled, ei saa eemaldada.",
+      saveChanges: "Salvesta muudatused",
+      cancelEdit: "Tühista muutmine",
+      pollOpen: "Küsitlus on avatud",
+      pollClosed: "Küsitlus on suletud",
+      availabilityTable: "Saadavuse tabel",
+      weekOf: "Nädal alates",
+      timeColumn: "Aeg",
+      daysRange: "Päevad",
+      prevDays: "Eelmised päevad",
+      nextDays: "Järgmised päevad",
+      timeOption: "Ajavalik",
+      noSlots: "Selles küsitluses pole valitavaid ajapesi.",
+      yesVotes: "Jah-hääled",
+      noVotes: "Ei-hääled",
+      maybeVotes: "Võib-olla hääled",
+      myVote: "Minu hääl",
+      actions: "Toimingud",
+      voteYes: "Jah",
+      voteNo: "Ei",
+      voteMaybe: "Võib-olla",
+      noVote: "Hääl puudub",
+      deleteVote: "Kustuta hääl",
+      authNeeded: "Jätkamiseks sisesta nimi ja PIN-kood. Vajadusel luuakse uus kasutaja automaatselt.",
+      authPrompt: "Kasuta nime ja PIN-koodi. Kui nime veel ei ole, luuakse uus kasutaja automaatselt.",
+      name: "Nimi",
+      pin: "PIN-kood",
+      switchToLogin: "Konto on olemas? Logi sisse",
+      switchToRegister: "Vajad kontot? Registreeru",
+      createdSuccess: "Küsitlus loodud.",
+      pollUpdatedSuccess: "Küsitlus uuendatud.",
+      voteDeleted: "Hääl kustutatud.",
+      pollClosedSuccess: "Küsitlus suletud.",
+      pollReopenedSuccess: "Küsitlus avati uuesti.",
+      pollDeletedSuccess: "Küsitlus kustutatud.",
+      loginSuccess: "Sisselogimine õnnestus.",
+      createdLoginSuccess: "Loodi uus kasutaja ja logiti sisse.",
+      registerSuccess: "Registreerimine õnnestus.",
+      logoutSuccess: "Väljalogimine õnnestus.",
+      confirmDeletePoll: "Kas kustutada see küsitlus jäädavalt?",
+      dismissFeedback: "Sulge teavitus",
+      profileTitle: "Minu andmed",
+      profileRefresh: "Värskenda",
+      profileLoading: "Sinu andmeid laaditakse...",
+      profileEmpty: "Andmeid pole veel laaditud.",
+      profileDownloadJson: "Laadi JSON alla",
+      profileDeleteOwnData: "Kustuta enda andmed",
+      profileDeleteConfirm:
+        "Kas kustutada nüüd sinu hääled ja kustutatavad küsitlused? Küsitlused, kus on teiste hääli, jäävad alles.",
+      profileDeleteDone: "Enda andmed kustutati võimaluse piires.",
+      profileDeleteDoneAccountRemoved: "Kõik isikuandmed eemaldati. Sinu konto kustutati.",
+      profileDeletedVotes: "Kustutatud hääled",
+      profileDeletedPolls: "Kustutatud küsitlused",
+      profileRemainingPolls: "Alles jäänud loodud küsitlused",
+      profileRemainingPollsWithOthers: "Alles jäänud küsitlused teiste häältega",
+      profileIdentity: "Kasutaja andmed",
+      profileStats: "Statistika",
+      profileCreatedAt: "Loodud",
+      profileUpdatedAt: "Uuendatud",
+      profileCreatedPolls: "Loodud küsitlused",
+      profileNoCreatedPolls: "Loodud küsitlusi pole.",
+      profileVotes: "Minu hääled",
+      profileNoVotes: "Hääli pole.",
+      profileVoteTime: "Aeg",
+      profileOpenPoll: "Ava küsitlus",
+      profileVoteCount: "Häälte arv",
+      profileDistinctVotedPollCount: "Küsitlused, milles oled hääletanud"
+    }
+  };
+
+  const errorMessages = {
+    invalid_json: {
+      en: "Invalid request data.",
+      fi: "Virheellinen pyyntödata.",
+      sv: "Ogiltig begärandedata.",
+      no: "Ugyldige forespørselsdata.",
+      et: "Vigased päringuandmed."
+    },
+    name_taken: {
+      en: "This name is already registered.",
+      fi: "Tämä nimi on jo rekisteröity.",
+      sv: "Detta namn är redan registrerat.",
+      no: "Dette navnet er allerede registrert.",
+      et: "See nimi on juba registreeritud."
+    },
+    invalid_credentials: {
+      en: "Incorrect name or PIN.",
+      fi: "Väärä nimi tai PIN-koodi.",
+      sv: "Fel namn eller PIN-kod.",
+      no: "Feil navn eller PIN-kode.",
+      et: "Vale nimi või PIN-kood."
+    },
+    authentication_required: {
+      en: "Login is required for this action.",
+      fi: "Tämä toiminto vaatii kirjautumisen.",
+      sv: "Denna åtgärd kräver inloggning.",
+      no: "Denne handlingen krever innlogging.",
+      et: "See toiming nõuab sisselogimist."
+    },
+    poll_not_closed: {
+      en: "Close the poll before deleting it.",
+      fi: "Sulje kysely ennen poistamista.",
+      sv: "Stäng omröstningen innan du tar bort den.",
+      no: "Lukk avstemningen før du sletter den.",
+      et: "Enne kustutamist sule küsitlus."
+    },
+    poll_closed: {
+      en: "Poll is closed and votes can no longer be changed.",
+      fi: "Kysely on suljettu eikä ääniä voi enää muuttaa.",
+      sv: "Omröstningen är stängd och röster kan inte längre ändras.",
+      no: "Avstemningen er lukket og stemmer kan ikke lenger endres.",
+      et: "Küsitlus on suletud ja hääli ei saa enam muuta."
+    },
+    invalid_window: {
+      en: "End date/time must be after start date/time.",
+      fi: "Loppupäivän ja -ajan on oltava alun jälkeen.",
+      sv: "Slutdatum/tid måste vara efter startdatum/tid.",
+      no: "Sluttdato/-tid må være etter startdato/-tid.",
+      et: "Lõppkuupäev/-aeg peab olema pärast alguskuupäeva/-aega."
+    },
+    invalid_date: {
+      en: "Date format is invalid.",
+      fi: "Päivämäärämuoto on virheellinen.",
+      sv: "Datumformatet är ogiltigt.",
+      no: "Ugyldig datoformat.",
+      et: "Kuupäeva vorming on vigane."
+    },
+    invalid_date_range: {
+      en: "End date must be on or after start date.",
+      fi: "Loppupäivän on oltava sama tai myöhempi kuin alkupäivä.",
+      sv: "Slutdatum måste vara samma eller senare än startdatum.",
+      no: "Sluttdato må være lik eller etter startdato.",
+      et: "Lõppkuupäev peab olema alguskuupäevaga sama või hilisem."
+    },
+    invalid_daily_hours: {
+      en: "Daily end hour must be after daily start hour.",
+      fi: "Päivän lopetustunnin on oltava aloitustunnin jälkeen.",
+      sv: "Daglig sluttimme måste vara efter starttimme.",
+      no: "Daglig sluttime må være etter daglig starttime.",
+      et: "Päeva lõputund peab olema pärast algustundi."
+    },
+    invalid_weekdays: {
+      en: "Select at least one weekday.",
+      fi: "Valitse vähintään yksi viikonpäivä.",
+      sv: "Välj minst en veckodag.",
+      no: "Velg minst én ukedag.",
+      et: "Vali vähemalt üks nädalapäev."
+    },
+    invalid_timezone: {
+      en: "Timezone is invalid.",
+      fi: "Aikavyöhyke on virheellinen.",
+      sv: "Tidszonen är ogiltig.",
+      no: "Tidssonen er ugyldig.",
+      et: "Ajavöönd on vigane."
+    },
+    too_many_options: {
+      en: "Too many generated slots. Use a shorter time range or fewer days/hours.",
+      fi: "Luotuja slotteja on liikaa. Lyhennä aikaväliä tai rajaa päiviä/tunteja.",
+      sv: "För många genererade slots. Förkorta tidsintervallet eller begränsa dagar/timmar.",
+      no: "For mange genererte tidsluker. Bruk et kortere tidsrom eller færre dager/timer.",
+      et: "Genereeritud ajapesi on liiga palju. Kasuta lühemat vahemikku või vähem päevi/tunde."
+    },
+    forbidden: {
+      en: "You do not have permission for this action.",
+      fi: "Sinulla ei ole oikeutta tähän toimintoon.",
+      sv: "Du har inte behörighet för denna åtgärd.",
+      no: "Du har ikke tillatelse til denne handlingen.",
+      et: "Sul puudub selle toimingu jaoks õigus."
+    },
+    schedule_conflicts_with_votes: {
+      en: "You cannot remove time slots that already have votes.",
+      fi: "Et voi poistaa aikaslotteja, joissa on jo ääniä.",
+      sv: "Du kan inte ta bort tidslots som redan har röster.",
+      no: "Du kan ikke fjerne tidsluker som allerede har stemmer.",
+      et: "Sa ei saa eemaldada ajapesi, millel on juba hääled."
+    }
+  };
+
+  const languageMap = {
+    en: "en-GB",
+    fi: "fi-FI",
+    no: "no-NO",
+    sv: "sv-SE",
+    et: "et-EE"
+  };
+
+  function detectBrowserTimeZone() {
+    try {
+      const value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    } catch (_error) {
+      // ignore
+    }
+    return "UTC";
+  }
+
+  function detectTimeZoneOptions() {
+    try {
+      if (typeof Intl.supportedValuesOf === "function") {
+        const values = Intl.supportedValuesOf("timeZone");
+        if (Array.isArray(values) && values.length) {
+          return values;
+        }
+      }
+    } catch (_error) {
+      // ignore
+    }
+    return [
+      "UTC",
+      "Europe/Helsinki",
+      "Europe/Stockholm",
+      "Europe/London",
+      "Europe/Berlin",
+      "Europe/Paris",
+      "America/New_York",
+      "America/Chicago",
+      "America/Denver",
+      "America/Los_Angeles",
+      "America/Phoenix",
+      "Asia/Tokyo",
+      "Asia/Seoul",
+      "Asia/Singapore",
+      "Australia/Sydney",
+      "Pacific/Auckland"
+    ];
+  }
+
+  function isValidTimeZoneName(value) {
+    if (typeof value !== "string" || !value.trim()) {
+      return false;
+    }
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value.trim() }).format(new Date());
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function parseIsoDateValue(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const trimmed = value.trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (
+      parsed.getUTCFullYear() !== year ||
+      parsed.getUTCMonth() + 1 !== month ||
+      parsed.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return parsed;
+  }
+
+  function getTimeZoneNamePart(timeZone, style) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZoneName: style
+      }).formatToParts(new Date());
+      const tzPart = parts.find((part) => part.type === "timeZoneName");
+      return tzPart ? tzPart.value : "";
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function normalizeUtcOffsetLabel(value) {
+    if (!value) {
+      return "";
+    }
+    return value
+      .replace(/^GMT/, "UTC")
+      .replace(/^UTC$/, "UTC+0")
+      .replace("−", "-");
+  }
+
+  function buildTimeZoneMeta(timeZone) {
+    const shortName = getTimeZoneNamePart(timeZone, "short");
+    const shortOffset = getTimeZoneNamePart(timeZone, "shortOffset");
+
+    const offsetLabel = normalizeUtcOffsetLabel(shortOffset || shortName);
+    const hasNameCode = shortName && !/^GMT|^UTC/.test(shortName);
+
+    if (hasNameCode && offsetLabel && shortName !== offsetLabel) {
+      return `${shortName} ${offsetLabel}`;
+    }
+    if (offsetLabel) {
+      return offsetLabel;
+    }
+    if (shortName) {
+      return shortName;
+    }
+    return "";
+  }
+
+  function safeLocalStorageGetItem(key) {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) {
+        return null;
+      }
+      return window.localStorage.getItem(key);
+    } catch (error) {
+      if (typeof console !== "undefined" && typeof console.warn === "function") {
+        console.warn(`[TimePoll] localStorage.getItem failed for key "${key}".`, error);
+      }
+      return null;
+    }
+  }
+
+  function safeLocalStorageSetItem(key, value) {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) {
+        return false;
+      }
+      window.localStorage.setItem(key, value);
+      return true;
+    } catch (error) {
+      if (typeof console !== "undefined" && typeof console.warn === "function") {
+        console.warn(`[TimePoll] localStorage.setItem failed for key "${key}".`, error);
+      }
+      return false;
+    }
+  }
+
+  function getCookie(name) {
+    const cookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(`${name}=`));
+    return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : "";
+  }
+
+  async function apiFetch(url, options = {}) {
+    const config = {
+      method: options.method || "GET",
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {})
+      },
+      credentials: "same-origin"
+    };
+
+    if (options.body !== undefined) {
+      config.headers["Content-Type"] = "application/json";
+      config.body = JSON.stringify(options.body);
+    }
+
+    if (config.method !== "GET" && config.method !== "HEAD") {
+      const token = getCookie("csrftoken");
+      if (token) {
+        config.headers["X-CSRFToken"] = token;
+      }
+    }
+
+    const response = await fetch(url, config);
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (_error) {
+      data = {};
+    }
+
+    if (!response.ok) {
+      const err = new Error(data.detail || `HTTP ${response.status}`);
+      err.status = response.status;
+      err.payload = data;
+      throw err;
+    }
+
+    return data;
+  }
+
+  function defaultPollForm() {
+    return {
+      title: "",
+      description: "",
+      start_date: "",
+      end_date: "",
+      daily_start_hour: 9,
+      daily_end_hour: 17,
+      allowed_weekdays: [0, 1, 2, 3, 4],
+      timezone: detectBrowserTimeZone()
+    };
+  }
+
+  function defaultCreateForm() {
+    return defaultPollForm();
+  }
+
+  function editFormFromPoll(poll) {
+    const fallback = defaultPollForm();
+    if (!poll || typeof poll !== "object") {
+      return fallback;
+    }
+    const weekdays = Array.isArray(poll.allowed_weekdays)
+      ? poll.allowed_weekdays
+          .map((item) => Number(item))
+          .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6)
+      : fallback.allowed_weekdays;
+
+    return {
+      title: typeof poll.title === "string" ? poll.title : fallback.title,
+      description: typeof poll.description === "string" ? poll.description : fallback.description,
+      start_date: typeof poll.start_date === "string" ? poll.start_date : fallback.start_date,
+      end_date: typeof poll.end_date === "string" ? poll.end_date : fallback.end_date,
+      daily_start_hour: Number.isInteger(poll.daily_start_hour) ? poll.daily_start_hour : fallback.daily_start_hour,
+      daily_end_hour: Number.isInteger(poll.daily_end_hour) ? poll.daily_end_hour : fallback.daily_end_hour,
+      allowed_weekdays: weekdays.length ? weekdays : fallback.allowed_weekdays,
+      timezone: typeof poll.timezone === "string" && poll.timezone.trim() ? poll.timezone.trim() : fallback.timezone
+    };
+  }
+
+  function rootFontSizePx() {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return 16;
+    }
+    const fontSize = window.getComputedStyle(document.documentElement).fontSize;
+    const parsed = Number.parseFloat(fontSize);
+    return Number.isFinite(parsed) ? parsed : 16;
+  }
+
+  function estimateDayColumnWidthPx(viewportWidth) {
+    const rootPx = rootFontSizePx();
+    if (viewportWidth <= 860) {
+      return 7.2 * rootPx;
+    }
+    const minWidth = 7.8 * rootPx;
+    const preferred = viewportWidth * 0.16;
+    const maxWidth = 10.6 * rootPx;
+    return Math.min(Math.max(preferred, minWidth), maxWidth);
+  }
+
+  function estimateTimeColumnWidthPx(viewportWidth) {
+    const rootPx = rootFontSizePx();
+    return viewportWidth <= 860 ? 5 * rootPx : 5.8 * rootPx;
+  }
+
+  function visibleDayCountForWidth(containerWidth) {
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : containerWidth;
+    const dayWidth = estimateDayColumnWidthPx(viewportWidth);
+    const timeWidth = estimateTimeColumnWidthPx(viewportWidth);
+    const availableWidth = Math.max(0, containerWidth - timeWidth);
+    return Math.max(1, Math.floor(availableWidth / dayWidth));
+  }
+
+  function detectInitialVisibleDayCount() {
+    if (typeof window === "undefined") {
+      return 3;
+    }
+    return visibleDayCountForWidth(window.innerWidth);
+  }
+
+  const mountVueApp = () => {
+    const { createApp } = window.Vue;
+
+    createApp({
+      delimiters: ["[[", "]]"],
+      data() {
+        return {
+          language: "en",
+          session: {
+            authenticated: false,
+            identity: null
+          },
+          polls: [],
+          selectedPoll: null,
+          activeSection: "list",
+          voteDraft: {},
+          createForm: defaultCreateForm(),
+          editForm: null,
+          formErrors: {
+            create: {},
+            edit: {}
+          },
+          formTouched: {
+            create: {},
+            edit: {}
+          },
+          showAllFormErrors: {
+            create: false,
+            edit: false
+          },
+          isEditingPoll: false,
+          timezoneOptions: detectTimeZoneOptions(),
+          timezoneMetaCache: {},
+          browserTimeZone: detectBrowserTimeZone(),
+          calendarTimezoneMode: "poll",
+          calendarCustomTimezone: detectBrowserTimeZone(),
+          voteDisplayMode: "own",
+          showCalendarTimezoneSuggestions: false,
+          showTimezoneSuggestions: false,
+          profileData: null,
+          profileLoading: false,
+          profileDeleting: false,
+          profileVoteDeletingOptionIds: {},
+          profileDeleteSummary: null,
+          authForm: {
+            name: "",
+            pin: ""
+          },
+          showAuthDialog: false,
+          pendingAction: null,
+          errorMessage: "",
+          successMessage: "",
+          editingVoteOptionId: null,
+          bulkMenu: null,
+          visibleDayCount: detectInitialVisibleDayCount(),
+          dayOffsetsByWeek: {},
+          minYesVotesFilter: 0,
+          savingVoteOptionIds: {}
+        };
+      },
+      computed: {
+        canVoteInPoll() {
+          return Boolean(this.selectedPoll && !this.selectedPoll.is_closed);
+        },
+        profileCreatedPolls() {
+          if (!this.profileData || !Array.isArray(this.profileData.created_polls)) {
+            return [];
+          }
+          return this.profileData.created_polls;
+        },
+        profileVotes() {
+          if (!this.profileData || !Array.isArray(this.profileData.votes)) {
+            return [];
+          }
+          return this.profileData.votes;
+        },
+        maxYesVotesInPoll() {
+          if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options)) {
+            return 0;
+          }
+          let maxVotes = 0;
+          for (const option of this.selectedPoll.options) {
+            const yesCount = this.optionCount(option, "yes");
+            if (yesCount > maxVotes) {
+              maxVotes = yesCount;
+            }
+          }
+          return maxVotes;
+        },
+        startHourOptions() {
+          return Array.from({ length: 24 }, (_, index) => index);
+        },
+        endHourOptions() {
+          return Array.from({ length: 24 }, (_, index) => index + 1);
+        },
+        weekdayOptions() {
+          return [
+            { value: 0, label: this.t("weekdayMon") },
+            { value: 1, label: this.t("weekdayTue") },
+            { value: 2, label: this.t("weekdayWed") },
+            { value: 3, label: this.t("weekdayThu") },
+            { value: 4, label: this.t("weekdayFri") },
+            { value: 5, label: this.t("weekdaySat") },
+            { value: 6, label: this.t("weekdaySun") }
+          ];
+        },
+        filteredTimezoneOptions() {
+          const rawQuery = (this.createForm.timezone || "").trim().toLowerCase();
+          const options = this.timezoneOptions.map((tz) => {
+            const meta = this.timezoneMeta(tz);
+            const label = meta ? `${tz} ${meta}` : tz;
+            return { id: tz, meta, label };
+          });
+          if (!rawQuery) {
+            return options.slice(0, 200);
+          }
+          return options
+            .filter((item) => item.label.toLowerCase().includes(rawQuery))
+            .slice(0, 200);
+        },
+        filteredCalendarTimezoneOptions() {
+          const rawQuery = (this.calendarCustomTimezone || "").trim().toLowerCase();
+          const options = this.timezoneOptions.map((tz) => {
+            const meta = this.timezoneMeta(tz);
+            const label = meta ? `${tz} ${meta}` : tz;
+            return { id: tz, meta, label };
+          });
+          if (!rawQuery) {
+            return options.slice(0, 200);
+          }
+          return options
+            .filter((item) => item.label.toLowerCase().includes(rawQuery))
+            .slice(0, 200);
+        },
+        selectedTimezoneDisplay() {
+          return this.timezoneDisplay(this.createForm.timezone);
+        },
+        editTimezoneDisplay() {
+          if (!this.editForm) {
+            return "";
+          }
+          return this.timezoneDisplay(this.editForm.timezone);
+        },
+        pollCalendarTimezone() {
+          const pollTimeZone = this.selectedPoll && this.selectedPoll.timezone ? this.selectedPoll.timezone : "";
+          const normalized = this.normalizeKnownTimeZone(pollTimeZone);
+          return normalized || "UTC";
+        },
+        browserCalendarTimezone() {
+          const normalized = this.normalizeKnownTimeZone(this.browserTimeZone);
+          return normalized || this.pollCalendarTimezone;
+        },
+        showBrowserTimezoneOption() {
+          return this.browserCalendarTimezone.toLowerCase() !== this.pollCalendarTimezone.toLowerCase();
+        },
+        customCalendarTimezoneDisplay() {
+          const normalizedCustom = this.normalizeKnownTimeZone(this.calendarCustomTimezone);
+          if (!normalizedCustom) {
+            return "";
+          }
+          return this.timezoneDisplay(normalizedCustom);
+        },
+        calendarDisplayTimezone() {
+          if (this.calendarTimezoneMode === "browser" && this.showBrowserTimezoneOption) {
+            return this.browserCalendarTimezone;
+          }
+          if (this.calendarTimezoneMode === "custom") {
+            const normalizedCustom = this.normalizeKnownTimeZone(this.calendarCustomTimezone);
+            if (normalizedCustom) {
+              return normalizedCustom;
+            }
+          }
+          return this.pollCalendarTimezone;
+        },
+        calendarWeeks() {
+          if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options) || !this.selectedPoll.options.length) {
+            return [];
+          }
+
+          const timeZone = this.calendarDisplayTimezone || "UTC";
+          const dayMap = new Map();
+          const timeSet = new Set();
+          const optionLookup = new Map();
+
+          for (const option of this.selectedPoll.options) {
+            const dateParts = this.timezoneDateParts(option.starts_at, timeZone);
+            if (!dateParts) {
+              continue;
+            }
+            const dayKey = dateParts.dayKey;
+            const timeKey = dateParts.timeKey;
+            if (!dayMap.has(dayKey)) {
+              dayMap.set(dayKey, {
+                key: dayKey,
+                label: this.formatDayLabel(dayKey),
+                longLabel: this.formatDayLongLabel(dayKey)
+              });
+            }
+            timeSet.add(timeKey);
+            optionLookup.set(`${dayKey}|${timeKey}`, option);
+          }
+
+          const dayKeys = Array.from(dayMap.keys()).sort((a, b) => a.localeCompare(b));
+          const timeKeys = Array.from(timeSet).sort((a, b) => a.localeCompare(b));
+
+          const weeksMap = new Map();
+          for (const dayKey of dayKeys) {
+            const weekKey = this.weekStartKey(dayKey);
+            if (!weeksMap.has(weekKey)) {
+              weeksMap.set(weekKey, {
+                key: weekKey,
+                title: this.formatWeekTitle(weekKey),
+                days: []
+              });
+            }
+            weeksMap.get(weekKey).days.push(dayMap.get(dayKey));
+          }
+
+          const weeks = Array.from(weeksMap.values()).sort((a, b) => a.key.localeCompare(b.key));
+          for (const week of weeks) {
+            week.rows = timeKeys.map((timeKey) => {
+              const cells = {};
+              for (const day of week.days) {
+                const option = optionLookup.get(`${day.key}|${timeKey}`);
+                if (option) {
+                  cells[day.key] = option;
+                }
+              }
+              return {
+                key: `${week.key}-${timeKey}`,
+                timeKey,
+                cells
+              };
+            });
+          }
+
+          return weeks;
+        }
+      },
+      watch: {
+        calendarWeeks() {
+          this.normalizeDayOffsets();
+          this.$nextTick(() => {
+            this.updateVisibleDayCount();
+            this.normalizeDayOffsets();
+          });
+        },
+        visibleDayCount() {
+          this.normalizeDayOffsets();
+        },
+        maxYesVotesInPoll(newValue) {
+          const normalizedMax = Number.isInteger(newValue) && newValue > 0 ? newValue : 0;
+          if (this.minYesVotesFilter > normalizedMax) {
+            this.minYesVotesFilter = normalizedMax;
+          }
+          if (this.minYesVotesFilter < 0) {
+            this.minYesVotesFilter = 0;
+          }
+        },
+        calendarTimezoneMode(newValue) {
+          if (newValue !== "custom") {
+            this.showCalendarTimezoneSuggestions = false;
+            this.savePreferredCalendarTimezonePreference();
+            return;
+          }
+          if (!this.normalizeKnownTimeZone(this.calendarCustomTimezone)) {
+            this.calendarCustomTimezone = this.browserCalendarTimezone;
+          }
+          this.savePreferredCalendarTimezonePreference();
+        },
+        showBrowserTimezoneOption(isVisible) {
+          if (!isVisible && this.calendarTimezoneMode === "browser") {
+            this.calendarTimezoneMode = "poll";
+          }
+        },
+        "editForm.title"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("title", "edit");
+        },
+        "editForm.timezone"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("timezone", "edit");
+        },
+        "editForm.start_date"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("start_date", "edit");
+        },
+        "editForm.end_date"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("end_date", "edit");
+        },
+        "editForm.daily_start_hour"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("daily_start_hour", "edit");
+        },
+        "editForm.daily_end_hour"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("daily_end_hour", "edit");
+        },
+        "editForm.allowed_weekdays"(newValue, oldValue) {
+          if (!this.isEditingPoll || !Array.isArray(newValue) || !Array.isArray(oldValue)) {
+            return;
+          }
+          if (newValue.join(",") === oldValue.join(",")) {
+            return;
+          }
+          this.handleFormFieldChange("allowed_weekdays", "edit");
+        }
+      },
+      methods: {
+        t(key) {
+          const set = translations[this.language] || translations.en;
+          return set[key] || translations.en[key] || key;
+        },
+        formatTemplate(template, replacements = {}) {
+          if (typeof template !== "string" || !template) {
+            return "";
+          }
+          let output = template;
+          for (const [name, value] of Object.entries(replacements)) {
+            const token = `{${name}}`;
+            output = output.split(token).join(String(value ?? ""));
+          }
+          return output;
+        },
+        fieldValidationMessage(fieldKey, kind) {
+          const templateByKind = {
+            required: "validationRequired",
+            invalid: "validationInvalid",
+            tooLong: "validationTooLong"
+          };
+          const templateKey = templateByKind[kind] || "validationInvalid";
+          return this.formatTemplate(this.t(templateKey), { field: this.t(fieldKey) });
+        },
+        pollIdFromCurrentUrl() {
+          if (typeof window === "undefined") {
+            return "";
+          }
+          try {
+            const params = new URLSearchParams(window.location.search || "");
+            return String(params.get("poll") || "").trim();
+          } catch (_error) {
+            return "";
+          }
+        },
+        setPollIdInCurrentUrl(pollId, options = {}) {
+          if (typeof window === "undefined") {
+            return;
+          }
+          const normalizedPollId = String(pollId || "").trim();
+          const replace = Boolean(options.replace);
+          const url = new URL(window.location.href);
+          if (normalizedPollId) {
+            url.searchParams.set("poll", normalizedPollId);
+          } else {
+            url.searchParams.delete("poll");
+          }
+          const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+          const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          if (nextUrl === currentUrl) {
+            return;
+          }
+          const nextState = {
+            ...(window.history.state || {}),
+            poll: normalizedPollId || null
+          };
+          if (replace) {
+            window.history.replaceState(nextState, "", nextUrl);
+          } else {
+            window.history.pushState(nextState, "", nextUrl);
+          }
+        },
+        async applyPollFromUrl(options = {}) {
+          const pollId = this.pollIdFromCurrentUrl();
+          if (!pollId) {
+            this.setActiveSection("list", { skipUrlSync: true });
+            return;
+          }
+          if (this.selectedPoll && String(this.selectedPoll.id) === pollId) {
+            this.setActiveSection("selected", { skipUrlSync: true });
+            return;
+          }
+          await this.openPoll(pollId, {
+            syncUrl: true,
+            replaceUrl: Boolean(options.replace),
+            fromUrl: true
+          });
+        },
+        setActiveSection(section, options = {}) {
+          if (section !== "list" && section !== "create" && section !== "selected" && section !== "profile") {
+            return;
+          }
+          this.activeSection = section;
+          this.closeVoteMenus();
+          if (section !== "selected") {
+            this.isEditingPoll = false;
+            this.editForm = null;
+            if (!options.skipUrlSync) {
+              this.setPollIdInCurrentUrl("", { replace: Boolean(options.replaceUrl) });
+            }
+          }
+          this.$nextTick(() => {
+            this.updateVisibleDayCount();
+            this.normalizeDayOffsets();
+          });
+        },
+        resetFormValidation(scope = "create") {
+          this.formErrors[scope] = {};
+          this.formTouched[scope] = {};
+          this.showAllFormErrors[scope] = false;
+        },
+        markFieldTouched(field, scope = "create") {
+          const next = {
+            ...(this.formTouched[scope] || {})
+          };
+          next[field] = true;
+          this.formTouched[scope] = next;
+        },
+        pollOptionHasVotes(option) {
+          if (!option || typeof option !== "object") {
+            return false;
+          }
+          if (Array.isArray(option.votes)) {
+            return option.votes.length > 0;
+          }
+          const counts = option.counts || {};
+          const yes = Number(counts.yes || 0);
+          const no = Number(counts.no || 0);
+          const maybe = Number(counts.maybe || 0);
+          return yes + no + maybe > 0;
+        },
+        pollOptionConflictsWithSchedule(option, form, startDate, endDate, allowedWeekdaysSet, timeZone) {
+          if (!option || typeof option !== "object" || !option.starts_at) {
+            return false;
+          }
+
+          const dateParts = this.timezoneDateParts(option.starts_at, timeZone);
+          if (!dateParts) {
+            return false;
+          }
+
+          const optionDate = parseIsoDateValue(dateParts.dayKey);
+          if (!optionDate) {
+            return false;
+          }
+
+          if (optionDate.getTime() < startDate.getTime() || optionDate.getTime() > endDate.getTime()) {
+            return true;
+          }
+
+          const weekdayJs = optionDate.getUTCDay();
+          const weekday = weekdayJs === 0 ? 6 : weekdayJs - 1;
+          if (!allowedWeekdaysSet.has(weekday)) {
+            return true;
+          }
+
+          const hourMatch = /^(\d{2}):(\d{2})$/.exec(dateParts.timeKey || "");
+          if (!hourMatch) {
+            return true;
+          }
+          const hour = Number(hourMatch[1]);
+          const minute = Number(hourMatch[2]);
+          if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute !== 0) {
+            return true;
+          }
+
+          if (hour < form.daily_start_hour || hour >= form.daily_end_hour) {
+            return true;
+          }
+
+          return false;
+        },
+        hasScheduleConflictWithVotes(form) {
+          if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options) || !form) {
+            return false;
+          }
+
+          const timeZone = String(form.timezone || "").trim();
+          const startDate = parseIsoDateValue(String(form.start_date || "").trim());
+          const endDate = parseIsoDateValue(String(form.end_date || "").trim());
+
+          if (
+            !timeZone ||
+            !isValidTimeZoneName(timeZone) ||
+            !startDate ||
+            !endDate ||
+            !Number.isInteger(form.daily_start_hour) ||
+            !Number.isInteger(form.daily_end_hour)
+          ) {
+            return false;
+          }
+
+          const allowedWeekdaysSet = new Set(
+            (Array.isArray(form.allowed_weekdays) ? form.allowed_weekdays : [])
+              .map((value) => Number(value))
+              .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+          );
+          if (!allowedWeekdaysSet.size) {
+            return false;
+          }
+
+          for (const option of this.selectedPoll.options) {
+            if (!this.pollOptionHasVotes(option)) {
+              continue;
+            }
+            if (this.pollOptionConflictsWithSchedule(option, form, startDate, endDate, allowedWeekdaysSet, timeZone)) {
+              return true;
+            }
+          }
+          return false;
+        },
+        buildPollFormErrors(form, scope = "create") {
+          const errors = {};
+          if (!form) {
+            return errors;
+          }
+
+          const title = String(form.title || "").trim();
+          const startDateRaw = String(form.start_date || "").trim();
+          const endDateRaw = String(form.end_date || "").trim();
+          const timezoneName = String(form.timezone || "").trim();
+
+          if (!title) {
+            errors.title = this.fieldValidationMessage("title", "required");
+          } else if (title.length > 160) {
+            errors.title = this.fieldValidationMessage("title", "tooLong");
+          }
+
+          const startDate = parseIsoDateValue(startDateRaw);
+          const endDate = parseIsoDateValue(endDateRaw);
+
+          if (!startDateRaw) {
+            errors.start_date = this.fieldValidationMessage("startDate", "required");
+          } else if (!startDate) {
+            errors.start_date = this.resolveError(
+              { error: "invalid_date" },
+              this.fieldValidationMessage("startDate", "invalid")
+            );
+          }
+
+          if (!endDateRaw) {
+            errors.end_date = this.fieldValidationMessage("endDate", "required");
+          } else if (!endDate) {
+            errors.end_date = this.resolveError(
+              { error: "invalid_date" },
+              this.fieldValidationMessage("endDate", "invalid")
+            );
+          }
+
+          if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
+            const rangeError = this.resolveError({ error: "invalid_date_range" }, "");
+            errors.start_date = rangeError;
+            errors.end_date = rangeError;
+          }
+
+          if (!Number.isInteger(form.daily_start_hour)) {
+            errors.daily_start_hour = this.fieldValidationMessage("dailyStartHour", "required");
+          } else if (form.daily_start_hour < 0 || form.daily_start_hour > 23) {
+            errors.daily_start_hour = this.fieldValidationMessage("dailyStartHour", "invalid");
+          }
+
+          if (!Number.isInteger(form.daily_end_hour)) {
+            errors.daily_end_hour = this.fieldValidationMessage("dailyEndHour", "required");
+          } else if (form.daily_end_hour < 1 || form.daily_end_hour > 24) {
+            errors.daily_end_hour = this.fieldValidationMessage("dailyEndHour", "invalid");
+          }
+
+          if (
+            Number.isInteger(form.daily_start_hour) &&
+            Number.isInteger(form.daily_end_hour) &&
+            form.daily_end_hour <= form.daily_start_hour
+          ) {
+            const hoursError = this.resolveError({ error: "invalid_daily_hours" }, "");
+            errors.daily_start_hour = hoursError;
+            errors.daily_end_hour = hoursError;
+          }
+
+          if (!Array.isArray(form.allowed_weekdays) || form.allowed_weekdays.length === 0) {
+            errors.allowed_weekdays = this.resolveError({ error: "invalid_weekdays" }, "");
+          }
+
+          if (!timezoneName) {
+            errors.timezone = this.fieldValidationMessage("timezone", "required");
+          } else if (!isValidTimeZoneName(timezoneName)) {
+            errors.timezone = this.resolveError({ error: "invalid_timezone" }, "");
+          }
+
+          if (
+            scope === "edit" &&
+            Object.keys(errors).length === 0 &&
+            this.hasScheduleConflictWithVotes(form)
+          ) {
+            const conflictError = this.resolveError({ error: "schedule_conflicts_with_votes" }, "");
+            errors.timezone = conflictError;
+            errors.start_date = conflictError;
+            errors.end_date = conflictError;
+            errors.daily_start_hour = conflictError;
+            errors.daily_end_hour = conflictError;
+            errors.allowed_weekdays = conflictError;
+          }
+
+          return errors;
+        },
+        validateFormScope(scope = "create") {
+          const form = this.formForScope(scope);
+          const errors = this.buildPollFormErrors(form, scope);
+          this.formErrors[scope] = errors;
+          return errors;
+        },
+        backendErrorFields(errorCode) {
+          if (errorCode === "invalid_title") {
+            return ["title"];
+          }
+          if (errorCode === "invalid_timezone") {
+            return ["timezone"];
+          }
+          if (errorCode === "invalid_date_range" || errorCode === "invalid_date") {
+            return ["start_date", "end_date"];
+          }
+          if (errorCode === "invalid_daily_hours") {
+            return ["daily_start_hour", "daily_end_hour"];
+          }
+          if (errorCode === "invalid_weekdays") {
+            return ["allowed_weekdays"];
+          }
+          if (errorCode === "too_many_options") {
+            return ["start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"];
+          }
+          if (errorCode === "schedule_conflicts_with_votes") {
+            return ["timezone", "start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"];
+          }
+          return [];
+        },
+        applyBackendFormError(scope, payload) {
+          if (!payload || typeof payload !== "object" || typeof payload.error !== "string") {
+            return false;
+          }
+          const fields = this.backendErrorFields(payload.error);
+          if (!fields.length) {
+            return false;
+          }
+          const message = this.resolveError(payload, payload.detail || this.t("validationInvalidValue"));
+          const nextErrors = {
+            ...(this.formErrors[scope] || {})
+          };
+          const nextTouched = {
+            ...(this.formTouched[scope] || {})
+          };
+          for (const field of fields) {
+            nextErrors[field] = message;
+            nextTouched[field] = true;
+          }
+          this.formErrors[scope] = nextErrors;
+          this.formTouched[scope] = nextTouched;
+          this.showAllFormErrors[scope] = true;
+          return true;
+        },
+        handleFormFieldChange(field, scope = "create") {
+          this.markFieldTouched(field, scope);
+          this.showAllFormErrors[scope] = false;
+          this.validateFormScope(scope);
+        },
+        fieldError(scope, field) {
+          const errors = this.formErrors[scope] || {};
+          const message = errors[field];
+          if (!message) {
+            return "";
+          }
+          if (this.showAllFormErrors[scope]) {
+            return message;
+          }
+          const touched = this.formTouched[scope] || {};
+          return touched[field] ? message : "";
+        },
+        hasFieldError(scope, field) {
+          return Boolean(this.fieldError(scope, field));
+        },
+        setSuccess(message) {
+          this.successMessage = message;
+          this.errorMessage = "";
+        },
+        setError(error) {
+          this.errorMessage = error;
+          this.successMessage = "";
+        },
+        clearFeedback() {
+          this.errorMessage = "";
+          this.successMessage = "";
+        },
+        resolveError(payload, fallback) {
+          if (payload && payload.error && errorMessages[payload.error]) {
+            return errorMessages[payload.error][this.language] || errorMessages[payload.error].en;
+          }
+          if (payload && payload.detail) {
+            return payload.detail;
+          }
+          return fallback;
+        },
+        formatDate(value, timeZone) {
+          if (!value) {
+            return "";
+          }
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) {
+            return value;
+          }
+          const options = {
+            dateStyle: "medium",
+            timeStyle: "short"
+          };
+          if (timeZone) {
+            options.timeZone = timeZone;
+          }
+          return new Intl.DateTimeFormat(languageMap[this.language] || "en-GB", options).format(date);
+        },
+        timezoneDateParts(value, timeZone) {
+          if (!value) {
+            return null;
+          }
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) {
+            return null;
+          }
+          const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: timeZone || "UTC",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23"
+          }).formatToParts(parsed);
+
+          const values = {};
+          for (const part of parts) {
+            if (part.type !== "literal") {
+              values[part.type] = part.value;
+            }
+          }
+
+          if (!values.year || !values.month || !values.day || values.hour === undefined || values.minute === undefined) {
+            return null;
+          }
+
+          return {
+            dayKey: `${values.year}-${values.month}-${values.day}`,
+            timeKey: `${values.hour}:${values.minute}`
+          };
+        },
+        dayKeyToUtcDate(dayKey) {
+          if (typeof dayKey !== "string") {
+            return null;
+          }
+          const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey);
+          if (!match) {
+            return null;
+          }
+
+          const year = Number(match[1]);
+          const month = Number(match[2]);
+          const day = Number(match[3]);
+
+          if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+            return null;
+          }
+          if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return null;
+          }
+
+          return new Date(Date.UTC(year, month - 1, day));
+        },
+        weekStartKey(dayKey) {
+          const utcDate = this.dayKeyToUtcDate(dayKey);
+          if (!utcDate) {
+            return dayKey;
+          }
+          const weekday = utcDate.getUTCDay();
+          const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
+          utcDate.setUTCDate(utcDate.getUTCDate() + diffToMonday);
+          return utcDate.toISOString().slice(0, 10);
+        },
+        formatDayLabel(dayKey) {
+          const utcDate = this.dayKeyToUtcDate(dayKey);
+          if (!utcDate) {
+            return dayKey;
+          }
+          return new Intl.DateTimeFormat(languageMap[this.language] || "en-GB", {
+            weekday: "short",
+            day: "2-digit",
+            month: "2-digit",
+            timeZone: "UTC"
+          }).format(utcDate);
+        },
+        formatDayLongLabel(dayKey) {
+          const utcDate = this.dayKeyToUtcDate(dayKey);
+          if (!utcDate) {
+            return dayKey;
+          }
+          return new Intl.DateTimeFormat(languageMap[this.language] || "en-GB", {
+            weekday: "long",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "UTC"
+          }).format(utcDate);
+        },
+        formatWeekTitle(weekKey) {
+          const utcDate = this.dayKeyToUtcDate(weekKey);
+          if (!utcDate) {
+            return `${this.t("weekOf")} ${weekKey}`;
+          }
+          const formatted = new Intl.DateTimeFormat(languageMap[this.language] || "en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "UTC"
+          }).format(utcDate);
+          return `${this.t("weekOf")} ${formatted}`;
+        },
+        voteValueForOption(option) {
+          if (!option) {
+            return "";
+          }
+          return this.voteDraft[option.id] || "";
+        },
+        voteCellClass(option) {
+          if (!option || typeof option !== "object") {
+            return "vote-none";
+          }
+          if (this.voteDisplayMode === "own") {
+            const ownValue = this.voteValueForOption(option);
+            if (ownValue === "yes") {
+              return "vote-yes";
+            }
+            if (ownValue === "no") {
+              return "vote-no";
+            }
+            if (ownValue === "maybe") {
+              return "vote-maybe";
+            }
+            return "vote-none";
+          }
+          const yesCount = this.optionCount(option, "yes");
+          const noCount = this.optionCount(option, "no");
+          const maybeCount = this.optionCount(option, "maybe");
+
+          if (yesCount > noCount) {
+            return "vote-yes";
+          }
+          if (yesCount < noCount) {
+            return "vote-no";
+          }
+          if ((yesCount === noCount && yesCount > 0) || (yesCount === 0 && noCount === 0 && maybeCount > 0)) {
+            return "vote-maybe";
+          }
+          return "vote-none";
+        },
+        isSelectedVoteValue(option, status) {
+          return this.voteValueForOption(option) === status;
+        },
+        optionCount(option, status) {
+          if (!option || !option.counts) {
+            return 0;
+          }
+          const count = Number(option.counts[status]);
+          if (Number.isNaN(count)) {
+            return 0;
+          }
+          return count;
+        },
+        voteStatusLabel(status) {
+          if (status === "yes") {
+            return this.t("voteYes");
+          }
+          if (status === "no") {
+            return this.t("voteNo");
+          }
+          if (status === "maybe") {
+            return this.t("voteMaybe");
+          }
+          return this.t("noVote");
+        },
+        voteMenuLabel(option, status) {
+          if (!status) {
+            return this.t("noVote");
+          }
+          return `${this.voteStatusLabel(status)} (${this.optionCount(option, status)})`;
+        },
+        isVoteStatus(status) {
+          return status === "yes" || status === "no" || status === "maybe";
+        },
+        isVoteSaving(optionId) {
+          return Boolean(this.savingVoteOptionIds[optionId]);
+        },
+        closeVoteMenus() {
+          this.editingVoteOptionId = null;
+          this.bulkMenu = null;
+        },
+        updateVisibleDayCount() {
+          const root = this.$el;
+          if (!root) {
+            return;
+          }
+          const tableWrap = root.querySelector(".details .table-wrap");
+          const wrapWidth = tableWrap ? tableWrap.clientWidth : root.clientWidth || window.innerWidth;
+          const nextCount = visibleDayCountForWidth(wrapWidth);
+          if (nextCount !== this.visibleDayCount) {
+            this.visibleDayCount = nextCount;
+          }
+        },
+        visibleDayCountForWeek(week) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+            return 1;
+          }
+          return Math.max(1, Math.min(this.visibleDayCount, week.days.length));
+        },
+        weekDayStartIndex(week) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+            return 0;
+          }
+          const count = this.visibleDayCountForWeek(week);
+          const maxStart = Math.max(0, week.days.length - count);
+          const raw = Number(this.dayOffsetsByWeek[week.key] || 0);
+          if (!Number.isFinite(raw)) {
+            return 0;
+          }
+          return Math.min(Math.max(Math.floor(raw), 0), maxStart);
+        },
+        visibleDaysForWeek(week) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+            return [];
+          }
+          const start = this.weekDayStartIndex(week);
+          const count = this.visibleDayCountForWeek(week);
+          return week.days.slice(start, start + count);
+        },
+        rowMaxYesVotes(row) {
+          if (!row || !row.cells || typeof row.cells !== "object") {
+            return 0;
+          }
+          let maxVotes = 0;
+          for (const option of Object.values(row.cells)) {
+            const yesCount = this.optionCount(option, "yes");
+            if (yesCount > maxVotes) {
+              maxVotes = yesCount;
+            }
+          }
+          return maxVotes;
+        },
+        filteredRowsForWeek(week) {
+          if (!week || !Array.isArray(week.rows)) {
+            return [];
+          }
+          const minYesVotes = Math.max(0, Number(this.minYesVotesFilter) || 0);
+          if (minYesVotes <= 0) {
+            return week.rows;
+          }
+          return week.rows.filter((row) => this.rowMaxYesVotes(row) >= minYesVotes);
+        },
+        visibleRangeLabel(week) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+            return "";
+          }
+          const startIndex = this.weekDayStartIndex(week);
+          const count = this.visibleDayCountForWeek(week);
+          const start = startIndex + 1;
+          const end = Math.min(week.days.length, startIndex + count);
+          return `${this.t("daysRange")} ${start}-${end}/${week.days.length}`;
+        },
+        canShiftWeekDays(week, direction) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+            return false;
+          }
+          const start = this.weekDayStartIndex(week);
+          const count = this.visibleDayCountForWeek(week);
+          if (direction < 0) {
+            return start > 0;
+          }
+          return start + count < week.days.length;
+        },
+        shiftWeekDays(week, direction) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+            return;
+          }
+          const start = this.weekDayStartIndex(week);
+          const count = this.visibleDayCountForWeek(week);
+          const maxStart = Math.max(0, week.days.length - count);
+          const candidate = direction < 0 ? start - 1 : start + 1;
+          const nextStart = Math.min(Math.max(candidate, 0), maxStart);
+          if (nextStart === start) {
+            return;
+          }
+          this.dayOffsetsByWeek = {
+            ...this.dayOffsetsByWeek,
+            [week.key]: nextStart
+          };
+          this.closeVoteMenus();
+        },
+        normalizeDayOffsets() {
+          const next = {};
+          for (const week of this.calendarWeeks) {
+            const count = this.visibleDayCountForWeek(week);
+            const maxStart = Math.max(0, week.days.length - count);
+            const raw = Number(this.dayOffsetsByWeek[week.key] || 0);
+            const normalized = Number.isFinite(raw) ? Math.min(Math.max(Math.floor(raw), 0), maxStart) : 0;
+            next[week.key] = normalized;
+          }
+          this.dayOffsetsByWeek = next;
+        },
+        isBulkMenuOpen(type, weekKey, key) {
+          return Boolean(
+            this.bulkMenu &&
+            this.bulkMenu.type === type &&
+            this.bulkMenu.weekKey === weekKey &&
+            this.bulkMenu.key === key
+          );
+        },
+        toggleBulkMenu(type, weekKey, key) {
+          if (!this.canVoteInPoll) {
+            return;
+          }
+          const isOpen = this.isBulkMenuOpen(type, weekKey, key);
+          this.editingVoteOptionId = null;
+          this.bulkMenu = isOpen ? null : { type, weekKey, key };
+        },
+        collectDayOptionIds(week, dayKey) {
+          if (!week || !Array.isArray(week.rows)) {
+            return [];
+          }
+          const optionIds = [];
+          for (const row of week.rows) {
+            const option = row && row.cells ? row.cells[dayKey] : null;
+            if (option && Number.isInteger(option.id)) {
+              optionIds.push(option.id);
+            }
+          }
+          return optionIds;
+        },
+        collectRowOptionIds(row, dayKeys) {
+          if (!row || !row.cells || typeof row.cells !== "object") {
+            return [];
+          }
+          const targetDayKeys = Array.isArray(dayKeys) && dayKeys.length ? dayKeys : Object.keys(row.cells);
+          const optionIds = [];
+          for (const dayKey of targetDayKeys) {
+            const option = row.cells[dayKey];
+            if (option && Number.isInteger(option.id)) {
+              optionIds.push(option.id);
+            }
+          }
+          return optionIds;
+        },
+        async chooseBulkVoteForDay(week, dayKey, status) {
+          this.closeVoteMenus();
+          await this.applyVotes(this.collectDayOptionIds(week, dayKey), status);
+        },
+        async chooseBulkVoteForRow(week, row, status) {
+          this.closeVoteMenus();
+          const visibleDayKeys = this.visibleDaysForWeek(week).map((day) => day.key);
+          await this.applyVotes(this.collectRowOptionIds(row, visibleDayKeys), status);
+        },
+        toggleVoteMenu(optionId) {
+          if (!this.canVoteInPoll || this.isVoteSaving(optionId)) {
+            return;
+          }
+          this.bulkMenu = null;
+          this.editingVoteOptionId = this.editingVoteOptionId === optionId ? null : optionId;
+        },
+        async chooseVote(optionId, status) {
+          this.closeVoteMenus();
+          await this.applyVotes([optionId], status);
+        },
+        async applyVotes(optionIds, status) {
+          if (!this.selectedPoll || this.selectedPoll.is_closed) {
+            return;
+          }
+
+          const uniqueOptionIds = Array.from(
+            new Set(
+              (optionIds || [])
+                .map((value) => Number(value))
+                .filter((value) => Number.isInteger(value))
+            )
+          );
+          if (!uniqueOptionIds.length) {
+            return;
+          }
+
+          const normalizedStatus = this.isVoteStatus(status) ? status : "";
+          await this.ensureAuthenticated(async () => {
+            if (!this.selectedPoll || this.selectedPoll.is_closed) {
+              return;
+            }
+
+            if (uniqueOptionIds.some((optionId) => this.isVoteSaving(optionId))) {
+              return;
+            }
+
+            const idSet = new Set(uniqueOptionIds);
+            const targetOptions = this.selectedPoll.options.filter((item) => idSet.has(item.id));
+            if (!targetOptions.length) {
+              return;
+            }
+
+            const changedOptions = [];
+            for (const option of targetOptions) {
+              const previousStatus = this.voteDraft[option.id] || "";
+              if (previousStatus === normalizedStatus) {
+                continue;
+              }
+
+              const previousCounts = {
+                yes: Number((option.counts && option.counts.yes) || 0),
+                no: Number((option.counts && option.counts.no) || 0),
+                maybe: Number((option.counts && option.counts.maybe) || 0)
+              };
+              const previousMyVote = option.my_vote || null;
+
+              if (!option.counts) {
+                option.counts = { yes: 0, no: 0, maybe: 0 };
+              }
+
+              if (this.isVoteStatus(previousStatus) && option.counts[previousStatus] > 0) {
+                option.counts[previousStatus] -= 1;
+              }
+              if (this.isVoteStatus(normalizedStatus)) {
+                option.counts[normalizedStatus] = Number(option.counts[normalizedStatus] || 0) + 1;
+                option.my_vote = normalizedStatus;
+              } else {
+                option.my_vote = null;
+              }
+
+              this.voteDraft[option.id] = normalizedStatus;
+              changedOptions.push({
+                optionId: option.id,
+                previousStatus,
+                previousCounts,
+                previousMyVote
+              });
+            }
+
+            if (!changedOptions.length) {
+              return;
+            }
+
+            for (const change of changedOptions) {
+              this.savingVoteOptionIds[change.optionId] = true;
+            }
+
+            try {
+              const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/votes/`, {
+                method: "PUT",
+                body: {
+                  votes: changedOptions.map((change) => ({
+                    option_id: change.optionId,
+                    status: normalizedStatus || null
+                  }))
+                }
+              });
+              this.selectedPoll = data.poll;
+              this.applyVoteDraft();
+              await this.fetchPolls();
+            } catch (error) {
+              for (const change of changedOptions) {
+                const option = this.selectedPoll.options.find((item) => item.id === change.optionId);
+                if (option) {
+                  option.counts = {
+                    yes: change.previousCounts.yes,
+                    no: change.previousCounts.no,
+                    maybe: change.previousCounts.maybe
+                  };
+                  option.my_vote = change.previousMyVote;
+                }
+                this.voteDraft[change.optionId] = change.previousStatus;
+              }
+              this.setError(this.resolveError(error.payload, "Could not save vote."));
+            } finally {
+              for (const change of changedOptions) {
+                delete this.savingVoteOptionIds[change.optionId];
+              }
+            }
+          });
+        },
+        hourLabel(hour) {
+          const normalized = Number(hour);
+          if (normalized === 24) {
+            return "24:00";
+          }
+          return `${String(normalized).padStart(2, "0")}:00`;
+        },
+        formForScope(scope = "create") {
+          if (scope === "edit") {
+            return this.editForm;
+          }
+          return this.createForm;
+        },
+        isWeekdaySelected(weekday, scope = "create") {
+          const form = this.formForScope(scope);
+          if (!form || !Array.isArray(form.allowed_weekdays)) {
+            return false;
+          }
+          return form.allowed_weekdays.includes(weekday);
+        },
+        toggleWeekday(weekday, scope = "create") {
+          const form = this.formForScope(scope);
+          if (!form || !Array.isArray(form.allowed_weekdays)) {
+            return;
+          }
+          const values = [...form.allowed_weekdays];
+          const index = values.indexOf(weekday);
+          if (index >= 0) {
+            values.splice(index, 1);
+          } else {
+            values.push(weekday);
+          }
+          values.sort((a, b) => a - b);
+          form.allowed_weekdays = values;
+        },
+        validatePollForm(form) {
+          if (!form) {
+            return this.t("validationFormInvalid");
+          }
+          const scope = form === this.editForm ? "edit" : "create";
+          const errors = this.validateFormScope(scope);
+          this.showAllFormErrors[scope] = true;
+          const order = [
+            "title",
+            "timezone",
+            "start_date",
+            "end_date",
+            "daily_start_hour",
+            "daily_end_hour",
+            "allowed_weekdays"
+          ];
+          for (const field of order) {
+            if (errors[field]) {
+              return errors[field];
+            }
+          }
+          return "";
+        },
+        pollPayloadFromForm(form) {
+          return {
+            title: String(form.title || "").trim(),
+            description: String(form.description || "").trim(),
+            start_date: String(form.start_date || "").trim(),
+            end_date: String(form.end_date || "").trim(),
+            daily_start_hour: form.daily_start_hour,
+            daily_end_hour: form.daily_end_hour,
+            allowed_weekdays: [...form.allowed_weekdays],
+            timezone: String(form.timezone || "").trim()
+          };
+        },
+        startEditingPoll() {
+          if (!this.selectedPoll || !this.selectedPoll.can_edit) {
+            return;
+          }
+          this.editForm = editFormFromPoll(this.selectedPoll);
+          this.resetFormValidation("edit");
+          this.isEditingPoll = true;
+          this.closeVoteMenus();
+        },
+        cancelEditingPoll() {
+          this.isEditingPoll = false;
+          this.editForm = null;
+          this.resetFormValidation("edit");
+        },
+        timezoneMeta(timeZone) {
+          if (!timeZone) {
+            return "";
+          }
+          if (Object.prototype.hasOwnProperty.call(this.timezoneMetaCache, timeZone)) {
+            return this.timezoneMetaCache[timeZone];
+          }
+          const meta = buildTimeZoneMeta(timeZone);
+          this.timezoneMetaCache[timeZone] = meta;
+          return meta;
+        },
+        timezoneDisplay(timeZone) {
+          if (!timeZone) {
+            return "";
+          }
+          const meta = this.timezoneMeta(timeZone);
+          return meta ? `${timeZone} (${meta})` : timeZone;
+        },
+        normalizeKnownTimeZone(value) {
+          const raw = String(value || "").trim();
+          if (!raw) {
+            return "";
+          }
+          if (isValidTimeZoneName(raw)) {
+            return raw;
+          }
+          const matched = this.timezoneOptions.find((tz) => tz.toLowerCase() === raw.toLowerCase());
+          if (matched && isValidTimeZoneName(matched)) {
+            return matched;
+          }
+          return "";
+        },
+        openTimezoneSuggestions() {
+          this.showTimezoneSuggestions = true;
+        },
+        selectTimezone(value) {
+          this.createForm.timezone = value;
+          this.handleFormFieldChange("timezone", "create");
+          this.showTimezoneSuggestions = false;
+        },
+        handleCreateTimezoneInput() {
+          this.openTimezoneSuggestions();
+          this.handleFormFieldChange("timezone", "create");
+        },
+        handleTimezoneBlur() {
+          window.setTimeout(() => {
+            this.normalizeTimezoneInput();
+            this.handleFormFieldChange("timezone", "create");
+            this.showTimezoneSuggestions = false;
+          }, 120);
+        },
+        normalizeTimezoneInput() {
+          const raw = (this.createForm.timezone || "").trim();
+          if (!raw) {
+            return;
+          }
+          const matched = this.timezoneOptions.find((tz) => tz.toLowerCase() === raw.toLowerCase());
+          if (matched) {
+            this.createForm.timezone = matched;
+          }
+        },
+        openCalendarTimezoneSuggestions() {
+          if (this.calendarTimezoneMode !== "custom") {
+            return;
+          }
+          this.showCalendarTimezoneSuggestions = true;
+        },
+        selectCalendarTimezone(value) {
+          this.calendarCustomTimezone = value;
+          this.showCalendarTimezoneSuggestions = false;
+          this.savePreferredCalendarTimezonePreference();
+        },
+        handleCalendarTimezoneInput() {
+          this.openCalendarTimezoneSuggestions();
+        },
+        handleCalendarTimezoneBlur() {
+          window.setTimeout(() => {
+            this.normalizeCalendarTimezoneInput();
+            this.savePreferredCalendarTimezonePreference();
+            this.showCalendarTimezoneSuggestions = false;
+          }, 120);
+        },
+        normalizeCalendarTimezoneInput() {
+          const raw = (this.calendarCustomTimezone || "").trim();
+          const fallback = this.browserCalendarTimezone || this.pollCalendarTimezone;
+          if (!raw) {
+            this.calendarCustomTimezone = fallback;
+            return;
+          }
+          const normalized = this.normalizeKnownTimeZone(raw);
+          if (normalized) {
+            this.calendarCustomTimezone = normalized;
+          }
+        },
+        calendarTimezonePreferenceStorageKey() {
+          if (!this.session || !this.session.authenticated || !this.session.identity || !this.session.identity.id) {
+            return "";
+          }
+          return `timepoll-calendar-timezone:${this.session.identity.id}`;
+        },
+        loadPreferredCalendarTimezonePreference() {
+          const key = this.calendarTimezonePreferenceStorageKey();
+          if (!key) {
+            return { mode: "poll", timezone: "" };
+          }
+          const raw = safeLocalStorageGetItem(key);
+          if (!raw) {
+            return { mode: "poll", timezone: "" };
+          }
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              const mode = parsed.mode;
+              const normalizedMode =
+                mode === "poll" || mode === "browser" || mode === "custom" ? mode : "poll";
+              const timezoneName = this.normalizeKnownTimeZone(parsed.timezone);
+              return {
+                mode: normalizedMode,
+                timezone: timezoneName
+              };
+            }
+          } catch (_jsonError) {
+            // Support legacy value where only timezone string was stored.
+          }
+          const legacyTimezone = this.normalizeKnownTimeZone(raw);
+          if (legacyTimezone) {
+            return { mode: "custom", timezone: legacyTimezone };
+          }
+          return { mode: "poll", timezone: "" };
+        },
+        savePreferredCalendarTimezonePreference() {
+          if (!this.session || !this.session.authenticated || !this.session.identity) {
+            return;
+          }
+          const key = this.calendarTimezonePreferenceStorageKey();
+          if (!key) {
+            return;
+          }
+          let mode = this.calendarTimezoneMode;
+          if (mode !== "poll" && mode !== "browser" && mode !== "custom") {
+            mode = "poll";
+          }
+          if (mode === "browser" && !this.showBrowserTimezoneOption) {
+            mode = "poll";
+          }
+          const timezoneName = this.normalizeKnownTimeZone(this.calendarCustomTimezone) || "";
+          if (mode === "custom" && !timezoneName) {
+            return;
+          }
+          const payload = {
+            mode,
+            timezone: timezoneName
+          };
+          safeLocalStorageSetItem(key, JSON.stringify(payload));
+        },
+        async changeLanguage() {
+          safeLocalStorageSetItem("timepoll-language", this.language);
+          try {
+            await apiFetch("/api/i18n/language/", {
+              method: "POST",
+              body: { language: this.language }
+            });
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Unable to switch language."));
+          }
+        },
+        async fetchMyData() {
+          if (!this.session.authenticated) {
+            this.profileData = null;
+            return;
+          }
+          this.profileLoading = true;
+          try {
+            const data = await apiFetch("/api/auth/me/");
+            this.profileData = data;
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Could not load your data."));
+          } finally {
+            this.profileLoading = false;
+          }
+        },
+        isProfileVoteDeleting(optionId) {
+          return Boolean(this.profileVoteDeletingOptionIds[optionId]);
+        },
+        profileVoteDateRangeLabel(vote) {
+          if (!vote || typeof vote !== "object") {
+            return "";
+          }
+          const startLabel = this.formatDate(vote.option_starts_at);
+          const endLabel = vote.option_ends_at ? this.formatDate(vote.option_ends_at) : "";
+          if (startLabel && endLabel) {
+            return `${startLabel} - ${endLabel}`;
+          }
+          return startLabel || endLabel || "";
+        },
+        async refreshSelectedPollIfMatches(pollId) {
+          if (!this.selectedPoll) {
+            return;
+          }
+          if (String(this.selectedPoll.id) !== String(pollId)) {
+            return;
+          }
+          try {
+            const data = await apiFetch(`/api/polls/${encodeURIComponent(String(pollId))}/`);
+            this.selectedPoll = data.poll;
+            this.applyVoteDraft();
+          } catch (_error) {
+            // ignore refresh failure on profile page
+          }
+        },
+        async deleteSingleVoteFromProfile(vote) {
+          if (!vote || typeof vote !== "object") {
+            return;
+          }
+          const pollId = String(vote.poll_id || "").trim();
+          const optionId = Number(vote.poll_option_id);
+          if (!pollId || !Number.isInteger(optionId)) {
+            return;
+          }
+          if (this.profileDeleting || this.profileLoading || this.isProfileVoteDeleting(optionId)) {
+            return;
+          }
+
+          this.clearFeedback();
+          this.profileDeleteSummary = null;
+          this.profileVoteDeletingOptionIds[optionId] = true;
+          try {
+            await apiFetch(`/api/polls/${encodeURIComponent(pollId)}/votes/${optionId}/`, {
+              method: "DELETE"
+            });
+            await this.fetchMyData();
+            await this.fetchPolls();
+            await this.refreshSelectedPollIfMatches(pollId);
+            this.setSuccess(this.t("voteDeleted"));
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Could not delete vote."));
+          } finally {
+            delete this.profileVoteDeletingOptionIds[optionId];
+          }
+        },
+        async openProfile() {
+          if (!this.session.authenticated) {
+            this.openAuthDialog();
+            this.setError(this.t("authNeeded"));
+            return;
+          }
+          this.setActiveSection("profile");
+          await this.fetchMyData();
+        },
+        downloadMyDataJson() {
+          if (!this.profileData) {
+            return;
+          }
+          const safeName = this.session.identity && this.session.identity.name
+            ? String(this.session.identity.name).replace(/[^a-zA-Z0-9_-]+/g, "_")
+            : "user";
+          const blob = new Blob([JSON.stringify(this.profileData, null, 2)], { type: "application/json" });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `timepoll-${safeName}-data.json`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        },
+        async deleteOwnData() {
+          if (!this.session.authenticated) {
+            this.openAuthDialog();
+            this.setError(this.t("authNeeded"));
+            return;
+          }
+          if (!window.confirm(this.t("profileDeleteConfirm"))) {
+            return;
+          }
+
+          this.clearFeedback();
+          this.profileDeleting = true;
+          this.profileVoteDeletingOptionIds = {};
+          try {
+            const result = await apiFetch("/api/auth/me/", { method: "DELETE" });
+            this.profileDeleteSummary = result;
+            this.isEditingPoll = false;
+            this.editForm = null;
+            this.selectedPoll = null;
+            this.voteDraft = {};
+            await this.fetchPolls();
+
+            if (result.deleted_identity) {
+              this.session.authenticated = false;
+              this.session.identity = null;
+              this.profileData = null;
+              this.setActiveSection("list");
+              this.setSuccess(this.t("profileDeleteDoneAccountRemoved"));
+              return;
+            }
+
+            await this.fetchMyData();
+            this.setSuccess(this.t("profileDeleteDone"));
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Could not delete your data."));
+          } finally {
+            this.profileDeleting = false;
+          }
+        },
+        openAuthDialog() {
+          this.showAuthDialog = true;
+          this.authForm.name = this.authForm.name || "";
+          this.authForm.pin = "";
+        },
+        async submitAuth() {
+          this.clearFeedback();
+          try {
+            const data = await apiFetch("/api/auth/login/", {
+              method: "POST",
+              body: {
+                name: this.authForm.name,
+                pin: this.authForm.pin
+              }
+            });
+
+            this.session.authenticated = data.authenticated;
+            this.session.identity = data.identity;
+            this.showAuthDialog = false;
+            this.authForm.pin = "";
+            this.profileData = null;
+            this.profileVoteDeletingOptionIds = {};
+            this.profileDeleteSummary = null;
+            this.setSuccess(data.created ? this.t("createdLoginSuccess") : this.t("loginSuccess"));
+
+            await this.fetchPolls();
+            if (this.selectedPoll) {
+              await this.openPoll(this.selectedPoll.id);
+            }
+
+            if (this.pendingAction) {
+              const action = this.pendingAction;
+              this.pendingAction = null;
+              await action();
+            }
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, this.t("authNeeded")));
+          }
+        },
+        async logout() {
+          this.clearFeedback();
+          try {
+            await apiFetch("/api/auth/logout/", { method: "POST" });
+            this.session.authenticated = false;
+            this.session.identity = null;
+            this.voteDraft = {};
+            this.profileData = null;
+            this.profileVoteDeletingOptionIds = {};
+            this.profileDeleteSummary = null;
+            this.setSuccess(this.t("logoutSuccess"));
+            await this.fetchPolls();
+            if (this.selectedPoll) {
+              await this.openPoll(this.selectedPoll.id);
+            }
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Logout failed."));
+          }
+        },
+        ensureAuthenticated(action) {
+          if (this.session.authenticated) {
+            return action();
+          }
+          this.pendingAction = action;
+          this.openAuthDialog();
+          this.setError(this.t("authNeeded"));
+          return Promise.resolve();
+        },
+        async fetchSession() {
+          try {
+            const sessionData = await apiFetch("/api/auth/session/");
+            this.session.authenticated = sessionData.authenticated;
+            this.session.identity = sessionData.identity;
+
+            const storedLanguage = safeLocalStorageGetItem("timepoll-language");
+            if (storedLanguage && translations[storedLanguage]) {
+              this.language = storedLanguage;
+            } else if (sessionData.language && translations[sessionData.language]) {
+              this.language = sessionData.language;
+            }
+          } catch (_error) {
+            this.session.authenticated = false;
+            this.session.identity = null;
+          }
+        },
+        async fetchPolls() {
+          try {
+            const data = await apiFetch("/api/polls/");
+            this.polls = data.polls || [];
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Could not load polls."));
+          }
+        },
+        applyVoteDraft() {
+          const draft = {};
+          if (!this.selectedPoll) {
+            this.voteDraft = draft;
+            this.closeVoteMenus();
+            return;
+          }
+          for (const option of this.selectedPoll.options) {
+            if (option.my_vote === "yes" || option.my_vote === "no" || option.my_vote === "maybe") {
+              draft[option.id] = option.my_vote;
+            } else {
+              draft[option.id] = "";
+            }
+          }
+          this.voteDraft = draft;
+          this.closeVoteMenus();
+        },
+        async openPoll(pollId, options = {}) {
+          const normalizedPollId = String(pollId || "").trim();
+          if (!normalizedPollId) {
+            return;
+          }
+          this.clearFeedback();
+          try {
+            const data = await apiFetch(`/api/polls/${encodeURIComponent(normalizedPollId)}/`);
+            this.selectedPoll = data.poll;
+            const preference = this.loadPreferredCalendarTimezonePreference();
+            const preferredTimezone = this.normalizeKnownTimeZone(preference.timezone);
+            this.calendarCustomTimezone = preferredTimezone || this.browserCalendarTimezone;
+
+            let nextMode = preference.mode;
+            if (nextMode !== "poll" && nextMode !== "browser" && nextMode !== "custom") {
+              nextMode = "poll";
+            }
+            if (nextMode === "browser" && !this.showBrowserTimezoneOption) {
+              nextMode = "poll";
+            }
+            if (nextMode === "custom" && !preferredTimezone) {
+              nextMode = "poll";
+            }
+            this.calendarTimezoneMode = nextMode;
+            this.showCalendarTimezoneSuggestions = false;
+            this.minYesVotesFilter = 0;
+            this.setActiveSection("selected", { skipUrlSync: true });
+            this.applyVoteDraft();
+            if (options.syncUrl !== false) {
+              this.setPollIdInCurrentUrl(this.selectedPoll.id, {
+                replace: Boolean(options.replaceUrl)
+              });
+            }
+          } catch (error) {
+            this.setError(this.resolveError(error.payload, "Could not open poll."));
+            if (options.fromUrl) {
+              this.selectedPoll = null;
+              this.voteDraft = {};
+              this.setActiveSection("list", { skipUrlSync: true });
+              this.setPollIdInCurrentUrl("", { replace: true });
+            }
+          }
+        },
+        async submitPoll() {
+          await this.ensureAuthenticated(async () => {
+            this.clearFeedback();
+            const validationError = this.validatePollForm(this.createForm);
+            if (validationError) {
+              this.setError(validationError);
+              return;
+            }
+
+            try {
+              const data = await apiFetch("/api/polls/", {
+                method: "POST",
+                body: this.pollPayloadFromForm(this.createForm)
+              });
+
+              this.createForm = defaultCreateForm();
+              this.resetFormValidation("create");
+
+              this.setSuccess(this.t("createdSuccess"));
+              await this.fetchPolls();
+              await this.openPoll(data.poll.id);
+            } catch (error) {
+              this.applyBackendFormError("create", error.payload);
+              this.setError(this.resolveError(error.payload, "Could not create poll."));
+            }
+          });
+        },
+        async submitPollEdit() {
+          if (!this.selectedPoll || !this.editForm) {
+            return;
+          }
+
+          await this.ensureAuthenticated(async () => {
+            this.clearFeedback();
+            if (!this.selectedPoll || !this.selectedPoll.can_edit || !this.editForm) {
+              this.setError(this.resolveError({ error: "forbidden" }, ""));
+              return;
+            }
+
+            const validationError = this.validatePollForm(this.editForm);
+            if (validationError) {
+              this.setError(validationError);
+              return;
+            }
+
+            try {
+              const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/`, {
+                method: "PUT",
+                body: this.pollPayloadFromForm(this.editForm)
+              });
+              this.selectedPoll = data.poll;
+              this.applyVoteDraft();
+              this.isEditingPoll = false;
+              this.editForm = null;
+              this.resetFormValidation("edit");
+              this.setSuccess(this.t("pollUpdatedSuccess"));
+              await this.fetchPolls();
+            } catch (error) {
+              this.applyBackendFormError("edit", error.payload);
+              this.setError(this.resolveError(error.payload, "Could not update poll."));
+            }
+          });
+        },
+        async closeSelectedPoll() {
+          if (!this.selectedPoll) {
+            return;
+          }
+
+          await this.ensureAuthenticated(async () => {
+            this.clearFeedback();
+            try {
+              const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/close/`, {
+                method: "POST"
+              });
+              this.selectedPoll = data.poll;
+              this.isEditingPoll = false;
+              this.editForm = null;
+              this.applyVoteDraft();
+              await this.fetchPolls();
+              this.setSuccess(this.t("pollClosedSuccess"));
+            } catch (error) {
+              this.setError(this.resolveError(error.payload, "Could not close poll."));
+            }
+          });
+        },
+        async reopenSelectedPoll() {
+          if (!this.selectedPoll) {
+            return;
+          }
+
+          await this.ensureAuthenticated(async () => {
+            this.clearFeedback();
+            try {
+              const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/reopen/`, {
+                method: "POST"
+              });
+              this.selectedPoll = data.poll;
+              this.isEditingPoll = false;
+              this.editForm = null;
+              this.applyVoteDraft();
+              await this.fetchPolls();
+              this.setSuccess(this.t("pollReopenedSuccess"));
+            } catch (error) {
+              this.setError(this.resolveError(error.payload, "Could not reopen poll."));
+            }
+          });
+        },
+        async deleteSelectedPoll() {
+          if (!this.selectedPoll) {
+            return;
+          }
+          if (!window.confirm(this.t("confirmDeletePoll"))) {
+            return;
+          }
+
+          await this.ensureAuthenticated(async () => {
+            this.clearFeedback();
+            try {
+              await apiFetch(`/api/polls/${this.selectedPoll.id}/`, { method: "DELETE" });
+              this.selectedPoll = null;
+              this.isEditingPoll = false;
+              this.editForm = null;
+              this.voteDraft = {};
+              this.setActiveSection("list");
+              await this.fetchPolls();
+              this.setSuccess(this.t("pollDeletedSuccess"));
+            } catch (error) {
+              this.setError(this.resolveError(error.payload, "Could not delete poll."));
+            }
+          });
+        }
+      },
+      async mounted() {
+        this._onWindowResize = () => {
+          this.updateVisibleDayCount();
+          this.normalizeDayOffsets();
+        };
+        this._onPopState = () => {
+          this.applyPollFromUrl({ replace: true });
+        };
+        window.addEventListener("resize", this._onWindowResize);
+        window.addEventListener("popstate", this._onPopState);
+        await this.fetchSession();
+        await this.changeLanguage();
+        await this.fetchPolls();
+        await this.applyPollFromUrl({ replace: true });
+        this.$nextTick(() => {
+          this.updateVisibleDayCount();
+          this.normalizeDayOffsets();
+        });
+      },
+      beforeUnmount() {
+        if (this._onWindowResize) {
+          window.removeEventListener("resize", this._onWindowResize);
+          this._onWindowResize = null;
+        }
+        if (this._onPopState) {
+          window.removeEventListener("popstate", this._onPopState);
+          this._onPopState = null;
+        }
+      }
+    }).mount("#app");
+  };
+
+  const waitForVueAndMount = (attemptsLeft = 60) => {
+    if (window.Vue) {
+      mountVueApp();
+      return;
+    }
+    if (attemptsLeft <= 0) {
+      const root = document.getElementById("app");
+      if (root) {
+        root.innerHTML = "<p class='feedback error'>Vue.js did not load.</p>";
+      }
+      return;
+    }
+    window.setTimeout(() => waitForVueAndMount(attemptsLeft - 1), 100);
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => waitForVueAndMount());
+  } else {
+    waitForVueAndMount();
+  }
+})();

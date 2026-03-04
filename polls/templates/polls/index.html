@@ -1,0 +1,897 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TimePoll</title>
+  <link rel="stylesheet" href="{% static 'polls/css/app.css' %}">
+  <script
+    src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue/3.4.31/vue.global.prod.min.js"
+    defer
+  ></script>
+  <script src="{% static 'polls/js/app.js' %}" defer></script>
+</head>
+<body>
+  <noscript>
+    <p class="no-script">TimePoll requires JavaScript.</p>
+  </noscript>
+
+  <main id="app" v-cloak @click="closeVoteMenus">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <h1>
+          <a href="#" class="title-home" @click.prevent="setActiveSection('list')">[[ t('appTitle') ]]</a>
+        </h1>
+        <p class="subtitle">[[ t('appSubtitle') ]]</p>
+      </div>
+      <div class="topbar-controls">
+        <label for="language-select">[[ t('language') ]]</label>
+        <select id="language-select" v-model="language" @change="changeLanguage">
+          <option value="en">English</option>
+          <option value="fi">Suomi</option>
+          <option value="no">Norsk</option>
+          <option value="sv">Svenska</option>
+          <option value="et">Eesti</option>
+        </select>
+
+        <div class="auth-actions" v-if="session.authenticated">
+          <button type="button" class="auth-name-link" @click="openProfile">
+            [[ t('hello') ]] [[ session.identity.name ]]
+          </button>
+          <button type="button" class="secondary" @click="logout">[[ t('logout') ]]</button>
+        </div>
+        <button v-else type="button" class="secondary" @click="openAuthDialog">
+          [[ t('login') ]]
+        </button>
+      </div>
+    </header>
+
+    <div class="feedback-toast" v-if="errorMessage || successMessage">
+      <p class="feedback error" role="alert" aria-live="assertive" v-if="errorMessage">
+        <span>[[ errorMessage ]]</span>
+        <button
+          type="button"
+          class="feedback-close"
+          @click="clearFeedback"
+          :aria-label="t('dismissFeedback')"
+        >
+          ×
+        </button>
+      </p>
+      <p class="feedback success" role="status" aria-live="polite" v-if="successMessage">
+        <span>[[ successMessage ]]</span>
+        <button
+          type="button"
+          class="feedback-close"
+          @click="clearFeedback"
+          :aria-label="t('dismissFeedback')"
+        >
+          ×
+        </button>
+      </p>
+    </div>
+
+    <section class="workspace" aria-label="TimePoll workspace">
+      <article
+        class="panel workspace-panel"
+        v-if="activeSection === 'list'"
+        id="section-panel-list"
+        aria-labelledby="poll-list-heading"
+      >
+        <header class="panel-head">
+          <h2 id="poll-list-heading">[[ t('polls') ]]</h2>
+          <button type="button" class="secondary create-poll-btn" @click="setActiveSection('create')">
+            [[ t('createPoll') ]]
+          </button>
+        </header>
+
+        <div class="poll-list" v-if="polls.length">
+          <button
+            type="button"
+            class="poll-item"
+            :class="{ active: selectedPoll && selectedPoll.id === poll.id }"
+            v-for="poll in polls"
+            :key="poll.id"
+            @click="openPoll(poll.id)"
+          >
+            <span class="poll-item-title">[[ poll.title ]]</span>
+            <span class="poll-item-meta">
+              [[ poll.creator.name ]] · [[ poll.participant_count ]] [[ t('participants') ]] ·
+              [[ poll.is_closed ? t('closed') : t('open') ]]
+            </span>
+          </button>
+        </div>
+        <p class="muted" v-else>[[ t('noPolls') ]]</p>
+      </article>
+
+      <article
+        class="panel workspace-panel"
+        v-if="activeSection === 'profile'"
+        id="section-panel-profile"
+        aria-labelledby="profile-heading"
+      >
+        <header class="panel-head">
+          <h2 id="profile-heading">[[ t('profileTitle') ]]</h2>
+          <div class="profile-actions">
+            <button
+              type="button"
+              class="secondary"
+              @click="downloadMyDataJson"
+              :disabled="!profileData || profileLoading || profileDeleting"
+            >
+              [[ t('profileDownloadJson') ]]
+            </button>
+            <button
+              type="button"
+              class="danger"
+              @click="deleteOwnData"
+              :disabled="profileLoading || profileDeleting"
+            >
+              [[ t('profileDeleteOwnData') ]]
+            </button>
+          </div>
+        </header>
+
+        <p class="muted" v-if="profileLoading">[[ t('profileLoading') ]]</p>
+        <p class="muted" v-else-if="!profileData">[[ t('profileEmpty') ]]</p>
+        <div v-else class="profile-sections">
+          <div class="profile-delete-summary" v-if="profileDeleteSummary">
+            <p class="muted profile-delete-summary-title">[[ t('profileDeleteDone') ]]</p>
+            <ul class="profile-delete-summary-list">
+              <li>[[ t('profileDeletedVotes') ]]: [[ profileDeleteSummary.deleted_votes_count ]]</li>
+              <li>[[ t('profileDeletedPolls') ]]: [[ profileDeleteSummary.deleted_polls_count ]]</li>
+              <li>[[ t('profileRemainingPolls') ]]: [[ profileDeleteSummary.remaining_created_polls_count ]]</li>
+              <li>
+                [[ t('profileRemainingPollsWithOthers') ]]:
+                [[ profileDeleteSummary.remaining_created_polls_with_other_votes.length ]]
+              </li>
+            </ul>
+          </div>
+          <section class="profile-block" v-if="profileData.identity">
+            <h3>[[ t('profileIdentity') ]]</h3>
+            <dl class="profile-definition-list">
+              <div class="profile-definition-item">
+                <dt>ID</dt>
+                <dd>[[ profileData.identity.id ]]</dd>
+              </div>
+              <div class="profile-definition-item">
+                <dt>[[ t('name') ]]</dt>
+                <dd>[[ profileData.identity.name ]]</dd>
+              </div>
+              <div class="profile-definition-item">
+                <dt>[[ t('profileCreatedAt') ]]</dt>
+                <dd>[[ formatDate(profileData.identity.created_at) ]]</dd>
+              </div>
+              <div class="profile-definition-item">
+                <dt>[[ t('profileUpdatedAt') ]]</dt>
+                <dd>[[ formatDate(profileData.identity.updated_at) ]]</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="profile-block" v-if="profileData.stats">
+            <h3>[[ t('profileStats') ]]</h3>
+            <ul class="profile-delete-summary-list">
+              <li>[[ t('profileVoteCount') ]]: [[ profileData.stats.vote_count || 0 ]]</li>
+              <li>[[ t('profileCreatedPolls') ]]: [[ profileData.stats.created_poll_count || 0 ]]</li>
+              <li>[[ t('profileDistinctVotedPollCount') ]]: [[ profileData.stats.distinct_poll_count_voted || 0 ]]</li>
+            </ul>
+          </section>
+
+          <section class="profile-block">
+            <h3>[[ t('profileCreatedPolls') ]]</h3>
+            <ul class="profile-list" v-if="profileCreatedPolls.length">
+              <li class="profile-item" v-for="poll in profileCreatedPolls" :key="`profile-created-${poll.id}`">
+                <div class="profile-item-head">
+                  <button type="button" class="secondary profile-open-poll-btn" @click="openPoll(poll.id)">
+                    [[ poll.title ]]
+                  </button>
+                  <span class="state-pill state-pill-inline" :class="poll.is_closed ? 'closed' : 'open'">
+                    [[ poll.is_closed ? t('closed') : t('open') ]]
+                  </span>
+                </div>
+                <p class="muted profile-item-meta">
+                  [[ t('participants') ]]: [[ poll.participant_count || 0 ]] ·
+                  [[ t('timeOptions') ]]: [[ Array.isArray(poll.options) ? poll.options.length : 0 ]]
+                </p>
+              </li>
+            </ul>
+            <p class="muted" v-else>[[ t('profileNoCreatedPolls') ]]</p>
+          </section>
+
+          <section class="profile-block">
+            <h3>[[ t('profileVotes') ]]</h3>
+            <ul class="profile-list" v-if="profileVotes.length">
+              <li class="profile-item" v-for="vote in profileVotes" :key="`profile-vote-${vote.id}`">
+                <div class="profile-item-head">
+                  <strong>[[ vote.poll_title ]]</strong>
+                  <span class="state-pill state-pill-inline" :class="vote.poll_is_closed ? 'closed' : 'open'">
+                    [[ vote.poll_is_closed ? t('closed') : t('open') ]]
+                  </span>
+                </div>
+                <p class="muted profile-item-meta">[[ t('profileVoteTime') ]]: [[ profileVoteDateRangeLabel(vote) ]]</p>
+                <p class="muted profile-item-meta">[[ t('myVote') ]]: [[ voteStatusLabel(vote.status) ]]</p>
+                <div class="profile-vote-actions">
+                  <button type="button" class="secondary profile-open-poll-btn" @click="openPoll(vote.poll_id)">
+                    [[ t('profileOpenPoll') ]]
+                  </button>
+                  <button
+                    type="button"
+                    class="danger"
+                    @click="deleteSingleVoteFromProfile(vote)"
+                    :disabled="profileDeleting || profileLoading || isProfileVoteDeleting(vote.poll_option_id) || vote.poll_is_closed"
+                  >
+                    [[ t('deleteVote') ]]
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p class="muted" v-else>[[ t('profileNoVotes') ]]</p>
+          </section>
+        </div>
+      </article>
+
+      <article
+        class="panel workspace-panel"
+        v-if="activeSection === 'create'"
+        id="section-panel-create"
+        aria-labelledby="create-poll-heading"
+      >
+        <h2 id="create-poll-heading">[[ t('createPoll') ]]</h2>
+        <p class="muted">[[ t('createHelp') ]]</p>
+
+        <form @submit.prevent="submitPoll" novalidate>
+          <label for="poll-title">[[ t('title') ]]</label>
+          <input
+            id="poll-title"
+            type="text"
+            v-model.trim="createForm.title"
+            maxlength="160"
+            required
+            :class="{ 'input-invalid': hasFieldError('create', 'title') }"
+            @input="handleFormFieldChange('title')"
+          >
+          <p class="field-error" v-if="fieldError('create', 'title')">[[ fieldError('create', 'title') ]]</p>
+
+          <label for="poll-description">[[ t('description') ]]</label>
+          <textarea id="poll-description" v-model.trim="createForm.description" rows="3" maxlength="1200"></textarea>
+
+          <label for="poll-timezone">[[ t('timezone') ]]</label>
+          <div class="timezone-picker">
+            <input
+              id="poll-timezone"
+              type="text"
+              v-model.trim="createForm.timezone"
+              @focus="openTimezoneSuggestions"
+              @input="handleCreateTimezoneInput"
+              @blur="handleTimezoneBlur"
+              placeholder="Europe/Helsinki"
+              required
+              spellcheck="false"
+              autocomplete="off"
+              aria-describedby="timezone-help"
+              :class="{ 'input-invalid': hasFieldError('create', 'timezone') }"
+            >
+            <ul
+              v-if="showTimezoneSuggestions && filteredTimezoneOptions.length"
+              class="timezone-suggestions"
+              role="listbox"
+              aria-label="Timezone suggestions"
+            >
+              <li v-for="tz in filteredTimezoneOptions" :key="`tz-${tz.id}`">
+                <button
+                  type="button"
+                  class="timezone-suggestion"
+                  @mousedown.prevent="selectTimezone(tz.id)"
+                >
+                  <span class="timezone-suggestion-name">[[ tz.id ]]</span>
+                  <span class="timezone-suggestion-meta" v-if="tz.meta">[[ tz.meta ]]</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+          <p id="timezone-help" class="muted">[[ t('timezoneHelp') ]]</p>
+          <p class="muted timezone-selected" v-if="createForm.timezone">
+            [[ t('timezoneSelected') ]]: [[ selectedTimezoneDisplay ]]
+          </p>
+          <p class="field-error" v-if="fieldError('create', 'timezone')">[[ fieldError('create', 'timezone') ]]</p>
+
+          <label for="start-date">[[ t('startDate') ]]</label>
+          <input
+            id="start-date"
+            type="date"
+            v-model="createForm.start_date"
+            required
+            :class="{ 'input-invalid': hasFieldError('create', 'start_date') }"
+            @input="handleFormFieldChange('start_date')"
+            @change="handleFormFieldChange('start_date')"
+          >
+          <p class="field-error" v-if="fieldError('create', 'start_date')">[[ fieldError('create', 'start_date') ]]</p>
+
+          <label for="end-date">[[ t('endDate') ]]</label>
+          <input
+            id="end-date"
+            type="date"
+            v-model="createForm.end_date"
+            required
+            :class="{ 'input-invalid': hasFieldError('create', 'end_date') }"
+            @input="handleFormFieldChange('end_date')"
+            @change="handleFormFieldChange('end_date')"
+          >
+          <p class="field-error" v-if="fieldError('create', 'end_date')">[[ fieldError('create', 'end_date') ]]</p>
+
+          <label for="daily-start-hour">[[ t('dailyStartHour') ]]</label>
+          <select
+            id="daily-start-hour"
+            v-model.number="createForm.daily_start_hour"
+            required
+            :class="{ 'input-invalid': hasFieldError('create', 'daily_start_hour') }"
+            @change="handleFormFieldChange('daily_start_hour')"
+          >
+            <option v-for="hour in startHourOptions" :key="`start-${hour}`" :value="hour">
+              [[ hourLabel(hour) ]]
+            </option>
+          </select>
+          <p class="field-error" v-if="fieldError('create', 'daily_start_hour')">[[ fieldError('create', 'daily_start_hour') ]]</p>
+
+          <label for="daily-end-hour">[[ t('dailyEndHour') ]]</label>
+          <select
+            id="daily-end-hour"
+            v-model.number="createForm.daily_end_hour"
+            required
+            :class="{ 'input-invalid': hasFieldError('create', 'daily_end_hour') }"
+            @change="handleFormFieldChange('daily_end_hour')"
+          >
+            <option v-for="hour in endHourOptions" :key="`end-${hour}`" :value="hour">
+              [[ hourLabel(hour) ]]
+            </option>
+          </select>
+          <p class="field-error" v-if="fieldError('create', 'daily_end_hour')">[[ fieldError('create', 'daily_end_hour') ]]</p>
+
+          <fieldset :class="{ 'field-invalid': hasFieldError('create', 'allowed_weekdays') }">
+            <legend>[[ t('allowedWeekdays') ]]</legend>
+            <div class="weekday-grid">
+              <label class="weekday-item" v-for="weekday in weekdayOptions" :key="weekday.value">
+                <input
+                  type="checkbox"
+                  :value="weekday.value"
+                  :checked="isWeekdaySelected(weekday.value)"
+                  @change="toggleWeekday(weekday.value); handleFormFieldChange('allowed_weekdays')"
+                >
+                <span>[[ weekday.label ]]</span>
+              </label>
+            </div>
+          </fieldset>
+          <p class="field-error" v-if="fieldError('create', 'allowed_weekdays')">[[ fieldError('create', 'allowed_weekdays') ]]</p>
+
+          <button type="submit">[[ t('createPoll') ]]</button>
+        </form>
+      </article>
+
+      <section
+        class="panel details workspace-panel"
+        v-if="activeSection === 'selected'"
+        id="section-panel-selected"
+        aria-labelledby="details-heading"
+      >
+        <template v-if="selectedPoll">
+          <header class="details-header">
+            <div>
+              <h2 id="details-heading" class="details-title">
+                <span>[[ selectedPoll.title ]]</span>
+                <span
+                  class="state-pill state-pill-inline"
+                  :class="selectedPoll.is_closed ? 'closed' : 'open'"
+                >
+                  [[ selectedPoll.is_closed ? t('pollClosed') : t('pollOpen') ]]
+                </span>
+              </h2>
+              <p class="muted">[[ selectedPoll.description || t('noDescription') ]]</p>
+              <p class="muted">[[ t('createdBy') ]]: [[ selectedPoll.creator.name ]]</p>
+            </div>
+            <div class="details-actions">
+              <button
+                type="button"
+                class="secondary"
+                @click="startEditingPoll"
+                v-if="selectedPoll.can_edit"
+              >
+                [[ t('editPoll') ]]
+              </button>
+              <button
+                type="button"
+                @click="closeSelectedPoll"
+                v-if="selectedPoll.can_close"
+              >
+                [[ t('closePoll') ]]
+              </button>
+              <button
+                type="button"
+                @click="reopenSelectedPoll"
+                v-if="selectedPoll.can_reopen"
+              >
+                [[ t('reopenPoll') ]]
+              </button>
+              <button
+                type="button"
+                class="danger"
+                @click="deleteSelectedPoll"
+                v-if="selectedPoll.can_delete"
+              >
+                [[ t('deletePoll') ]]
+              </button>
+            </div>
+          </header>
+
+          <section class="poll-edit" v-if="isEditingPoll && editForm && selectedPoll.can_edit">
+            <h3>[[ t('editPoll') ]]</h3>
+            <p class="muted">[[ t('editHelp') ]]</p>
+
+            <form @submit.prevent="submitPollEdit" novalidate>
+              <label for="edit-title">[[ t('title') ]]</label>
+              <input
+                id="edit-title"
+                type="text"
+                v-model.trim="editForm.title"
+                maxlength="160"
+                required
+                :class="{ 'input-invalid': hasFieldError('edit', 'title') }"
+                @input="handleFormFieldChange('title', 'edit')"
+              >
+              <p class="field-error" v-if="fieldError('edit', 'title')">[[ fieldError('edit', 'title') ]]</p>
+
+              <label for="edit-description">[[ t('description') ]]</label>
+              <textarea id="edit-description" v-model.trim="editForm.description" rows="3" maxlength="1200"></textarea>
+
+              <label for="edit-timezone">[[ t('timezone') ]]</label>
+              <input
+                id="edit-timezone"
+                type="text"
+                v-model.trim="editForm.timezone"
+                placeholder="Europe/Helsinki"
+                required
+                spellcheck="false"
+                :class="{ 'input-invalid': hasFieldError('edit', 'timezone') }"
+                @input="handleFormFieldChange('timezone', 'edit')"
+                @blur="handleFormFieldChange('timezone', 'edit')"
+              >
+              <p class="muted timezone-selected" v-if="editForm.timezone">
+                [[ t('timezoneSelected') ]]: [[ editTimezoneDisplay ]]
+              </p>
+              <p class="field-error" v-if="fieldError('edit', 'timezone')">[[ fieldError('edit', 'timezone') ]]</p>
+
+              <label for="edit-start-date">[[ t('startDate') ]]</label>
+              <input
+                id="edit-start-date"
+                type="date"
+                v-model="editForm.start_date"
+                required
+                :class="{ 'input-invalid': hasFieldError('edit', 'start_date') }"
+                @input="handleFormFieldChange('start_date', 'edit')"
+                @change="handleFormFieldChange('start_date', 'edit')"
+                @blur="handleFormFieldChange('start_date', 'edit')"
+              >
+              <p class="field-error" v-if="fieldError('edit', 'start_date')">[[ fieldError('edit', 'start_date') ]]</p>
+
+              <label for="edit-end-date">[[ t('endDate') ]]</label>
+              <input
+                id="edit-end-date"
+                type="date"
+                v-model="editForm.end_date"
+                required
+                :class="{ 'input-invalid': hasFieldError('edit', 'end_date') }"
+                @input="handleFormFieldChange('end_date', 'edit')"
+                @change="handleFormFieldChange('end_date', 'edit')"
+                @blur="handleFormFieldChange('end_date', 'edit')"
+              >
+              <p class="field-error" v-if="fieldError('edit', 'end_date')">[[ fieldError('edit', 'end_date') ]]</p>
+
+              <label for="edit-daily-start-hour">[[ t('dailyStartHour') ]]</label>
+              <select
+                id="edit-daily-start-hour"
+                v-model.number="editForm.daily_start_hour"
+                required
+                :class="{ 'input-invalid': hasFieldError('edit', 'daily_start_hour') }"
+                @change="handleFormFieldChange('daily_start_hour', 'edit')"
+              >
+                <option v-for="hour in startHourOptions" :key="`edit-start-${hour}`" :value="hour">
+                  [[ hourLabel(hour) ]]
+                </option>
+              </select>
+              <p class="field-error" v-if="fieldError('edit', 'daily_start_hour')">[[ fieldError('edit', 'daily_start_hour') ]]</p>
+
+              <label for="edit-daily-end-hour">[[ t('dailyEndHour') ]]</label>
+              <select
+                id="edit-daily-end-hour"
+                v-model.number="editForm.daily_end_hour"
+                required
+                :class="{ 'input-invalid': hasFieldError('edit', 'daily_end_hour') }"
+                @change="handleFormFieldChange('daily_end_hour', 'edit')"
+              >
+                <option v-for="hour in endHourOptions" :key="`edit-end-${hour}`" :value="hour">
+                  [[ hourLabel(hour) ]]
+                </option>
+              </select>
+              <p class="field-error" v-if="fieldError('edit', 'daily_end_hour')">[[ fieldError('edit', 'daily_end_hour') ]]</p>
+
+              <fieldset :class="{ 'field-invalid': hasFieldError('edit', 'allowed_weekdays') }">
+                <legend>[[ t('allowedWeekdays') ]]</legend>
+                <div class="weekday-grid">
+                  <label class="weekday-item" v-for="weekday in weekdayOptions" :key="`edit-${weekday.value}`">
+                    <input
+                      type="checkbox"
+                      :value="weekday.value"
+                      :checked="isWeekdaySelected(weekday.value, 'edit')"
+                      @change="toggleWeekday(weekday.value, 'edit'); handleFormFieldChange('allowed_weekdays', 'edit')"
+                    >
+                    <span>[[ weekday.label ]]</span>
+                  </label>
+                </div>
+              </fieldset>
+              <p class="field-error" v-if="fieldError('edit', 'allowed_weekdays')">[[ fieldError('edit', 'allowed_weekdays') ]]</p>
+
+              <div class="poll-edit-actions">
+                <button type="submit">[[ t('saveChanges') ]]</button>
+                <button type="button" class="secondary" @click="cancelEditingPoll">[[ t('cancelEdit') ]]</button>
+              </div>
+            </form>
+          </section>
+
+          <div class="calendar-timezone-switch">
+            <p class="calendar-timezone-label">[[ t('calendarTimezone') ]]</p>
+            <div class="calendar-timezone-mode-list" role="radiogroup" :aria-label="t('calendarTimezone')">
+              <label class="calendar-timezone-mode-item">
+                <input
+                  type="radio"
+                  name="calendar-timezone-mode"
+                  value="poll"
+                  v-model="calendarTimezoneMode"
+                >
+                <span class="calendar-timezone-mode-main">
+                  <span class="calendar-timezone-mode-title">[[ t('calendarTimezonePoll') ]]</span>
+                  <span class="calendar-timezone-mode-meta">[[ timezoneDisplay(pollCalendarTimezone) ]]</span>
+                </span>
+              </label>
+
+              <label class="calendar-timezone-mode-item" v-if="showBrowserTimezoneOption">
+                <input
+                  type="radio"
+                  name="calendar-timezone-mode"
+                  value="browser"
+                  v-model="calendarTimezoneMode"
+                >
+                <span class="calendar-timezone-mode-main">
+                  <span class="calendar-timezone-mode-title">[[ t('calendarTimezoneBrowser') ]]</span>
+                  <span class="calendar-timezone-mode-meta">[[ timezoneDisplay(browserCalendarTimezone) ]]</span>
+                </span>
+              </label>
+
+              <label class="calendar-timezone-mode-item calendar-timezone-mode-item-custom">
+                <input
+                  type="radio"
+                  name="calendar-timezone-mode"
+                  value="custom"
+                  v-model="calendarTimezoneMode"
+                >
+                <span class="calendar-timezone-mode-main">
+                  <span class="calendar-timezone-mode-title">[[ t('calendarTimezoneOwn') ]]</span>
+                  <span class="calendar-timezone-mode-meta" v-if="customCalendarTimezoneDisplay">
+                    [[ customCalendarTimezoneDisplay ]]
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div class="timezone-picker" v-if="calendarTimezoneMode === 'custom'">
+              <input
+                id="calendar-timezone"
+                type="text"
+                v-model.trim="calendarCustomTimezone"
+                @focus="openCalendarTimezoneSuggestions"
+                @click="openCalendarTimezoneSuggestions"
+                @input="handleCalendarTimezoneInput"
+                @blur="handleCalendarTimezoneBlur"
+                placeholder="Europe/Helsinki"
+                spellcheck="false"
+                autocomplete="off"
+              >
+              <ul
+                v-if="showCalendarTimezoneSuggestions && filteredCalendarTimezoneOptions.length"
+                class="timezone-suggestions"
+                role="listbox"
+                aria-label="Timezone suggestions"
+              >
+                <li v-for="tz in filteredCalendarTimezoneOptions" :key="`calendar-tz-${tz.id}`">
+                  <button
+                    type="button"
+                    class="timezone-suggestion"
+                    @mousedown.prevent="selectCalendarTimezone(tz.id)"
+                  >
+                    <span class="timezone-suggestion-name">[[ tz.id ]]</span>
+                    <span class="timezone-suggestion-meta" v-if="tz.meta">[[ tz.meta ]]</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          <div class="calendar-vote-mode-switch">
+            <p class="calendar-vote-mode-label">[[ t('voteDisplayMode') ]]</p>
+            <div class="calendar-vote-mode-list" role="radiogroup" :aria-label="t('voteDisplayMode')">
+              <label class="calendar-vote-mode-item">
+                <input
+                  type="radio"
+                  name="calendar-vote-mode"
+                  value="own"
+                  v-model="voteDisplayMode"
+                >
+                <span class="calendar-vote-mode-main">[[ t('voteDisplayModeOwn') ]]</span>
+              </label>
+              <label class="calendar-vote-mode-item">
+                <input
+                  type="radio"
+                  name="calendar-vote-mode"
+                  value="results"
+                  v-model="voteDisplayMode"
+                >
+                <span class="calendar-vote-mode-main">[[ t('voteDisplayModeResults') ]]</span>
+              </label>
+            </div>
+          </div>
+          <div class="calendar-yes-filter">
+            <label for="min-yes-filter" class="calendar-yes-filter-label">
+              [[ t('minYesVotesFilter') ]]: [[ minYesVotesFilter ]]
+            </label>
+            <input
+              id="min-yes-filter"
+              class="yes-filter-range"
+              type="range"
+              min="0"
+              :max="maxYesVotesInPoll"
+              step="1"
+              v-model.number="minYesVotesFilter"
+              :disabled="maxYesVotesInPoll <= 0"
+            >
+            <p class="calendar-yes-filter-meta muted">0 - [[ maxYesVotesInPoll ]]</p>
+          </div>
+
+          <div class="calendar-stack" v-if="calendarWeeks.length">
+            <section class="calendar-week" v-for="week in calendarWeeks" :key="week.key">
+              <div class="calendar-week-toolbar">
+                <h3 class="calendar-week-title">[[ week.title ]]</h3>
+                <div class="calendar-nav" v-if="week.days.length > visibleDayCountForWeek(week)">
+                  <button
+                    type="button"
+                    class="calendar-nav-btn secondary"
+                    @click="shiftWeekDays(week, -1)"
+                    :disabled="!canShiftWeekDays(week, -1)"
+                    :aria-label="t('prevDays')"
+                  >
+                    ‹
+                  </button>
+                  <span class="calendar-nav-range">[[ visibleRangeLabel(week) ]]</span>
+                  <button
+                    type="button"
+                    class="calendar-nav-btn secondary"
+                    @click="shiftWeekDays(week, 1)"
+                    :disabled="!canShiftWeekDays(week, 1)"
+                    :aria-label="t('nextDays')"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="calendar-table">
+                  <caption class="sr-only">[[ t('availabilityTable') ]]</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" class="calendar-time-col">[[ t('timeColumn') ]]</th>
+                      <th
+                        scope="col"
+                        class="calendar-day-col"
+                        :class="{ 'menu-open': isBulkMenuOpen('column', week.key, day.key) }"
+                        v-for="day in visibleDaysForWeek(week)"
+                        :key="`head-${week.key}-${day.key}`"
+                      >
+                        <div class="bulk-header-wrap" @click.stop>
+                          <button
+                            v-if="canVoteInPoll"
+                            type="button"
+                            class="bulk-trigger bulk-day-trigger"
+                            @click="toggleBulkMenu('column', week.key, day.key)"
+                            :aria-expanded="isBulkMenuOpen('column', week.key, day.key) ? 'true' : 'false'"
+                          >
+                            <span class="calendar-day-short">[[ day.label ]]</span>
+                            <span class="calendar-day-long">[[ day.longLabel ]]</span>
+                          </button>
+                          <div v-else class="bulk-static-label">
+                            <span class="calendar-day-short">[[ day.label ]]</span>
+                            <span class="calendar-day-long">[[ day.longLabel ]]</span>
+                          </div>
+                          <div
+                            v-if="canVoteInPoll && isBulkMenuOpen('column', week.key, day.key)"
+                            class="bulk-menu"
+                            role="menu"
+                            :aria-label="day.longLabel"
+                          >
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, '')">[[ t('noVote') ]]</button>
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, 'yes')">[[ t('voteYes') ]]</button>
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, 'no')">[[ t('voteNo') ]]</button>
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, 'maybe')">[[ t('voteMaybe') ]]</button>
+                          </div>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in filteredRowsForWeek(week)" :key="row.key">
+                      <th
+                        scope="row"
+                        class="calendar-time-row"
+                        :class="{ 'menu-open': isBulkMenuOpen('row', week.key, row.timeKey) }"
+                      >
+                        <div class="bulk-header-wrap" @click.stop>
+                          <button
+                            v-if="canVoteInPoll"
+                            type="button"
+                            class="bulk-trigger bulk-time-trigger"
+                            @click="toggleBulkMenu('row', week.key, row.timeKey)"
+                            :aria-expanded="isBulkMenuOpen('row', week.key, row.timeKey) ? 'true' : 'false'"
+                          >
+                            [[ row.timeKey ]]
+                          </button>
+                          <span v-else class="bulk-static-label bulk-time-label">[[ row.timeKey ]]</span>
+                          <div
+                            v-if="canVoteInPoll && isBulkMenuOpen('row', week.key, row.timeKey)"
+                            class="bulk-menu"
+                            role="menu"
+                            :aria-label="`${t('timeColumn')} ${row.timeKey}`"
+                          >
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, '')">[[ t('noVote') ]]</button>
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, 'yes')">[[ t('voteYes') ]]</button>
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, 'no')">[[ t('voteNo') ]]</button>
+                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, 'maybe')">[[ t('voteMaybe') ]]</button>
+                          </div>
+                        </div>
+                      </th>
+                      <td
+                        class="calendar-cell"
+                        v-for="day in visibleDaysForWeek(week)"
+                        :key="`cell-${row.key}-${day.key}`"
+                      >
+                        <div
+                          v-if="row.cells[day.key]"
+                          class="vote-cell"
+                          :class="voteCellClass(row.cells[day.key])"
+                        >
+                          <div class="vote-menu-wrapper" @click.stop>
+                            <button
+                              v-if="canVoteInPoll"
+                              type="button"
+                              class="vote-inline-btn"
+                              @click="toggleVoteMenu(row.cells[day.key].id)"
+                              :disabled="isVoteSaving(row.cells[day.key].id)"
+                              :aria-label="`${day.longLabel} ${row.timeKey}`"
+                              :aria-expanded="editingVoteOptionId === row.cells[day.key].id ? 'true' : 'false'"
+                            >
+                              <span class="vote-inline-label">
+                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }">
+                                  [[ t('voteYes') ]]: [[ optionCount(row.cells[day.key], 'yes') ]]
+                                </span>
+                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
+                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }">
+                                  [[ t('voteMaybe') ]]: [[ optionCount(row.cells[day.key], 'maybe') ]]
+                                </span>
+                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
+                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'no') }">
+                                  [[ t('voteNo') ]]: [[ optionCount(row.cells[day.key], 'no') ]]
+                                </span>
+                              </span>
+                              <span class="sr-only">[[ day.longLabel ]] [[ row.timeKey ]]</span>
+                            </button>
+                            <span v-else class="vote-inline-text">
+                              <span class="vote-inline-label">
+                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }">
+                                  [[ t('voteYes') ]]: [[ optionCount(row.cells[day.key], 'yes') ]]
+                                </span>
+                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
+                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }">
+                                  [[ t('voteMaybe') ]]: [[ optionCount(row.cells[day.key], 'maybe') ]]
+                                </span>
+                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
+                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'no') }">
+                                  [[ t('voteNo') ]]: [[ optionCount(row.cells[day.key], 'no') ]]
+                                </span>
+                              </span>
+                              <span class="sr-only">[[ day.longLabel ]] [[ row.timeKey ]]</span>
+                            </span>
+                            <div
+                              v-if="canVoteInPoll && editingVoteOptionId === row.cells[day.key].id"
+                              class="vote-menu"
+                              role="menu"
+                              :aria-label="`${day.longLabel} ${row.timeKey}`"
+                            >
+                              <button
+                                type="button"
+                                class="vote-menu-item"
+                                :disabled="isVoteSaving(row.cells[day.key].id)"
+                                @click="chooseVote(row.cells[day.key].id, '')"
+                              >
+                                [[ voteMenuLabel(row.cells[day.key], '') ]]
+                              </button>
+                              <button
+                                type="button"
+                                class="vote-menu-item"
+                                :disabled="isVoteSaving(row.cells[day.key].id)"
+                                @click="chooseVote(row.cells[day.key].id, 'yes')"
+                              >
+                                [[ voteMenuLabel(row.cells[day.key], 'yes') ]]
+                              </button>
+                              <button
+                                type="button"
+                                class="vote-menu-item"
+                                :disabled="isVoteSaving(row.cells[day.key].id)"
+                                @click="chooseVote(row.cells[day.key].id, 'no')"
+                              >
+                                [[ voteMenuLabel(row.cells[day.key], 'no') ]]
+                              </button>
+                              <button
+                                type="button"
+                                class="vote-menu-item"
+                                :disabled="isVoteSaving(row.cells[day.key].id)"
+                                @click="chooseVote(row.cells[day.key].id, 'maybe')"
+                              >
+                                [[ voteMenuLabel(row.cells[day.key], 'maybe') ]]
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="vote-cell vote-unavailable">-</div>
+                      </td>
+                    </tr>
+                    <tr v-if="!filteredRowsForWeek(week).length">
+                      <td class="calendar-empty-row muted" :colspan="visibleDaysForWeek(week).length + 1">
+                        [[ t('noRowsMatchFilter') ]]
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+          <p class="muted" v-else>[[ t('noSlots') ]]</p>
+
+          <div class="details-footer" v-if="!session.authenticated && canVoteInPoll">
+            <p class="muted">[[ t('authNeeded') ]]</p>
+          </div>
+        </template>
+        <div class="empty-state" v-else>
+          <p class="muted">[[ t('noSelectedPoll') ]]</p>
+          <button type="button" class="secondary" @click="setActiveSection('list')">[[ t('polls') ]]</button>
+        </div>
+      </section>
+    </section>
+
+    <div class="dialog-backdrop" v-if="showAuthDialog" @click="showAuthDialog = false"></div>
+    <section class="auth-dialog" v-if="showAuthDialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <h2 id="auth-title">[[ t('login') ]]</h2>
+      <p class="muted">[[ t('authPrompt') ]]</p>
+
+      <form @submit.prevent="submitAuth">
+        <label for="auth-name">[[ t('name') ]]</label>
+        <input id="auth-name" type="text" v-model.trim="authForm.name" maxlength="80" required>
+
+        <label for="auth-pin">[[ t('pin') ]]</label>
+        <input id="auth-pin" type="password" inputmode="numeric" v-model.trim="authForm.pin" minlength="4" maxlength="12" required>
+
+        <div class="auth-buttons">
+          <button type="submit">[[ t('login') ]]</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
