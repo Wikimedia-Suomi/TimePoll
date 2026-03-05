@@ -642,19 +642,18 @@
           </div>
           <div class="calendar-yes-filter">
             <label for="min-yes-filter" class="calendar-yes-filter-label">
-              [[ t('minYesVotesFilter') ]]: [[ minYesVotesFilter ]]
+              [[ t('minYesVotesFilter') ]]
             </label>
-            <input
+            <select
               id="min-yes-filter"
-              class="yes-filter-range"
-              type="range"
-              min="0"
-              :max="maxYesVotesInPoll"
-              step="1"
+              class="yes-filter-select"
               v-model.number="minYesVotesFilter"
               :disabled="maxYesVotesInPoll <= 0"
             >
-            <p class="calendar-yes-filter-meta muted">0 - [[ maxYesVotesInPoll ]]</p>
+              <option v-for="value in yesVotesFilterOptions" :key="`min-yes-${value}`" :value="value">
+                [[ value ]]
+              </option>
+            </select>
           </div>
 
           <div class="calendar-stack" v-if="calendarWeeks.length">
@@ -768,83 +767,48 @@
                           :class="voteCellClass(row.cells[day.key])"
                         >
                           <div class="vote-menu-wrapper" @click.stop>
-                            <button
-                              v-if="canVoteInPoll"
-                              type="button"
-                              class="vote-inline-btn"
-                              @click="toggleVoteMenu(row.cells[day.key].id)"
-                              :disabled="isVoteSaving(row.cells[day.key].id)"
-                              :aria-label="`${day.longLabel} ${row.timeKey}`"
-                              :aria-expanded="editingVoteOptionId === row.cells[day.key].id ? 'true' : 'false'"
-                            >
-                              <span class="vote-inline-label">
-                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }">
-                                  [[ t('voteYes') ]]: [[ optionCount(row.cells[day.key], 'yes') ]]
-                                </span>
-                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
-                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }">
-                                  [[ t('voteMaybe') ]]: [[ optionCount(row.cells[day.key], 'maybe') ]]
-                                </span>
-                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
-                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'no') }">
-                                  [[ t('voteNo') ]]: [[ optionCount(row.cells[day.key], 'no') ]]
-                                </span>
-                              </span>
-                              <span class="sr-only">[[ day.longLabel ]] [[ row.timeKey ]]</span>
-                            </button>
-                            <span v-else class="vote-inline-text">
-                              <span class="vote-inline-label">
-                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }">
-                                  [[ t('voteYes') ]]: [[ optionCount(row.cells[day.key], 'yes') ]]
-                                </span>
-                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
-                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }">
-                                  [[ t('voteMaybe') ]]: [[ optionCount(row.cells[day.key], 'maybe') ]]
-                                </span>
-                                <span class="vote-inline-separator" aria-hidden="true"> · </span>
-                                <span class="vote-inline-value" :class="{ 'vote-inline-value-selected': isSelectedVoteValue(row.cells[day.key], 'no') }">
-                                  [[ t('voteNo') ]]: [[ optionCount(row.cells[day.key], 'no') ]]
-                                </span>
-                              </span>
-                              <span class="sr-only">[[ day.longLabel ]] [[ row.timeKey ]]</span>
-                            </span>
                             <div
-                              v-if="canVoteInPoll && editingVoteOptionId === row.cells[day.key].id"
-                              class="vote-menu"
-                              role="menu"
+                              class="vote-switch"
+                              role="radiogroup"
                               :aria-label="`${day.longLabel} ${row.timeKey}`"
+                              :class="`state-${voteSwitchState(row.cells[day.key])}`"
                             >
+                              <span class="vote-switch-thumb" aria-hidden="true"></span>
                               <button
                                 type="button"
-                                class="vote-menu-item"
-                                :disabled="isVoteSaving(row.cells[day.key].id)"
-                                @click="chooseVote(row.cells[day.key].id, '')"
+                                role="radio"
+                                :aria-checked="isSelectedVoteValue(row.cells[day.key], 'yes') ? 'true' : 'false'"
+                                class="vote-switch-option vote-switch-option-yes"
+                                :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }"
+                                :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                @click="setVoteStatus(row.cells[day.key], 'yes')"
                               >
-                                [[ voteMenuLabel(row.cells[day.key], '') ]]
+                                <span class="vote-switch-label">[[ t('voteYes') ]]</span>
+                                <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'yes') ]]</span>
                               </button>
                               <button
                                 type="button"
-                                class="vote-menu-item"
-                                :disabled="isVoteSaving(row.cells[day.key].id)"
-                                @click="chooseVote(row.cells[day.key].id, 'yes')"
+                                role="radio"
+                                :aria-checked="isSelectedVoteValue(row.cells[day.key], 'maybe') ? 'true' : 'false'"
+                                class="vote-switch-option vote-switch-option-maybe"
+                                :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }"
+                                :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                @click="setVoteStatus(row.cells[day.key], 'maybe')"
                               >
-                                [[ voteMenuLabel(row.cells[day.key], 'yes') ]]
+                                <span class="vote-switch-label">[[ t('voteMaybe') ]]</span>
+                                <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'maybe') ]]</span>
                               </button>
                               <button
                                 type="button"
-                                class="vote-menu-item"
-                                :disabled="isVoteSaving(row.cells[day.key].id)"
-                                @click="chooseVote(row.cells[day.key].id, 'no')"
+                                role="radio"
+                                :aria-checked="isSelectedVoteValue(row.cells[day.key], 'no') ? 'true' : 'false'"
+                                class="vote-switch-option vote-switch-option-no"
+                                :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'no') }"
+                                :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                @click="setVoteStatus(row.cells[day.key], 'no')"
                               >
-                                [[ voteMenuLabel(row.cells[day.key], 'no') ]]
-                              </button>
-                              <button
-                                type="button"
-                                class="vote-menu-item"
-                                :disabled="isVoteSaving(row.cells[day.key].id)"
-                                @click="chooseVote(row.cells[day.key].id, 'maybe')"
-                              >
-                                [[ voteMenuLabel(row.cells[day.key], 'maybe') ]]
+                                <span class="vote-switch-label">[[ t('voteNo') ]]</span>
+                                <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'no') ]]</span>
                               </button>
                             </div>
                           </div>

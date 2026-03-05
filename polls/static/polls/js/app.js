@@ -27,8 +27,8 @@
       voteDisplayMode: "Answer view",
       voteDisplayModeResults: "Result mode",
       voteDisplayModeOwn: "Own answers",
-      minYesVotesFilter: "Show rows with at least this many Yes votes",
-      noRowsMatchFilter: "No rows match the current Yes filter.",
+      minYesVotesFilter: "Show options with at least this many Yes votes",
+      noRowsMatchFilter: "No options match the current Yes filter.",
       timezoneHelp: "Start typing to filter IANA timezones, for example Europe/Helsinki or UTC.",
       timezoneSelected: "Selected timezone",
       validationRequired: "{field} is required.",
@@ -158,8 +158,8 @@
       voteDisplayMode: "Vastausnäkymä",
       voteDisplayModeResults: "Tulostila",
       voteDisplayModeOwn: "Omat vastaukset",
-      minYesVotesFilter: "Näytä rivit, joissa vähintään näin monta Kyllä-ääntä",
-      noRowsMatchFilter: "Yksikään rivi ei täytä nykyistä Kyllä-suodatinta.",
+      minYesVotesFilter: "Näytä valinnat, joissa vähintään näin monta Kyllä-ääntä",
+      noRowsMatchFilter: "Yksikään valinta ei täytä nykyistä Kyllä-suodatinta.",
       timezoneHelp: "Ala kirjoittaa suodattaaksesi IANA-aikavyöhykkeitä, esimerkiksi Europe/Helsinki tai UTC.",
       timezoneSelected: "Valittu aikavyöhyke",
       validationRequired: "{field} on pakollinen.",
@@ -289,8 +289,8 @@
       voteDisplayMode: "Svarsvy",
       voteDisplayModeResults: "Resultatläge",
       voteDisplayModeOwn: "Egna svar",
-      minYesVotesFilter: "Visa rader med minst så här många Ja-röster",
-      noRowsMatchFilter: "Inga rader matchar det aktuella Ja-filtret.",
+      minYesVotesFilter: "Visa alternativ med minst så här många Ja-röster",
+      noRowsMatchFilter: "Inga alternativ matchar det aktuella Ja-filtret.",
       timezoneHelp: "Börja skriva för att filtrera IANA-tidszoner, till exempel Europe/Helsinki eller UTC.",
       timezoneSelected: "Vald tidszon",
       validationRequired: "{field} är obligatoriskt.",
@@ -420,8 +420,8 @@
       voteDisplayMode: "Svarvisning",
       voteDisplayModeResults: "Resultatmodus",
       voteDisplayModeOwn: "Egne svar",
-      minYesVotesFilter: "Vis rader med minst så mange Ja-stemmer",
-      noRowsMatchFilter: "Ingen rader samsvarer med gjeldende Ja-filter.",
+      minYesVotesFilter: "Vis alternativer med minst så mange Ja-stemmer",
+      noRowsMatchFilter: "Ingen alternativer samsvarer med gjeldende Ja-filter.",
       timezoneHelp: "Begynn å skrive for å filtrere IANA-tidssoner, for eksempel Europe/Helsinki eller UTC.",
       timezoneSelected: "Valgt tidssone",
       validationRequired: "{field} er obligatorisk.",
@@ -551,8 +551,8 @@
       voteDisplayMode: "Vastuste vaade",
       voteDisplayModeResults: "Tulemuste vaade",
       voteDisplayModeOwn: "Minu vastused",
-      minYesVotesFilter: "Näita ridu, kus on vähemalt nii palju Jah-hääli",
-      noRowsMatchFilter: "Ükski rida ei vasta praegusele Jah-filtrile.",
+      minYesVotesFilter: "Näita valikuid, kus on vähemalt nii palju Jah-hääli",
+      noRowsMatchFilter: "Ükski valik ei vasta praegusele Jah-filtrile.",
       timezoneHelp: "IANA ajavööndite filtreerimiseks hakka kirjutama, näiteks Europe/Helsinki või UTC.",
       timezoneSelected: "Valitud ajavöönd",
       validationRequired: "{field} on kohustuslik.",
@@ -1104,7 +1104,6 @@
           pendingAction: null,
           errorMessage: "",
           successMessage: "",
-          editingVoteOptionId: null,
           bulkMenu: null,
           visibleDayCount: detectInitialVisibleDayCount(),
           dayOffsetsByWeek: {},
@@ -1140,6 +1139,12 @@
             }
           }
           return maxVotes;
+        },
+        yesVotesFilterOptions() {
+          const maxVotes = Number.isInteger(this.maxYesVotesInPoll) && this.maxYesVotesInPoll > 0
+            ? this.maxYesVotesInPoll
+            : 0;
+          return Array.from({ length: maxVotes + 1 }, (_, index) => index);
         },
         startHourOptions() {
           return Array.from({ length: 24 }, (_, index) => index);
@@ -1942,20 +1947,20 @@
           }
           return this.t("noVote");
         },
-        voteMenuLabel(option, status) {
-          if (!status) {
-            return this.t("noVote");
-          }
-          return `${this.voteStatusLabel(status)} (${this.optionCount(option, status)})`;
-        },
         isVoteStatus(status) {
           return status === "yes" || status === "no" || status === "maybe";
         },
         isVoteSaving(optionId) {
           return Boolean(this.savingVoteOptionIds[optionId]);
         },
+        voteSwitchState(option) {
+          const selected = this.voteValueForOption(option);
+          if (selected === "yes" || selected === "maybe" || selected === "no") {
+            return selected;
+          }
+          return "none";
+        },
         closeVoteMenus() {
-          this.editingVoteOptionId = null;
           this.bulkMenu = null;
         },
         updateVisibleDayCount() {
@@ -1996,18 +2001,11 @@
           const count = this.visibleDayCountForWeek(week);
           return week.days.slice(start, start + count);
         },
-        rowMaxYesVotes(row) {
-          if (!row || !row.cells || typeof row.cells !== "object") {
-            return 0;
+        optionMatchesYesFilter(option, minYesVotes) {
+          if (!option || typeof option !== "object") {
+            return false;
           }
-          let maxVotes = 0;
-          for (const option of Object.values(row.cells)) {
-            const yesCount = this.optionCount(option, "yes");
-            if (yesCount > maxVotes) {
-              maxVotes = yesCount;
-            }
-          }
-          return maxVotes;
+          return this.optionCount(option, "yes") >= minYesVotes;
         },
         filteredRowsForWeek(week) {
           if (!week || !Array.isArray(week.rows)) {
@@ -2017,7 +2015,25 @@
           if (minYesVotes <= 0) {
             return week.rows;
           }
-          return week.rows.filter((row) => this.rowMaxYesVotes(row) >= minYesVotes);
+          const filteredRows = [];
+          for (const row of week.rows) {
+            if (!row || !row.cells || typeof row.cells !== "object") {
+              continue;
+            }
+            const filteredCells = {};
+            for (const [dayKey, option] of Object.entries(row.cells)) {
+              if (this.optionMatchesYesFilter(option, minYesVotes)) {
+                filteredCells[dayKey] = option;
+              }
+            }
+            if (Object.keys(filteredCells).length > 0) {
+              filteredRows.push({
+                ...row,
+                cells: filteredCells
+              });
+            }
+          }
+          return filteredRows;
         },
         visibleRangeLabel(week) {
           if (!week || !Array.isArray(week.days) || week.days.length === 0) {
@@ -2082,15 +2098,15 @@
             return;
           }
           const isOpen = this.isBulkMenuOpen(type, weekKey, key);
-          this.editingVoteOptionId = null;
           this.bulkMenu = isOpen ? null : { type, weekKey, key };
         },
         collectDayOptionIds(week, dayKey) {
-          if (!week || !Array.isArray(week.rows)) {
+          const rows = this.filteredRowsForWeek(week);
+          if (!Array.isArray(rows)) {
             return [];
           }
           const optionIds = [];
-          for (const row of week.rows) {
+          for (const row of rows) {
             const option = row && row.cells ? row.cells[dayKey] : null;
             if (option && Number.isInteger(option.id)) {
               optionIds.push(option.id);
@@ -2121,20 +2137,20 @@
           const visibleDayKeys = this.visibleDaysForWeek(week).map((day) => day.key);
           await this.applyVotes(this.collectRowOptionIds(row, visibleDayKeys), status);
         },
-        toggleVoteMenu(optionId) {
-          if (!this.canVoteInPoll || this.isVoteSaving(optionId)) {
+        async setVoteStatus(option, status) {
+          if (!option || !Number.isInteger(option.id)) {
             return;
           }
-          if (!this.session.authenticated) {
-            this.openAuthDialog();
+          if (!this.isVoteStatus(status)) {
             return;
           }
-          this.bulkMenu = null;
-          this.editingVoteOptionId = this.editingVoteOptionId === optionId ? null : optionId;
-        },
-        async chooseVote(optionId, status) {
+          if (!this.canVoteInPoll || this.isVoteSaving(option.id)) {
+            return;
+          }
+          const currentStatus = this.voteValueForOption(option);
+          const nextStatus = currentStatus === status ? "" : status;
           this.closeVoteMenus();
-          await this.applyVotes([optionId], status);
+          await this.applyVotes([option.id], nextStatus);
         },
         async applyVotes(optionIds, status) {
           if (!this.selectedPoll || this.selectedPoll.is_closed) {
