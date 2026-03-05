@@ -36,10 +36,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Load local development environment variables:
+3. Set required environment variables:
 
 ```bash
-source ./local-dev-env.sh
+export TIMEPOLL_SECRET_KEY='dev-only-secret-change-me'
+export TIMEPOLL_DEBUG='1'
+export TIMEPOLL_ALLOWED_HOSTS='127.0.0.1,localhost'
 ```
 
 4. Run migrations:
@@ -61,12 +63,31 @@ python manage.py runserver
 ## Tests
 
 ```bash
-source ./local-dev-env.sh
 python manage.py test
 ```
+
+## CI merge gates
+
+This repository includes GitHub Actions checks in `.github/workflows/ci.yml`:
+
+- `ruff check .`
+- `mypy polls timepoll manage.py --ignore-missing-imports --exclude "polls/migrations/.*"`
+- `bandit -r polls timepoll manage.py -x polls/migrations`
+- `pip-audit --requirement requirements.txt`
+- `python manage.py test`
+
+To enforce these checks as merge gates in GitHub:
+
+1. Enable branch protection on your default branch.
+2. Enable `Require a pull request before merging`.
+3. Enable `Require review from Code Owners`.
+4. Enable `Require status checks to pass before merging` and select `CI / quality`.
 
 ## Notes
 
 - Vue app code is in Django static files.
 - Vue runtime is loaded from Wikimedia CDN: `https://tools-static.wmflabs.org/cdnjs/...`.
-- `local-dev-env.sh` creates/loads local env vars needed by settings (`TIMEPOLL_SECRET_KEY`, `TIMEPOLL_DEBUG`, `TIMEPOLL_ALLOWED_HOSTS`).
+- Required environment variables:
+  - `TIMEPOLL_SECRET_KEY`: non-empty secret string
+  - `TIMEPOLL_DEBUG`: boolean-like string (`1/0`, `true/false`, `yes/no`, `on/off`)
+  - `TIMEPOLL_ALLOWED_HOSTS`: comma-separated hostnames (for example `127.0.0.1,localhost`)

@@ -633,8 +633,8 @@ def polls_collection(request: HttpRequest) -> JsonResponse:
             .prefetch_related("options__votes")
             .all()
         )
-        payload = [serialize_poll_summary(poll, current_identity) for poll in polls]
-        return JsonResponse({"polls": payload})
+        polls_payload = [serialize_poll_summary(poll, current_identity) for poll in polls]
+        return JsonResponse({"polls": polls_payload})
 
     if current_identity is None:
         return JsonResponse(
@@ -643,8 +643,8 @@ def polls_collection(request: HttpRequest) -> JsonResponse:
         )
 
     try:
-        payload = parse_json_body(request)
-        schedule = parse_poll_payload(payload)
+        request_payload = parse_json_body(request)
+        schedule = parse_poll_payload(request_payload)
         parsed_options = generate_poll_options(schedule)
         tz = ZoneInfo(schedule["timezone_name"])
         window_starts_at = datetime.combine(schedule["start_date"], time.min, tzinfo=tz)

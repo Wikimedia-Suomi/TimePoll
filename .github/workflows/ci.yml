@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      TIMEPOLL_SECRET_KEY: ci-timepoll-secret-key
+      TIMEPOLL_DEBUG: "0"
+      TIMEPOLL_ALLOWED_HOSTS: 127.0.0.1,localhost,testserver
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install CI tooling
+        run: |
+          pip install ruff mypy bandit pip-audit
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: MyPy
+        run: mypy polls timepoll manage.py --ignore-missing-imports --exclude "polls/migrations/.*"
+
+      - name: Bandit
+        run: bandit -r polls timepoll manage.py -x polls/migrations
+
+      - name: pip-audit
+        run: pip-audit --requirement requirements.txt
+
+      - name: Django tests
+        run: python manage.py test

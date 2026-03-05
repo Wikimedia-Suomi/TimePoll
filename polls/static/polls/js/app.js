@@ -1908,16 +1908,12 @@
           }
           const yesCount = this.optionCount(option, "yes");
           const noCount = this.optionCount(option, "no");
-          const maybeCount = this.optionCount(option, "maybe");
 
           if (yesCount > noCount) {
             return "vote-yes";
           }
           if (yesCount < noCount) {
             return "vote-no";
-          }
-          if ((yesCount === noCount && yesCount > 0) || (yesCount === 0 && noCount === 0 && maybeCount > 0)) {
-            return "vote-maybe";
           }
           return "vote-none";
         },
@@ -2127,6 +2123,10 @@
         },
         toggleVoteMenu(optionId) {
           if (!this.canVoteInPoll || this.isVoteSaving(optionId)) {
+            return;
+          }
+          if (!this.session.authenticated) {
+            this.openAuthDialog();
             return;
           }
           this.bulkMenu = null;
@@ -2574,7 +2574,6 @@
         async openProfile() {
           if (!this.session.authenticated) {
             this.openAuthDialog();
-            this.setError(this.t("authNeeded"));
             return;
           }
           this.setActiveSection("profile");
@@ -2600,7 +2599,6 @@
         async deleteOwnData() {
           if (!this.session.authenticated) {
             this.openAuthDialog();
-            this.setError(this.t("authNeeded"));
             return;
           }
           if (!window.confirm(this.t("profileDeleteConfirm"))) {
@@ -2700,7 +2698,6 @@
           }
           this.pendingAction = action;
           this.openAuthDialog();
-          this.setError(this.t("authNeeded"));
           return Promise.resolve();
         },
         async fetchSession() {

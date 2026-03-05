@@ -1,0 +1,3 @@
+# Security-sensitive server-side paths.
+# Replace @zache-fi with your GitHub username/team if needed.
+/timepoll/settings.py @zache-fi
