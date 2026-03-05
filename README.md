@@ -1,4 +1,4 @@
-# TimePoll2
+# TimePoll
 
 Django + Vue.js polling app (Doodle-style) with multilingual UI (`en`, `fi`, `sv`, `no`, `et`).
 
