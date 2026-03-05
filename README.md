@@ -1,6 +1,6 @@
 # TimePoll
 
-Django + Vue.js polling app (Doodle-style) with multilingual UI (`en`, `fi`, `sv`, `no`, `et`).
+Django + Vue.js polling app for scheduling meetings with multilingual UI (`en`, `fi`, `sv`, `no`, `et`).
 
 ## Requirements
 
