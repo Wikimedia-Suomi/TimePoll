@@ -854,46 +854,26 @@ td {
   width: 100%;
   min-height: 100%;
   height: 100%;
-  border: 1px solid rgba(25, 33, 31, 0.22);
+  border: none;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.5);
+  background: transparent;
   overflow: hidden;
 }
 
 .vote-switch-thumb {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 2px;
-  width: calc((100% - 4px) / 3);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid transparent;
-  box-shadow: 0 1px 3px rgba(17, 29, 27, 0.18);
-  transform: translateX(0);
-  opacity: 0;
-  transition: transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, opacity 0.12s ease;
+  display: none;
 }
 
 .vote-switch.state-yes .vote-switch-thumb {
-  transform: translateX(0);
-  opacity: 1;
-  background: #c9f0d8;
-  border-color: #4b9a6b;
+  display: none;
 }
 
 .vote-switch.state-maybe .vote-switch-thumb {
-  transform: translateX(100%);
-  opacity: 1;
-  background: #ffeeb6;
-  border-color: #c39c2f;
+  display: none;
 }
 
 .vote-switch.state-no .vote-switch-thumb {
-  transform: translateX(200%);
-  opacity: 1;
-  background: #ffd8d3;
-  border-color: #bd5f54;
+  display: none;
 }
 
 .vote-switch-option {
@@ -906,25 +886,35 @@ td {
   gap: 0.08rem;
   width: 100%;
   min-height: 100%;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 0;
   margin: 0;
   padding: 0.16rem 0.1rem;
   background: transparent;
-  color: #1f2a28;
+  color: #22302c;
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   line-height: 1.1;
-  font-weight: 600;
+  font-weight: 500;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-.vote-switch-option:not(:last-child) {
-  border-right: 1px solid rgba(25, 33, 31, 0.12);
+.vote-switch-option:not(:disabled) {
+  cursor: pointer;
 }
 
-.vote-switch-option:hover,
-.vote-switch-option:focus-visible {
+.vote-switch-option:not(:disabled):not(.is-selected):hover {
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.vote-switch-option:not(:disabled).is-selected:hover {
   background: rgba(255, 255, 255, 0.28);
+}
+
+.vote-switch-option:focus-visible {
+  background: rgba(255, 255, 255, 0.34);
+  outline: 2px solid rgba(11, 114, 133, 0.22);
+  outline-offset: -2px;
 }
 
 .vote-switch-option:disabled {
@@ -933,7 +923,26 @@ td {
 }
 
 .vote-switch-option.is-selected {
+  color: #13201c;
   font-weight: 700;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px #adbcb7;
+}
+
+.vote-cell.vote-yes .vote-switch-option.is-selected {
+  box-shadow: inset 0 0 0 1px #99d3ae;
+}
+
+.vote-cell.vote-no .vote-switch-option.is-selected {
+  box-shadow: inset 0 0 0 1px #e6a9a1;
+}
+
+.vote-cell.vote-maybe .vote-switch-option.is-selected {
+  box-shadow: inset 0 0 0 1px #e4ce77;
+}
+
+.vote-cell.vote-none .vote-switch-option.is-selected {
+  box-shadow: inset 0 0 0 1px #adbcb7;
 }
 
 .vote-switch-label {
@@ -947,7 +956,7 @@ td {
 .vote-switch-count {
   display: block;
   width: 100%;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   line-height: 1;
 }
 
@@ -1007,8 +1016,8 @@ td {
 }
 
 .vote-none {
-  background: #e7eceb;
-  border-color: #c4cecc;
+  background: #d9e1df;
+  border-color: #adbcb7;
 }
 
 .vote-unavailable {
