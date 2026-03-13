@@ -37,6 +37,7 @@ class Identity(models.Model):
 
 class Poll(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    identifier = models.CharField(max_length=80, unique=True, null=True, blank=True)
     creator = models.ForeignKey(Identity, on_delete=models.CASCADE, related_name="created_polls")
     title = models.CharField(max_length=160)
     description = models.TextField(blank=True)

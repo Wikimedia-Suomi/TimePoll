@@ -1,12 +1,14 @@
 import json
+import re
 from datetime import date, datetime, time, timedelta
 from functools import wraps
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone, translation
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -23,6 +25,8 @@ VALID_VOTE_STATUSES = {
 FIXED_SLOT_MINUTES = 60
 WEEKDAY_MIN = 0
 WEEKDAY_MAX = 6
+IDENTIFIER_MAX_LENGTH = 80
+IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 
 
 class APIError(Exception):
@@ -117,9 +121,62 @@ def validate_timezone_name(value: Any) -> str:
     return timezone_name
 
 
+def validate_poll_identifier(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise APIError(
+            "invalid_poll_identifier",
+            400,
+            "identifier must be text and may contain only A-Z, a-z, 0-9, and underscore.",
+        )
+    identifier = value.strip()
+    if not identifier:
+        return None
+    if len(identifier) > IDENTIFIER_MAX_LENGTH:
+        raise APIError(
+            "invalid_poll_identifier",
+            400,
+            f"identifier cannot exceed {IDENTIFIER_MAX_LENGTH} characters.",
+        )
+    if not IDENTIFIER_PATTERN.fullmatch(identifier):
+        raise APIError(
+            "invalid_poll_identifier",
+            400,
+            "identifier may contain only A-Z, a-z, 0-9, and underscore.",
+        )
+    return identifier
+
+
+def poll_reference(poll: Poll) -> str:
+    return poll.identifier or str(poll.id)
+
+
+def get_poll_by_reference(queryset, poll_ref: str) -> Poll:
+    normalized = str(poll_ref or "").strip()
+    if not normalized:
+        raise Http404("No Poll matches the given query.")
+
+    if IDENTIFIER_PATTERN.fullmatch(normalized):
+        by_identifier = queryset.filter(identifier=normalized).first()
+        if by_identifier is not None:
+            return by_identifier
+
+    try:
+        parsed_uuid = UUID(normalized)
+    except (ValueError, TypeError):
+        raise Http404("No Poll matches the given query.")
+
+    by_uuid = queryset.filter(id=parsed_uuid).first()
+    if by_uuid is not None:
+        return by_uuid
+    raise Http404("No Poll matches the given query.")
+
+
 def parse_poll_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     title = payload.get("title")
     description = payload.get("description", "")
+    identifier_raw = payload.get("identifier")
     start_date_raw = payload.get("start_date")
     end_date_raw = payload.get("end_date")
     daily_start_hour_raw = payload.get("daily_start_hour")
@@ -162,8 +219,10 @@ def parse_poll_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     allowed_weekdays = parse_allowed_weekdays(allowed_weekdays_raw)
     timezone_name = validate_timezone_name(timezone_raw)
+    identifier = validate_poll_identifier(identifier_raw)
 
     return {
+        "identifier": identifier,
         "title": title.strip(),
         "description": description.strip(),
         "start_date": start_date,
@@ -322,7 +381,7 @@ def serialize_identity_data_export(identity: Identity) -> Dict[str, Any]:
         votes_payload.append(
             {
                 "id": vote.id,
-                "poll_id": str(poll.id),
+                "poll_id": poll_reference(poll),
                 "poll_title": poll.title,
                 "poll_is_closed": poll.is_closed,
                 "poll_option_id": vote.poll_option_id,
@@ -361,7 +420,8 @@ def serialize_poll_summary(poll: Poll, current_identity: Optional[Identity]) -> 
 
     date_window = poll_start_end_dates(poll)
     return {
-        "id": str(poll.id),
+        "id": poll_reference(poll),
+        "identifier": poll.identifier,
         "title": poll.title,
         "description": poll.description,
         "window_starts_at": poll.window_starts_at.isoformat(),
@@ -420,7 +480,8 @@ def serialize_poll_detail(poll: Poll, current_identity: Optional[Identity]) -> D
 
     date_window = poll_start_end_dates(poll)
     return {
-        "id": str(poll.id),
+        "id": poll_reference(poll),
+        "identifier": poll.identifier,
         "title": poll.title,
         "description": poll.description,
         "window_starts_at": poll.window_starts_at.isoformat(),
@@ -555,10 +616,11 @@ def auth_me_data(request: HttpRequest) -> JsonResponse:
 
     remaining_created_with_other_votes = list(
         Poll.objects.filter(id__in=polls_with_other_votes, creator=identity)
-        .values("id", "title", "is_closed")
+        .values("id", "identifier", "title", "is_closed")
     )
     for item in remaining_created_with_other_votes:
-        item["id"] = str(item["id"])
+        item["id"] = item["identifier"] or str(item["id"])
+        item.pop("identifier", None)
 
     with transaction.atomic():
         deleted_votes_count, _ = PollVote.objects.filter(voter=identity).delete()
@@ -645,6 +707,8 @@ def polls_collection(request: HttpRequest) -> JsonResponse:
     try:
         request_payload = parse_json_body(request)
         schedule = parse_poll_payload(request_payload)
+        if schedule["identifier"] and Poll.objects.filter(identifier=schedule["identifier"]).exists():
+            raise APIError("poll_identifier_taken", 409, "This identifier is already in use.")
         parsed_options = generate_poll_options(schedule)
         tz = ZoneInfo(schedule["timezone_name"])
         window_starts_at = datetime.combine(schedule["start_date"], time.min, tzinfo=tz)
@@ -653,6 +717,7 @@ def polls_collection(request: HttpRequest) -> JsonResponse:
         with transaction.atomic():
             poll = Poll.objects.create(
                 creator=current_identity,
+                identifier=schedule["identifier"],
                 title=schedule["title"],
                 description=schedule["description"],
                 window_starts_at=window_starts_at,
@@ -683,14 +748,16 @@ def polls_collection(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"poll": serialize_poll_detail(poll, current_identity)}, status=201)
     except APIError as exc:
         return api_error_response(exc)
+    except IntegrityError:
+        return api_error_response(APIError("poll_identifier_taken", 409, "This identifier is already in use."))
 
 
 @require_http_methods(["GET", "DELETE", "PUT"])
-def poll_detail(request: HttpRequest, poll_id) -> JsonResponse:
+def poll_detail(request: HttpRequest, poll_ref: str) -> JsonResponse:
     current_identity = get_current_identity(request)
-    poll = get_object_or_404(
+    poll = get_poll_by_reference(
         Poll.objects.select_related("creator").prefetch_related("options__votes__voter"),
-        id=poll_id,
+        poll_ref,
     )
 
     if request.method == "GET":
@@ -711,6 +778,8 @@ def poll_detail(request: HttpRequest, poll_id) -> JsonResponse:
         try:
             payload = parse_json_body(request)
             schedule = parse_poll_payload(payload)
+            if schedule["identifier"] and Poll.objects.filter(identifier=schedule["identifier"]).exclude(id=poll.id).exists():
+                raise APIError("poll_identifier_taken", 409, "This identifier is already in use.")
             generated_options = generate_poll_options(schedule)
             tz = ZoneInfo(schedule["timezone_name"])
             window_starts_at = datetime.combine(schedule["start_date"], time.min, tzinfo=tz)
@@ -731,6 +800,7 @@ def poll_detail(request: HttpRequest, poll_id) -> JsonResponse:
                 )
 
             with transaction.atomic():
+                poll.identifier = schedule["identifier"]
                 poll.title = schedule["title"]
                 poll.description = schedule["description"]
                 poll.window_starts_at = window_starts_at
@@ -742,6 +812,7 @@ def poll_detail(request: HttpRequest, poll_id) -> JsonResponse:
                 poll.timezone_name = schedule["timezone_name"]
                 poll.save(
                     update_fields=[
+                        "identifier",
                         "title",
                         "description",
                         "window_starts_at",
@@ -789,6 +860,8 @@ def poll_detail(request: HttpRequest, poll_id) -> JsonResponse:
             return JsonResponse({"poll": serialize_poll_detail(refreshed, current_identity)})
         except APIError as exc:
             return api_error_response(exc)
+        except IntegrityError:
+            return api_error_response(APIError("poll_identifier_taken", 409, "This identifier is already in use."))
 
     if current_identity is None:
         return JsonResponse(
@@ -810,8 +883,8 @@ def poll_detail(request: HttpRequest, poll_id) -> JsonResponse:
 
 @require_http_methods(["POST"])
 @authenticate_request
-def poll_close(request: HttpRequest, poll_id) -> JsonResponse:
-    poll = get_object_or_404(Poll.objects.select_related("creator"), id=poll_id)
+def poll_close(request: HttpRequest, poll_ref: str) -> JsonResponse:
+    poll = get_poll_by_reference(Poll.objects.select_related("creator"), poll_ref)
 
     if poll.creator_id != request.identity.id:
         return JsonResponse({"error": "forbidden", "detail": "Only the poll creator can close this poll."}, status=403)
@@ -831,8 +904,8 @@ def poll_close(request: HttpRequest, poll_id) -> JsonResponse:
 
 @require_http_methods(["POST"])
 @authenticate_request
-def poll_reopen(request: HttpRequest, poll_id) -> JsonResponse:
-    poll = get_object_or_404(Poll.objects.select_related("creator"), id=poll_id)
+def poll_reopen(request: HttpRequest, poll_ref: str) -> JsonResponse:
+    poll = get_poll_by_reference(Poll.objects.select_related("creator"), poll_ref)
 
     if poll.creator_id != request.identity.id:
         return JsonResponse({"error": "forbidden", "detail": "Only the poll creator can reopen this poll."}, status=403)
@@ -852,10 +925,10 @@ def poll_reopen(request: HttpRequest, poll_id) -> JsonResponse:
 
 @require_http_methods(["PUT"])
 @authenticate_request
-def poll_votes_upsert(request: HttpRequest, poll_id) -> JsonResponse:
-    poll = get_object_or_404(
+def poll_votes_upsert(request: HttpRequest, poll_ref: str) -> JsonResponse:
+    poll = get_poll_by_reference(
         Poll.objects.select_related("creator").prefetch_related("options"),
-        id=poll_id,
+        poll_ref,
     )
 
     if poll.is_closed:
@@ -907,8 +980,8 @@ def poll_votes_upsert(request: HttpRequest, poll_id) -> JsonResponse:
 
 @require_http_methods(["DELETE"])
 @authenticate_request
-def poll_vote_delete(request: HttpRequest, poll_id, option_id: int) -> JsonResponse:
-    poll = get_object_or_404(Poll, id=poll_id)
+def poll_vote_delete(request: HttpRequest, poll_ref: str, option_id: int) -> JsonResponse:
+    poll = get_poll_by_reference(Poll.objects.only("id", "identifier", "is_closed"), poll_ref)
 
     if poll.is_closed:
         return JsonResponse({"error": "poll_closed", "detail": "Votes cannot be changed after poll closure."}, status=409)

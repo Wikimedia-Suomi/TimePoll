@@ -15,6 +15,9 @@
       workspaceSections: "Workspace sections",
       noSelectedPoll: "Select a poll from the list.",
       createHelp: "Select full start/end days. Time slots are generated automatically in 60-minute blocks.",
+      pollIdentifier: "Poll identifier",
+      pollIdentifierHelp:
+        "Optional. Used in the poll link. Allowed characters: A-Z, a-z, 0-9 and underscore (_). Example: Poll_Name_2026",
       title: "Title",
       description: "Description",
       startDate: "Start date",
@@ -146,6 +149,9 @@
       workspaceSections: "Työtilan osiot",
       noSelectedPoll: "Valitse kysely listasta.",
       createHelp: "Valitse alku- ja loppupäivät. Aikavaihtoehdot luodaan automaattisesti 60 minuutin jaksoina.",
+      pollIdentifier: "Kyselyn tunniste",
+      pollIdentifierHelp:
+        "Valinnainen. Tunnistetta käytetään kyselyyn viittaavassa linkissä. Sallitut merkit: A-Z, a-z, 0-9 ja alaviiva (_). Esimerkki: Poll_Name_2026",
       title: "Otsikko",
       description: "Kuvaus",
       startDate: "Alkupäivä",
@@ -277,6 +283,9 @@
       workspaceSections: "Arbetsytans sektioner",
       noSelectedPoll: "Välj en omröstning från listan.",
       createHelp: "Välj hela start- och slutdagar. Tidsalternativ skapas automatiskt i 60-minutersblock.",
+      pollIdentifier: "Omröstningsidentifierare",
+      pollIdentifierHelp:
+        "Valfritt. Identifieraren används i länken till omröstningen. Tillåtna tecken: A-Z, a-z, 0-9 och understreck (_). Exempel: Poll_Name_2026",
       title: "Titel",
       description: "Beskrivning",
       startDate: "Startdatum",
@@ -408,6 +417,9 @@
       workspaceSections: "Arbeidsområdeseksjoner",
       noSelectedPoll: "Velg en avstemning fra listen.",
       createHelp: "Velg hele start- og sluttdager. Tidsalternativer opprettes automatisk i 60-minuttersblokker.",
+      pollIdentifier: "Avstemningsidentifikator",
+      pollIdentifierHelp:
+        "Valgfritt. Identifikatoren brukes i lenken til avstemningen. Tillatte tegn: A-Z, a-z, 0-9 og understrek (_). Eksempel: Poll_Name_2026",
       title: "Tittel",
       description: "Beskrivelse",
       startDate: "Startdato",
@@ -539,6 +551,9 @@
       workspaceSections: "Tööala osad",
       noSelectedPoll: "Vali loendist küsitlus.",
       createHelp: "Vali täis algus- ja lõpppäevad. Ajavalikud luuakse automaatselt 60-minutiliste plokkidena.",
+      pollIdentifier: "Küsitluse tunnus",
+      pollIdentifierHelp:
+        "Valikuline. Tunnust kasutatakse küsitlusele viitavas lingis. Lubatud märgid: A-Z, a-z, 0-9 ja alakriips (_). Näide: Poll_Name_2026",
       title: "Pealkiri",
       description: "Kirjeldus",
       startDate: "Alguskuupäev",
@@ -741,6 +756,20 @@
       sv: "Tidszonen är ogiltig.",
       no: "Tidssonen er ugyldig.",
       et: "Ajavöönd on vigane."
+    },
+    invalid_poll_identifier: {
+      en: "Identifier may contain only A-Z, a-z, 0-9 and underscore (_).",
+      fi: "Tunniste voi sisältää vain merkit A-Z, a-z, 0-9 ja alaviivan (_).",
+      sv: "Identifieraren får bara innehålla A-Z, a-z, 0-9 och understreck (_).",
+      no: "Identifikatoren kan bare inneholde A-Z, a-z, 0-9 og understrek (_).",
+      et: "Tunnus võib sisaldada ainult märke A-Z, a-z, 0-9 ja alakriipsu (_)."
+    },
+    poll_identifier_taken: {
+      en: "This identifier is already in use.",
+      fi: "Tämä tunniste on jo käytössä.",
+      sv: "Denna identifierare används redan.",
+      no: "Denne identifikatoren er allerede i bruk.",
+      et: "See tunnus on juba kasutusel."
     },
     too_many_options: {
       en: "Too many generated slots. Use a shorter time range or fewer days/hours.",
@@ -974,6 +1003,7 @@
 
   function defaultPollForm() {
     return {
+      identifier: "",
       title: "",
       description: "",
       start_date: "",
@@ -1001,6 +1031,8 @@
       : fallback.allowed_weekdays;
 
     return {
+      identifier:
+        typeof poll.identifier === "string" && poll.identifier.trim() ? poll.identifier.trim() : fallback.identifier,
       title: typeof poll.title === "string" ? poll.title : fallback.title,
       description: typeof poll.description === "string" ? poll.description : fallback.description,
       start_date: typeof poll.start_date === "string" ? poll.start_date : fallback.start_date,
@@ -1338,6 +1370,12 @@
           }
           this.handleFormFieldChange("title", "edit");
         },
+        "editForm.identifier"(newValue, oldValue) {
+          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+            return;
+          }
+          this.handleFormFieldChange("identifier", "edit");
+        },
         "editForm.timezone"(newValue, oldValue) {
           if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
             return;
@@ -1409,6 +1447,10 @@
           }
           try {
             const params = new URLSearchParams(window.location.search || "");
+            const newParam = String(params.get("id") || "").trim();
+            if (newParam) {
+              return newParam;
+            }
             return String(params.get("poll") || "").trim();
           } catch (_error) {
             return "";
@@ -1422,8 +1464,10 @@
           const replace = Boolean(options.replace);
           const url = new URL(window.location.href);
           if (normalizedPollId) {
-            url.searchParams.set("poll", normalizedPollId);
+            url.searchParams.set("id", normalizedPollId);
+            url.searchParams.delete("poll");
           } else {
+            url.searchParams.delete("id");
             url.searchParams.delete("poll");
           }
           const nextUrl = `${url.pathname}${url.search}${url.hash}`;
@@ -1433,7 +1477,7 @@
           }
           const nextState = {
             ...(window.history.state || {}),
-            poll: normalizedPollId || null
+            id: normalizedPollId || null
           };
           if (replace) {
             window.history.replaceState(nextState, "", nextUrl);
@@ -1587,6 +1631,7 @@
           }
 
           const title = String(form.title || "").trim();
+          const identifier = String(form.identifier || "").trim();
           const startDateRaw = String(form.start_date || "").trim();
           const endDateRaw = String(form.end_date || "").trim();
           const timezoneName = String(form.timezone || "").trim();
@@ -1595,6 +1640,12 @@
             errors.title = this.fieldValidationMessage("title", "required");
           } else if (title.length > 160) {
             errors.title = this.fieldValidationMessage("title", "tooLong");
+          }
+
+          if (identifier) {
+            if (identifier.length > 80 || !/^[A-Za-z0-9_]+$/.test(identifier)) {
+              errors.identifier = this.resolveError({ error: "invalid_poll_identifier" }, "");
+            }
           }
 
           const startDate = parseIsoDateValue(startDateRaw);
@@ -1681,6 +1732,9 @@
         backendErrorFields(errorCode) {
           if (errorCode === "invalid_title") {
             return ["title"];
+          }
+          if (errorCode === "invalid_poll_identifier" || errorCode === "poll_identifier_taken") {
+            return ["identifier"];
           }
           if (errorCode === "invalid_timezone") {
             return ["timezone"];
@@ -2307,6 +2361,7 @@
           this.showAllFormErrors[scope] = true;
           const order = [
             "title",
+            "identifier",
             "timezone",
             "start_date",
             "end_date",
@@ -2323,6 +2378,7 @@
         },
         pollPayloadFromForm(form) {
           return {
+            identifier: String(form.identifier || "").trim(),
             title: String(form.title || "").trim(),
             description: String(form.description || "").trim(),
             start_date: String(form.start_date || "").trim(),

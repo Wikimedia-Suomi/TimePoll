@@ -278,6 +278,104 @@ class PollApiTests(TestCase):
         self.assertEqual(poll["slot_minutes"], 60)
         self.assertEqual(len(poll["options"]), 8)
 
+    def test_create_poll_with_identifier_uses_identifier_as_public_id(self):
+        self.login(self.client, "alice")
+        response = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "Poll_Name_2026",
+                "title": "Identifier poll",
+                "description": "Poll with custom id",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        poll = response.json()["poll"]
+        self.assertEqual(poll["id"], "Poll_Name_2026")
+        self.assertEqual(poll["identifier"], "Poll_Name_2026")
+        self.assertTrue(Poll.objects.filter(identifier="Poll_Name_2026").exists())
+
+    def test_poll_detail_supports_identifier_reference(self):
+        self.login(self.client, "alice")
+        create = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "Poll_Name_2026",
+                "title": "Identifier detail",
+                "description": "",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(create.status_code, 201)
+        poll_ref = create.json()["poll"]["id"]
+        detail = self.client.get(reverse("polls:poll_detail", args=[poll_ref]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["poll"]["id"], "Poll_Name_2026")
+
+    def test_create_poll_rejects_invalid_identifier(self):
+        self.login(self.client, "alice")
+        response = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "Poll-Name-2026",
+                "title": "Bad identifier",
+                "description": "",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "invalid_poll_identifier")
+
+    def test_create_poll_rejects_duplicate_identifier(self):
+        self.login(self.client, "alice")
+        first = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "Poll_Name_2026",
+                "title": "First poll",
+                "description": "",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(first.status_code, 201)
+
+        duplicate = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "Poll_Name_2026",
+                "title": "Duplicate poll",
+                "description": "",
+                "start_date": "2026-03-11",
+                "end_date": "2026-03-11",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(duplicate.json()["error"], "poll_identifier_taken")
+
     def test_create_poll_rejects_invalid_date_range(self):
         self.login(self.client, "alice")
         response = self.create_poll_with_payload(

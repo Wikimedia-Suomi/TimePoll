@@ -18,6 +18,7 @@ class PollOptionInline(admin.TabularInline):
 class PollAdmin(admin.ModelAdmin):
     list_display = (
         "id",
+        "identifier",
         "title",
         "creator",
         "window_starts_at",
@@ -32,7 +33,7 @@ class PollAdmin(admin.ModelAdmin):
         "closed_at",
     )
     list_filter = ("is_closed",)
-    search_fields = ("title", "creator__name")
+    search_fields = ("title", "identifier", "creator__name")
     inlines = [PollOptionInline]
 
 

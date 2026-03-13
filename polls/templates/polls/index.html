@@ -257,6 +257,20 @@
           <label for="poll-description">[[ t('description') ]]</label>
           <textarea id="poll-description" v-model.trim="createForm.description" rows="3" maxlength="1200"></textarea>
 
+          <label for="poll-identifier">[[ t('pollIdentifier') ]]</label>
+          <input
+            id="poll-identifier"
+            type="text"
+            v-model.trim="createForm.identifier"
+            maxlength="80"
+            pattern="[A-Za-z0-9_]+"
+            placeholder="Poll_Name_2026"
+            :class="{ 'input-invalid': hasFieldError('create', 'identifier') }"
+            @input="handleFormFieldChange('identifier')"
+          >
+          <p class="muted">[[ t('pollIdentifierHelp') ]]</p>
+          <p class="field-error" v-if="fieldError('create', 'identifier')">[[ fieldError('create', 'identifier') ]]</p>
+
           <label for="poll-timezone">[[ t('timezone') ]]</label>
           <div class="timezone-picker">
             <input
@@ -443,6 +457,20 @@
 
               <label for="edit-description">[[ t('description') ]]</label>
               <textarea id="edit-description" v-model.trim="editForm.description" rows="3" maxlength="1200"></textarea>
+
+              <label for="edit-identifier">[[ t('pollIdentifier') ]]</label>
+              <input
+                id="edit-identifier"
+                type="text"
+                v-model.trim="editForm.identifier"
+                maxlength="80"
+                pattern="[A-Za-z0-9_]+"
+                placeholder="Poll_Name_2026"
+                :class="{ 'input-invalid': hasFieldError('edit', 'identifier') }"
+                @input="handleFormFieldChange('identifier', 'edit')"
+              >
+              <p class="muted">[[ t('pollIdentifierHelp') ]]</p>
+              <p class="field-error" v-if="fieldError('edit', 'identifier')">[[ fieldError('edit', 'identifier') ]]</p>
 
               <label for="edit-timezone">[[ t('timezone') ]]</label>
               <input

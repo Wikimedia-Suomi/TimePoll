@@ -14,6 +14,7 @@ Django + Vue.js polling app for scheduling meetings with multilingual UI (`en`, 
   - Create poll from full start/end days (slots are always 60 minutes) (requires login)
   - Limit poll slots by daily start/end hour, selected weekdays, and poll timezone
   - Automatic slot grid generation
+  - Optional poll identifier (`A-Z`, `a-z`, `0-9`, `_`) to use in links instead of random UUID
   - Vote/edit on each slot with `yes`, `no`, `maybe`, or empty (no value) (requires login)
   - Close poll (creator only)
   - Delete poll only after close (creator only)
@@ -59,6 +60,10 @@ python manage.py runserver
 6. Open app:
 
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+
+Optional poll link format with custom identifier:
+
+- `http://127.0.0.1:8000/?id=Poll_Name_2026`
 
 ## Tests
 

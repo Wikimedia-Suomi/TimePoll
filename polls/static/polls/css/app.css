@@ -1216,6 +1216,7 @@ td {
 
   .calendar-day-col {
     min-width: 7.2rem;
+    padding:0.25rem;
   }
 
   .vote-cell {
