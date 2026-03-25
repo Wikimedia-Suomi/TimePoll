@@ -164,8 +164,8 @@ def get_poll_by_reference(queryset, poll_ref: str) -> Poll:
 
     try:
         parsed_uuid = UUID(normalized)
-    except (ValueError, TypeError):
-        raise Http404("No Poll matches the given query.")
+    except (ValueError, TypeError) as exc:
+        raise Http404("No Poll matches the given query.") from exc
 
     by_uuid = queryset.filter(id=parsed_uuid).first()
     if by_uuid is not None:
@@ -568,12 +568,12 @@ def login_identity(request: HttpRequest) -> JsonResponse:
             try:
                 identity.save()
                 created = True
-            except IntegrityError:
+            except IntegrityError as exc:
                 identity = Identity.objects.filter(name_key=name_key).first()
                 if identity is None:
-                    raise APIError("invalid_credentials", 401, "Incorrect name or PIN.")
+                    raise APIError("invalid_credentials", 401, "Incorrect name or PIN.") from exc
                 if not identity.check_pin(pin):
-                    raise APIError("invalid_credentials", 401, "Incorrect name or PIN.")
+                    raise APIError("invalid_credentials", 401, "Incorrect name or PIN.") from exc
         elif not identity.check_pin(pin):
             raise APIError("invalid_credentials", 401, "Incorrect name or PIN.")
 

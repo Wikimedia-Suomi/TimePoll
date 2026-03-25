@@ -1,5 +1,6 @@
 import json
 from datetime import date, timedelta
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from django.contrib.sessions.models import Session
@@ -579,18 +580,18 @@ class PollApiTests(TestCase):
             "missing_poll_2026",
             "11111111-1111-1111-1111-111111111111",
         ]
-        cases = [
-            ("GET", poll_detail, []),
-            ("DELETE", poll_detail, []),
-            ("POST", poll_close, []),
-            ("POST", poll_reopen, []),
+        cases: list[tuple[str, Any, list[int], str]] = [
+            ("GET", poll_detail, [], ""),
+            ("DELETE", poll_detail, [], ""),
+            ("POST", poll_close, [], ""),
+            ("POST", poll_reopen, [], ""),
             (
                 "PUT",
                 poll_votes_upsert,
                 [],
                 json.dumps({"votes": [{"option_id": 1, "status": "yes"}]}),
             ),
-            ("DELETE", poll_vote_delete, [1]),
+            ("DELETE", poll_vote_delete, [1], ""),
         ]
 
         for poll_ref in missing_refs:
@@ -598,7 +599,7 @@ class PollApiTests(TestCase):
                 method = case[0]
                 view_func = case[1]
                 extra_args = case[2]
-                body = case[3] if len(case) > 3 else ""
+                body = case[3]
                 with self.subTest(
                     poll_ref=poll_ref,
                     method=method,

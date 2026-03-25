@@ -4,7 +4,7 @@ line-length = 100
 extend-exclude = ["polls/migrations"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["B", "E", "F", "I"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -13,7 +13,10 @@ ignore = ["E501"]
 [tool.mypy]
 python_version = "3.13"
 ignore_missing_imports = true
+check_untyped_defs = true
 exclude = ["polls/migrations/.*"]
+warn_redundant_casts = true
+warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "timepoll.settings"
