@@ -1,12 +1,14 @@
 import os
 import sys
 from pathlib import Path
+
 from django.core.exceptions import ImproperlyConfigured
 
-if sys.version_info < (3, 9):
-    raise ImproperlyConfigured("TimePoll requires Python 3.9 or newer.")
+if sys.version_info < (3, 13):
+    raise ImproperlyConfigured("TimePoll requires Python 3.13 or newer.")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 def require_env(name: str) -> str:
     value = os.getenv(name)

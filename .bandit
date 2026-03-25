@@ -1,0 +1,3 @@
+[bandit]
+exclude_dirs = polls/migrations,venv,.venv
+targets = polls,timepoll,manage.py

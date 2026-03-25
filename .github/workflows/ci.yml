@@ -15,7 +15,7 @@ jobs:
     env:
       TIMEPOLL_SECRET_KEY: ci-timepoll-secret-key
       TIMEPOLL_DEBUG: "0"
-      TIMEPOLL_ALLOWED_HOSTS: 127.0.0.1,localhost,testserver
+      TIMEPOLL_ALLOWED_HOSTS: 127.0.0.1,localhost,testserver,[::1]
 
     steps:
       - name: Checkout
@@ -24,29 +24,34 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
 
-      - name: Install runtime dependencies
+      - name: Install runtime and dev dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          make install-dev PYTHON=python PIP=pip
 
-      - name: Install CI tooling
-        run: |
-          pip install ruff mypy bandit pip-audit
+      - name: Install Playwright browsers
+        run: make install-browser PYTHON=python PLAYWRIGHT_INSTALL_ARGS="--with-deps chromium"
 
       - name: Ruff
-        run: ruff check .
+        run: make lint PYTHON=python
 
       - name: MyPy
-        run: mypy polls timepoll manage.py --ignore-missing-imports --exclude "polls/migrations/.*"
+        run: make typecheck PYTHON=python
 
       - name: Bandit
-        run: bandit -r polls timepoll manage.py -x polls/migrations
+        run: make security PYTHON=python
 
       - name: pip-audit
-        run: pip-audit --requirement requirements.txt
+        run: make audit PYTHON=python
 
-      - name: Django tests
-        run: python manage.py test
+      - name: Coverage + Django + browser tests
+        run: make coverage PYTHON=python
+
+      - name: Upload coverage XML
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml

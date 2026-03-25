@@ -9,3 +9,8 @@ venv/
 staticfiles/
 local-dev-env.sh
 .timepoll.local.env
+.coverage
+coverage.xml
+htmlcov/
+playwright-report/
+test-results/

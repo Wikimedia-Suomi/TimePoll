@@ -1,0 +1,33 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["polls/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"manage.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+exclude = ["polls/migrations/.*"]
+
+[tool.coverage.run]
+branch = true
+concurrency = ["thread"]
+source = ["polls", "timepoll"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+omit = [
+  "polls/migrations/*",
+  "polls/tests*.py",
+]
+exclude_also = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+]

@@ -1,5 +1,5 @@
-import uuid
 import unicodedata
+import uuid
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
@@ -90,7 +90,10 @@ class PollVote(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["poll_option", "voter"], name="unique_vote_per_option_voter")
+            models.UniqueConstraint(
+                fields=["poll_option", "voter"],
+                name="unique_vote_per_option_voter",
+            )
         ]
 
     def __str__(self) -> str:

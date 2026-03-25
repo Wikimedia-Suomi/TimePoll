@@ -4,7 +4,7 @@ Django + Vue.js polling app for scheduling meetings with multilingual UI (`en`, 
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.13+
 
 ## Features
 
@@ -27,7 +27,7 @@ Django + Vue.js polling app for scheduling meetings with multilingual UI (`en`, 
 1. Create and activate virtualenv:
 
 ```bash
-python3 -m venv venv
+python3.13 -m venv venv
 source venv/bin/activate
 ```
 
@@ -35,6 +35,13 @@ source venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
+```
+
+Optional development tooling:
+
+```bash
+pip install -r requirements-dev.txt
+python -m playwright install chromium
 ```
 
 3. Set required environment variables:
@@ -71,15 +78,38 @@ Optional poll link format with custom identifier:
 python manage.py test
 ```
 
+Run the full automated quality suite:
+
+```bash
+make quality
+```
+
+Available local automation targets:
+
+- `make install-dev`
+- `make install-browser`
+- `make lint`
+- `make typecheck`
+- `make security`
+- `make audit`
+- `make test`
+- `make coverage`
+- `make quality`
+
 ## CI merge gates
 
 This repository includes GitHub Actions checks in `.github/workflows/ci.yml`:
 
 - `ruff check .`
-- `mypy polls timepoll manage.py --ignore-missing-imports --exclude "polls/migrations/.*"`
-- `bandit -r polls timepoll manage.py -x polls/migrations`
-- `pip-audit --requirement requirements.txt`
-- `python manage.py test`
+- `mypy polls timepoll manage.py`
+- `bandit -r polls timepoll manage.py`
+- `pip-audit --requirement requirements-dev.txt`
+- `coverage run manage.py test`
+- Playwright browser smoke test
+- axe accessibility smoke test
+
+Note: the `pip-audit` target currently ignores advisory `GHSA-5239-wwwm-4pmq`
+for `pygments`, because no fixed upstream release is available yet.
 
 To enforce these checks as merge gates in GitHub:
 
