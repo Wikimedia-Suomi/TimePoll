@@ -1,16 +1,29 @@
 import json
+from datetime import date, timedelta
+from unittest.mock import MagicMock, patch
 
 from django.contrib.sessions.models import Session
-from django.test import Client, TestCase
+from django.db import IntegrityError
+from django.http import Http404
+from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 
 from .models import Identity, Poll, PollVote
+from .views import (
+    SESSION_IDENTITY_KEY,
+    poll_close,
+    poll_detail,
+    poll_reopen,
+    poll_vote_delete,
+    poll_votes_upsert,
+)
 
 
 class PollApiTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
         self.other_client = Client()
+        self.factory = RequestFactory()
 
     def login(self, client: Client, name: str, pin: str = "1234"):
         return client.post(
@@ -50,6 +63,27 @@ class PollApiTests(TestCase):
             data=json.dumps(payload),
             content_type="application/json",
         )
+
+    def request_raw_json(self, client: Client, method: str, url_name: str, body: str, args=None):
+        args = args or []
+        return client.generic(
+            method.upper(),
+            reverse(url_name, args=args),
+            data=body,
+            content_type="application/json",
+        )
+
+    def make_request(self, method: str, path: str, *, body: str = "", identity: Identity | None = None):
+        request = self.factory.generic(
+            method.upper(),
+            path,
+            data=body,
+            content_type="application/json",
+        )
+        request.session = {}
+        if identity is not None:
+            request.session[SESSION_IDENTITY_KEY] = identity.id
+        return request
 
     def test_create_poll_requires_authentication(self):
         response = self.create_poll(self.client)
@@ -257,6 +291,37 @@ class PollApiTests(TestCase):
                 self.assertEqual(response.json()["language"], code)
                 self.assertEqual(response.cookies["django_language"].value, code)
 
+    def test_auth_session_clears_stale_identity_from_session(self):
+        login_response = self.login(self.client, "alice", "1234")
+        self.assertEqual(login_response.status_code, 201)
+
+        identity_id = login_response.json()["identity"]["id"]
+        Identity.objects.filter(id=identity_id).delete()
+
+        response = self.client.get(reverse("polls:auth_session"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["authenticated"])
+        self.assertIsNone(response.json()["identity"])
+        self.assertNotIn("identity_id", self.client.session)
+
+    def test_set_language_rejects_invalid_language_code(self):
+        cases = [
+            ("unsupported-string", "de"),
+            ("null", None),
+            ("numeric", 123),
+        ]
+
+        for label, language in cases:
+            with self.subTest(case=label):
+                response = self.client.post(
+                    reverse("polls:set_language"),
+                    data=json.dumps({"language": language}),
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], "invalid_language")
+                self.assertNotIn("django_language", response.cookies)
+
     def test_create_poll_forces_fixed_60_minute_slots(self):
         self.login(self.client, "alice")
         response = self.create_poll_with_payload(
@@ -322,6 +387,48 @@ class PollApiTests(TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["poll"]["id"], "Poll_Name_2026")
 
+    def test_poll_reference_404_matrix_for_invalid_identifier_and_uuid(self):
+        self.login(self.client, "alice")
+        identity = Identity.objects.get(name="alice")
+
+        missing_refs = [
+            "missing_poll_2026",
+            "11111111-1111-1111-1111-111111111111",
+        ]
+        cases = [
+            ("GET", poll_detail, []),
+            ("DELETE", poll_detail, []),
+            ("POST", poll_close, []),
+            ("POST", poll_reopen, []),
+            (
+                "PUT",
+                poll_votes_upsert,
+                [],
+                json.dumps({"votes": [{"option_id": 1, "status": "yes"}]}),
+            ),
+            ("DELETE", poll_vote_delete, [1]),
+        ]
+
+        for poll_ref in missing_refs:
+            for case in cases:
+                method = case[0]
+                view_func = case[1]
+                extra_args = case[2]
+                body = case[3] if len(case) > 3 else ""
+                with self.subTest(
+                    poll_ref=poll_ref,
+                    method=method,
+                    view_name=getattr(view_func, "__name__", str(view_func)),
+                ):
+                    request = self.make_request(
+                        method,
+                        f"/api/polls/{poll_ref}/",
+                        body=body,
+                        identity=identity,
+                    )
+                    with self.assertRaises(Http404):
+                        view_func(request, poll_ref, *extra_args)
+
     def test_create_poll_rejects_invalid_identifier(self):
         self.login(self.client, "alice")
         response = self.create_poll_with_payload(
@@ -340,6 +447,100 @@ class PollApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"], "invalid_poll_identifier")
+
+    def test_create_and_update_poll_identifier_edge_cases(self):
+        self.login(self.client, "alice")
+
+        invalid_identifier_cases = [
+            ("non-string", 12345),
+            ("too-long", "a" * 81),
+        ]
+
+        for label, identifier in invalid_identifier_cases:
+            with self.subTest(case=f"create-{label}"):
+                response = self.create_poll_with_payload(
+                    self.client,
+                    {
+                        "identifier": identifier,
+                        "title": "Invalid identifier",
+                        "description": "",
+                        "start_date": "2026-03-10",
+                        "end_date": "2026-03-10",
+                        "daily_start_hour": 9,
+                        "daily_end_hour": 17,
+                        "allowed_weekdays": [0, 1, 2, 3, 4],
+                        "timezone": "Europe/Helsinki",
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], "invalid_poll_identifier")
+
+        create = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "Poll_Name_2026",
+                "title": "Identifier update",
+                "description": "Original identifier",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(create.status_code, 201)
+        poll_id = create.json()["poll"]["id"]
+
+        invalid_update = self.update_poll_with_payload(
+            self.client,
+            poll_id,
+            {
+                "identifier": 12345,
+                "title": "Still invalid",
+                "description": "",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(invalid_update.status_code, 400)
+        self.assertEqual(invalid_update.json()["error"], "invalid_poll_identifier")
+
+        blank_identifier_update = self.update_poll_with_payload(
+            self.client,
+            poll_id,
+            {
+                "identifier": "   ",
+                "title": "Identifier removed",
+                "description": "Blank identifier clears custom id",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(blank_identifier_update.status_code, 200)
+        updated_poll = blank_identifier_update.json()["poll"]
+        self.assertIsNone(updated_poll["identifier"])
+        self.assertEqual(updated_poll["title"], "Identifier removed")
+        self.assertNotEqual(updated_poll["id"], "Poll_Name_2026")
+
+        poll = Poll.objects.get(title="Identifier removed")
+        self.assertIsNone(poll.identifier)
+
+        removed_identifier_request = self.make_request("GET", "/api/polls/Poll_Name_2026/")
+        with self.assertRaises(Http404):
+            poll_detail(removed_identifier_request, "Poll_Name_2026")
+
+        new_reference_detail = self.client.get(reverse("polls:poll_detail", args=[updated_poll["id"]]))
+        self.assertEqual(new_reference_detail.status_code, 200)
+        self.assertEqual(new_reference_detail.json()["poll"]["title"], "Identifier removed")
 
     def test_create_poll_rejects_duplicate_identifier(self):
         self.login(self.client, "alice")
@@ -465,6 +666,181 @@ class PollApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"], "invalid_timezone")
+
+    def test_generate_slots_supports_24_hour_end_and_string_hour_inputs(self):
+        self.login(self.client, "alice")
+
+        target_date = date(2026, 3, 10)
+        response = self.create_poll_with_payload(
+            self.client,
+            {
+                "title": "Late night slot",
+                "description": "Covers the midnight boundary.",
+                "start_date": target_date.isoformat(),
+                "end_date": target_date.isoformat(),
+                "daily_start_hour": "23",
+                "daily_end_hour": "24",
+                "allowed_weekdays": [target_date.weekday()],
+                "timezone": "UTC",
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        poll = response.json()["poll"]
+        self.assertEqual(poll["daily_start_hour"], 23)
+        self.assertEqual(poll["daily_end_hour"], 24)
+        self.assertEqual(len(poll["options"]), 1)
+        self.assertEqual(poll["options"][0]["starts_at"], "2026-03-10T23:00:00+00:00")
+        self.assertEqual(poll["options"][0]["ends_at"], "2026-03-11T00:00:00+00:00")
+
+    def test_shared_invalid_json_returns_invalid_json(self):
+        self.login(self.client, "alice")
+        create = self.create_poll(self.client)
+        poll_id = create.json()["poll"]["id"]
+
+        cases = [
+            ("register", self.client, "POST", "polls:register_identity", [], "{"),
+            ("login", self.client, "POST", "polls:login_identity", [], "{"),
+            ("language", self.client, "POST", "polls:set_language", [], "{"),
+            ("poll-create", self.client, "POST", "polls:polls_collection", [], "{"),
+            ("poll-votes", self.client, "PUT", "polls:poll_votes_upsert", [poll_id], "{"),
+            ("non-object-json", self.client, "POST", "polls:polls_collection", [], "[]"),
+        ]
+
+        for label, client, method, url_name, args, body in cases:
+            with self.subTest(case=label):
+                response = self.request_raw_json(client, method, url_name, body, args=args)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], "invalid_json")
+
+    def test_login_and_register_reject_invalid_name_and_pin_payloads(self):
+        cases = [
+            ("name-not-string", {"name": 1234, "pin": "1234"}, "invalid_name"),
+            ("name-too-short", {"name": "a", "pin": "1234"}, "invalid_name"),
+            ("name-too-long", {"name": "a" * 81, "pin": "1234"}, "invalid_name"),
+            ("pin-not-string", {"name": "alice", "pin": 1234}, "invalid_pin"),
+            ("pin-non-digits", {"name": "alice", "pin": "12ab"}, "invalid_pin"),
+            ("pin-too-short", {"name": "alice", "pin": "123"}, "invalid_pin"),
+            ("pin-too-long", {"name": "alice", "pin": "1" * 13}, "invalid_pin"),
+        ]
+
+        endpoints = [
+            ("register", self.client, "polls:register_identity"),
+            ("login", self.client, "polls:login_identity"),
+        ]
+
+        for endpoint_label, client, url_name in endpoints:
+            for case_label, payload, expected_error in cases:
+                with self.subTest(endpoint=endpoint_label, case=case_label):
+                    response = client.post(
+                        reverse(url_name),
+                        data=json.dumps(payload),
+                        content_type="application/json",
+                    )
+                    self.assertEqual(response.status_code, 400)
+                    self.assertEqual(response.json()["error"], expected_error)
+
+    def test_register_and_login_handle_integrity_race_paths(self):
+        register_lookup = MagicMock()
+        register_lookup.exists.return_value = False
+
+        with patch("polls.views.Identity.objects.filter", return_value=register_lookup):
+            with patch("polls.views.Identity.save", side_effect=IntegrityError()):
+                register_response = self.client.post(
+                    reverse("polls:register_identity"),
+                    data=json.dumps({"name": "alice", "pin": "1234"}),
+                    content_type="application/json",
+                )
+        self.assertEqual(register_response.status_code, 409)
+        self.assertEqual(register_response.json()["error"], "name_taken")
+
+        first_lookup = MagicMock()
+        first_lookup.first.return_value = None
+
+        existing_identity = Identity(id=1, name="alice", name_key=Identity.build_name_key("alice"))
+        existing_identity.set_pin("1234")
+
+        second_lookup = MagicMock()
+        second_lookup.first.return_value = existing_identity
+
+        with patch("polls.views.Identity.objects.filter", side_effect=[first_lookup, second_lookup]):
+            with patch("polls.views.Identity.save", side_effect=IntegrityError()):
+                login_response = self.client.post(
+                    reverse("polls:login_identity"),
+                    data=json.dumps({"name": "alice", "pin": "1234"}),
+                    content_type="application/json",
+                )
+        self.assertEqual(login_response.status_code, 200)
+        self.assertFalse(login_response.json()["created"])
+        self.assertTrue(login_response.json()["authenticated"])
+        self.assertEqual(login_response.json()["identity"]["name"], "alice")
+
+    def test_schedule_generation_rejects_no_slots_and_too_many_options(self):
+        self.login(self.client, "alice")
+
+        no_slots_date = date(2026, 3, 10)
+        no_matching_weekday = (no_slots_date.weekday() + 1) % 7
+        no_slots_response = self.create_poll_with_payload(
+            self.client,
+            {
+                "title": "No slots",
+                "description": "",
+                "start_date": no_slots_date.isoformat(),
+                "end_date": no_slots_date.isoformat(),
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [no_matching_weekday],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(no_slots_response.status_code, 400)
+        self.assertEqual(no_slots_response.json()["error"], "invalid_options")
+
+        start_date = date(2026, 1, 1)
+        end_date = start_date + timedelta(days=90)
+        too_many_response = self.create_poll_with_payload(
+            self.client,
+            {
+                "title": "Too many slots",
+                "description": "",
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "daily_start_hour": 0,
+                "daily_end_hour": 24,
+                "allowed_weekdays": [0, 1, 2, 3, 4, 5, 6],
+                "timezone": "UTC",
+            },
+        )
+        self.assertEqual(too_many_response.status_code, 400)
+        self.assertEqual(too_many_response.json()["error"], "too_many_options")
+
+    def test_create_poll_rejects_invalid_weekday_values(self):
+        self.login(self.client, "alice")
+
+        invalid_cases = [
+            ("not-a-list", "1"),
+            ("bool-item", [True]),
+            ("string-item", ["1"]),
+            ("negative-item", [-1]),
+            ("too-large-item", [7]),
+        ]
+
+        for label, weekdays in invalid_cases:
+            with self.subTest(case=label):
+                response = self.create_poll_with_payload(
+                    self.client,
+                    {
+                        "title": "Bad weekdays",
+                        "description": "",
+                        "start_date": "2026-03-10",
+                        "end_date": "2026-03-10",
+                        "daily_start_hour": 9,
+                        "daily_end_hour": 17,
+                        "allowed_weekdays": weekdays,
+                        "timezone": "Europe/Helsinki",
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], "invalid_weekdays")
 
     def test_creator_can_edit_poll(self):
         self.login(self.client, "alice")
@@ -745,3 +1121,104 @@ class PollApiTests(TestCase):
         session_response = self.client.get(reverse("polls:auth_session"))
         self.assertEqual(session_response.status_code, 200)
         self.assertFalse(session_response.json()["authenticated"])
+
+    def test_vote_api_rejects_invalid_payload_and_closed_poll(self):
+        self.login(self.client, "creator")
+        create = self.create_poll(self.client)
+        poll = create.json()["poll"]
+        poll_id = poll["id"]
+        option_id = poll["options"][0]["id"]
+
+        self.login(self.other_client, "voter")
+
+        invalid_cases = [
+            ("votes-empty", {"votes": []}),
+            ("votes-not-list", {"votes": "yes"}),
+            ("vote-item-not-object", {"votes": [None]}),
+            ("wrong-option-id", {"votes": [{"option_id": 999999, "status": "yes"}]}),
+            ("wrong-option-type", {"votes": [{"option_id": "bad", "status": "yes"}]}),
+            ("wrong-status", {"votes": [{"option_id": option_id, "status": "later"}]}),
+        ]
+
+        for label, payload in invalid_cases:
+            with self.subTest(case=label):
+                response = self.other_client.put(
+                    reverse("polls:poll_votes_upsert", args=[poll_id]),
+                    data=json.dumps(payload),
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], "invalid_votes")
+
+        close = self.client.post(reverse("polls:poll_close", args=[poll_id]))
+        self.assertEqual(close.status_code, 200)
+
+        closed_vote = self.other_client.put(
+            reverse("polls:poll_votes_upsert", args=[poll_id]),
+            data=json.dumps({"votes": [{"option_id": option_id, "status": "yes"}]}),
+            content_type="application/json",
+        )
+        self.assertEqual(closed_vote.status_code, 409)
+        self.assertEqual(closed_vote.json()["error"], "poll_closed")
+
+        closed_delete = self.other_client.delete(
+            reverse("polls:poll_vote_delete", args=[poll_id, option_id])
+        )
+        self.assertEqual(closed_delete.status_code, 409)
+        self.assertEqual(closed_delete.json()["error"], "poll_closed")
+
+    def test_poll_detail_put_delete_cover_401_403_409_matrix(self):
+        self.login(self.client, "creator")
+        create = self.create_poll(self.client)
+        self.assertEqual(create.status_code, 201)
+        poll_id = create.json()["poll"]["id"]
+
+        unauth_put = self.update_poll_with_payload(
+            Client(),
+            poll_id,
+            {
+                "title": "Unauthorized update",
+                "description": "",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(unauth_put.status_code, 401)
+        self.assertEqual(unauth_put.json()["error"], "authentication_required")
+
+        unauth_delete = Client().delete(reverse("polls:poll_detail", args=[poll_id]))
+        self.assertEqual(unauth_delete.status_code, 401)
+        self.assertEqual(unauth_delete.json()["error"], "authentication_required")
+
+        self.login(self.other_client, "bob")
+        forbidden_delete = self.other_client.delete(reverse("polls:poll_detail", args=[poll_id]))
+        self.assertEqual(forbidden_delete.status_code, 403)
+        self.assertEqual(forbidden_delete.json()["error"], "forbidden")
+
+        open_delete = self.client.delete(reverse("polls:poll_detail", args=[poll_id]))
+        self.assertEqual(open_delete.status_code, 409)
+        self.assertEqual(open_delete.json()["error"], "poll_not_closed")
+
+        close = self.client.post(reverse("polls:poll_close", args=[poll_id]))
+        self.assertEqual(close.status_code, 200)
+
+        closed_put = self.update_poll_with_payload(
+            self.client,
+            poll_id,
+            {
+                "title": "Closed update",
+                "description": "",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(closed_put.status_code, 409)
+        self.assertEqual(closed_put.json()["error"], "poll_closed")

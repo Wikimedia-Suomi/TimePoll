@@ -1,5 +1,64 @@
 (() => {
-  const translations = {
+  function showAppLogicLoadError() {
+    const renderError = () => {
+      const root = document.getElementById("app");
+      if (root) {
+        root.innerHTML = "<p class='feedback error'>TimePoll app logic failed to load.</p>";
+      }
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", renderError, { once: true });
+      return;
+    }
+
+    renderError();
+  }
+
+  const logic = window.TimePollLogic;
+  if (!logic) {
+    showAppLogicLoadError();
+    return;
+  }
+
+  const {
+    buildPollUrlState,
+    calendarTimezonePreferenceStorageKeyForSession,
+    collectDayOptionIdsFromRows,
+    collectRowOptionIdsFromCells,
+    extractPollIdFromSearch,
+    filterWeekRowsByMinYesVotes,
+    isVoteStatusValue,
+    loadCalendarTimezonePreferenceValue,
+    matchesYesVoteFilter,
+    nextVoteStatus,
+    optionHasVotes,
+    readOptionCount,
+    serializeCalendarTimezonePreference,
+    toggleWeekdaySelection
+  } = logic;
+
+  if (
+    typeof buildPollUrlState !== "function"
+    || typeof calendarTimezonePreferenceStorageKeyForSession !== "function"
+    || typeof collectDayOptionIdsFromRows !== "function"
+    || typeof collectRowOptionIdsFromCells !== "function"
+    || typeof extractPollIdFromSearch !== "function"
+    || typeof filterWeekRowsByMinYesVotes !== "function"
+    || typeof isVoteStatusValue !== "function"
+    || typeof loadCalendarTimezonePreferenceValue !== "function"
+    || typeof matchesYesVoteFilter !== "function"
+    || typeof nextVoteStatus !== "function"
+    || typeof optionHasVotes !== "function"
+    || typeof readOptionCount !== "function"
+    || typeof serializeCalendarTimezonePreference !== "function"
+    || typeof toggleWeekdaySelection !== "function"
+  ) {
+    showAppLogicLoadError();
+    return;
+  }
+
+const translations = {
     en: {
       appTitle: "TimePoll",
       appSubtitle: "Vote on times to agree on schedules.",
@@ -1445,32 +1504,14 @@
           if (typeof window === "undefined") {
             return "";
           }
-          try {
-            const params = new URLSearchParams(window.location.search || "");
-            const newParam = String(params.get("id") || "").trim();
-            if (newParam) {
-              return newParam;
-            }
-            return String(params.get("poll") || "").trim();
-          } catch (_error) {
-            return "";
-          }
+          return extractPollIdFromSearch(window.location.search || "");
         },
         setPollIdInCurrentUrl(pollId, options = {}) {
           if (typeof window === "undefined") {
             return;
           }
-          const normalizedPollId = String(pollId || "").trim();
           const replace = Boolean(options.replace);
-          const url = new URL(window.location.href);
-          if (normalizedPollId) {
-            url.searchParams.set("id", normalizedPollId);
-            url.searchParams.delete("poll");
-          } else {
-            url.searchParams.delete("id");
-            url.searchParams.delete("poll");
-          }
-          const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+          const { normalizedPollId, nextUrl } = buildPollUrlState(window.location.href, pollId);
           const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
           if (nextUrl === currentUrl) {
             return;
@@ -1532,17 +1573,7 @@
           this.formTouched[scope] = next;
         },
         pollOptionHasVotes(option) {
-          if (!option || typeof option !== "object") {
-            return false;
-          }
-          if (Array.isArray(option.votes)) {
-            return option.votes.length > 0;
-          }
-          const counts = option.counts || {};
-          const yes = Number(counts.yes || 0);
-          const no = Number(counts.no || 0);
-          const maybe = Number(counts.maybe || 0);
-          return yes + no + maybe > 0;
+          return optionHasVotes(option);
         },
         pollOptionConflictsWithSchedule(option, form, startDate, endDate, allowedWeekdaysSet, timeZone) {
           if (!option || typeof option !== "object" || !option.starts_at) {
@@ -1980,14 +2011,7 @@
           return this.voteValueForOption(option) === status;
         },
         optionCount(option, status) {
-          if (!option || !option.counts) {
-            return 0;
-          }
-          const count = Number(option.counts[status]);
-          if (Number.isNaN(count)) {
-            return 0;
-          }
-          return count;
+          return readOptionCount(option, status);
         },
         voteStatusLabel(status) {
           if (status === "yes") {
@@ -2002,7 +2026,7 @@
           return this.t("noVote");
         },
         isVoteStatus(status) {
-          return status === "yes" || status === "no" || status === "maybe";
+          return isVoteStatusValue(status);
         },
         isVoteSaving(optionId) {
           return Boolean(this.savingVoteOptionIds[optionId]);
@@ -2056,38 +2080,10 @@
           return week.days.slice(start, start + count);
         },
         optionMatchesYesFilter(option, minYesVotes) {
-          if (!option || typeof option !== "object") {
-            return false;
-          }
-          return this.optionCount(option, "yes") >= minYesVotes;
+          return matchesYesVoteFilter(option, minYesVotes);
         },
         filteredRowsForWeek(week) {
-          if (!week || !Array.isArray(week.rows)) {
-            return [];
-          }
-          const minYesVotes = Math.max(0, Number(this.minYesVotesFilter) || 0);
-          if (minYesVotes <= 0) {
-            return week.rows;
-          }
-          const filteredRows = [];
-          for (const row of week.rows) {
-            if (!row || !row.cells || typeof row.cells !== "object") {
-              continue;
-            }
-            const filteredCells = {};
-            for (const [dayKey, option] of Object.entries(row.cells)) {
-              if (this.optionMatchesYesFilter(option, minYesVotes)) {
-                filteredCells[dayKey] = option;
-              }
-            }
-            if (Object.keys(filteredCells).length > 0) {
-              filteredRows.push({
-                ...row,
-                cells: filteredCells
-              });
-            }
-          }
-          return filteredRows;
+          return filterWeekRowsByMinYesVotes(week, this.minYesVotesFilter);
         },
         visibleRangeLabel(week) {
           if (!week || !Array.isArray(week.days) || week.days.length === 0) {
@@ -2155,32 +2151,10 @@
           this.bulkMenu = isOpen ? null : { type, weekKey, key };
         },
         collectDayOptionIds(week, dayKey) {
-          const rows = this.filteredRowsForWeek(week);
-          if (!Array.isArray(rows)) {
-            return [];
-          }
-          const optionIds = [];
-          for (const row of rows) {
-            const option = row && row.cells ? row.cells[dayKey] : null;
-            if (option && Number.isInteger(option.id)) {
-              optionIds.push(option.id);
-            }
-          }
-          return optionIds;
+          return collectDayOptionIdsFromRows(this.filteredRowsForWeek(week), dayKey);
         },
         collectRowOptionIds(row, dayKeys) {
-          if (!row || !row.cells || typeof row.cells !== "object") {
-            return [];
-          }
-          const targetDayKeys = Array.isArray(dayKeys) && dayKeys.length ? dayKeys : Object.keys(row.cells);
-          const optionIds = [];
-          for (const dayKey of targetDayKeys) {
-            const option = row.cells[dayKey];
-            if (option && Number.isInteger(option.id)) {
-              optionIds.push(option.id);
-            }
-          }
-          return optionIds;
+          return collectRowOptionIdsFromCells(row, dayKeys);
         },
         async chooseBulkVoteForDay(week, dayKey, status) {
           this.closeVoteMenus();
@@ -2202,7 +2176,7 @@
             return;
           }
           const currentStatus = this.voteValueForOption(option);
-          const nextStatus = currentStatus === status ? "" : status;
+          const nextStatus = nextVoteStatus(currentStatus, status);
           this.closeVoteMenus();
           await this.applyVotes([option.id], nextStatus);
         },
@@ -2342,15 +2316,7 @@
           if (!form || !Array.isArray(form.allowed_weekdays)) {
             return;
           }
-          const values = [...form.allowed_weekdays];
-          const index = values.indexOf(weekday);
-          if (index >= 0) {
-            values.splice(index, 1);
-          } else {
-            values.push(weekday);
-          }
-          values.sort((a, b) => a - b);
-          form.allowed_weekdays = values;
+          form.allowed_weekdays = toggleWeekdaySelection(form.allowed_weekdays, weekday);
         },
         validatePollForm(form) {
           if (!form) {
@@ -2498,10 +2464,7 @@
           }
         },
         calendarTimezonePreferenceStorageKey() {
-          if (!this.session || !this.session.authenticated || !this.session.identity || !this.session.identity.id) {
-            return "";
-          }
-          return `timepoll-calendar-timezone:${this.session.identity.id}`;
+          return calendarTimezonePreferenceStorageKeyForSession(this.session);
         },
         loadPreferredCalendarTimezonePreference() {
           const key = this.calendarTimezonePreferenceStorageKey();
@@ -2509,29 +2472,7 @@
             return { mode: "poll", timezone: "" };
           }
           const raw = safeLocalStorageGetItem(key);
-          if (!raw) {
-            return { mode: "poll", timezone: "" };
-          }
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-              const mode = parsed.mode;
-              const normalizedMode =
-                mode === "poll" || mode === "browser" || mode === "custom" ? mode : "poll";
-              const timezoneName = this.normalizeKnownTimeZone(parsed.timezone);
-              return {
-                mode: normalizedMode,
-                timezone: timezoneName
-              };
-            }
-          } catch (_jsonError) {
-            // Support legacy value where only timezone string was stored.
-          }
-          const legacyTimezone = this.normalizeKnownTimeZone(raw);
-          if (legacyTimezone) {
-            return { mode: "custom", timezone: legacyTimezone };
-          }
-          return { mode: "poll", timezone: "" };
+          return loadCalendarTimezonePreferenceValue(raw, (value) => this.normalizeKnownTimeZone(value));
         },
         savePreferredCalendarTimezonePreference() {
           if (!this.session || !this.session.authenticated || !this.session.identity) {
@@ -2541,22 +2482,16 @@
           if (!key) {
             return;
           }
-          let mode = this.calendarTimezoneMode;
-          if (mode !== "poll" && mode !== "browser" && mode !== "custom") {
-            mode = "poll";
-          }
-          if (mode === "browser" && !this.showBrowserTimezoneOption) {
-            mode = "poll";
-          }
-          const timezoneName = this.normalizeKnownTimeZone(this.calendarCustomTimezone) || "";
-          if (mode === "custom" && !timezoneName) {
+          const serializedPreference = serializeCalendarTimezonePreference(
+            this.calendarTimezoneMode,
+            this.calendarCustomTimezone,
+            this.showBrowserTimezoneOption,
+            (value) => this.normalizeKnownTimeZone(value)
+          );
+          if (!serializedPreference) {
             return;
           }
-          const payload = {
-            mode,
-            timezone: timezoneName
-          };
-          safeLocalStorageSetItem(key, JSON.stringify(payload));
+          safeLocalStorageSetItem(key, serializedPreference);
         },
         async changeLanguage() {
           safeLocalStorageSetItem("timepoll-language", this.language);
@@ -3041,4 +2976,5 @@
   } else {
     waitForVueAndMount();
   }
+
 })();

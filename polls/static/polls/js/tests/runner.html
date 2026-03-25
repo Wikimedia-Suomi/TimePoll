@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TimePoll JS Unit Tests</title>
+  <style>
+    body {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      margin: 2rem;
+      line-height: 1.5;
+    }
+
+    #summary[data-status="passed"] {
+      color: #166534;
+      font-weight: 700;
+    }
+
+    #summary[data-status="failed"] {
+      color: #b91c1c;
+      font-weight: 700;
+    }
+
+    #details {
+      background: #f5f5f5;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>TimePoll JS Unit Tests</h1>
+    <p id="summary" data-status="running">Running JS unit tests...</p>
+    <pre id="details">Preparing test harness...</pre>
+  </main>
+  <script src="../app_logic.js" defer></script>
+  <script src="./test_harness.js" defer></script>
+  <script src="./unit_tests.js" defer></script>
+  <script src="./runner.js" defer></script>
+</body>
+</html>

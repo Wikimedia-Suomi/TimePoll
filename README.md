@@ -44,6 +44,8 @@ pip install -r requirements-dev.txt
 python -m playwright install chromium
 ```
 
+This also installs `pytest`, `pytest-django`, and `hypothesis`.
+
 3. Set required environment variables:
 
 ```bash
@@ -84,6 +86,12 @@ Run the full automated quality suite:
 make quality
 ```
 
+Run the Django suite with `pytest`:
+
+```bash
+make pytest
+```
+
 Available local automation targets:
 
 - `make install-dev`
@@ -93,6 +101,7 @@ Available local automation targets:
 - `make security`
 - `make audit`
 - `make test`
+- `make pytest`
 - `make coverage`
 - `make quality`
 
@@ -121,6 +130,9 @@ To enforce these checks as merge gates in GitHub:
 ## Notes
 
 - Vue app code is in Django static files.
+- Frontend logic is split between `polls/static/polls/js/app_logic.js` and `polls/static/polls/js/app.js`.
+- The application page loads those two JavaScript files directly without a build step.
+- Browser-run JS unit tests live under `polls/static/polls/js/tests/` and are executed via Playwright.
 - Vue runtime is loaded from Wikimedia CDN: `https://tools-static.wmflabs.org/cdnjs/...`.
 - Required environment variables:
   - `TIMEPOLL_SECRET_KEY`: non-empty secret string

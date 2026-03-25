@@ -9,7 +9,7 @@ TIMEPOLL_ALLOWED_HOSTS ?= 127.0.0.1,localhost,testserver,[::1]
 
 DJANGO_ENV = TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
 
-.PHONY: install-dev install-browser lint typecheck security audit test coverage quality
+.PHONY: install-dev install-browser lint typecheck security audit test pytest coverage quality
 
 install-dev:
 	$(PIP) install -r requirements-dev.txt
@@ -31,6 +31,9 @@ audit:
 
 test:
 	$(DJANGO_ENV) $(PYTHON) manage.py test
+
+pytest:
+	$(DJANGO_ENV) $(PYTHON) -m pytest
 
 coverage:
 	$(DJANGO_ENV) $(PYTHON) -m coverage run manage.py test

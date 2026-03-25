@@ -15,6 +15,12 @@ python_version = "3.13"
 ignore_missing_imports = true
 exclude = ["polls/migrations/.*"]
 
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "timepoll.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+testpaths = ["polls"]
+addopts = "-ra"
+
 [tool.coverage.run]
 branch = true
 concurrency = ["thread"]
