@@ -38,6 +38,36 @@ Optional browser test setup:
 PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" ./venv/bin/python -m playwright install chromium
 ```
 
+## Commands
+
+Canonical project commands live in `tools/`. `Makefile` is optional and only provides shortcuts for them.
+
+Core workflow:
+
+```bash
+sh tools/dev.sh
+sh tools/test-backend.sh
+sh tools/quality-core.sh
+```
+
+Browser and full quality workflow:
+
+```bash
+sh tools/install-browser.sh
+sh tools/test-browser.sh
+sh tools/quality-full.sh
+```
+
+Optional `make` shortcuts:
+
+```bash
+make dev
+make test
+make quality
+make test-browser
+make quality-full
+```
+
 ## Features
 
 - Vue.js frontend with static assets under `polls/static/`
@@ -54,120 +84,40 @@ PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" ./venv/bin/python -m playwr
 - Session-based login state
 - Mobile-friendly and accessibility-focused UI
 
-## Local development (virtualenv)
-
-1. Create and activate virtualenv:
-
-```bash
-python3.13 -m venv venv
-source venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Optional development tooling:
-
-```bash
-pip install -r requirements-dev.txt
-python -m playwright install chromium
-```
-
-This also installs `pytest`, `pytest-django`, and `hypothesis`.
-
-3. Set required environment variables:
-
-```bash
-export TIMEPOLL_SECRET_KEY='dev-only-secret-change-me'
-export TIMEPOLL_DEBUG='1'
-export TIMEPOLL_ALLOWED_HOSTS='127.0.0.1,localhost'
-```
-
-4. Run migrations:
-
-```bash
-python manage.py migrate
-```
-
-5. Start development server:
-
-```bash
-python manage.py runserver
-```
-
-6. Open app:
-
-[http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-
-Optional poll link format with custom identifier:
-
-- `http://127.0.0.1:8000/?id=Poll_Name_2026`
-
 ## Tests
 
-Run the backend Django suite:
+Backend and core quality:
 
 ```bash
-python manage.py test --exclude-tag=browser
-# or
-make test
+sh tools/test-backend.sh
+sh tools/quality-core.sh
 ```
 
-Run the tagged Playwright browser suite explicitly:
+Browser and full quality:
 
 ```bash
-python manage.py test --tag=browser
-# or
-make test-browser
+sh tools/install-browser.sh
+sh tools/test-browser.sh
+sh tools/quality-full.sh
 ```
 
-Run the core automated quality checks:
+`pytest` remains available for backend-only collection:
 
 ```bash
-make quality
+sh tools/pytest.sh
 ```
 
-Run the full quality suite, including Playwright browser tests:
+Optional custom poll link format:
 
-```bash
-make quality-full
-```
-
-Run the Django suite with `pytest`:
-
-```bash
-make pytest
-```
-
-Available local automation targets:
-
-- `make install-dev`
-- `make install-browser`
-- `make lint`
-- `make typecheck`
-- `make security`
-- `make audit`
-- `make test`
-- `make test-browser`
-- `make pytest`
-- `make coverage`
-- `make quality`
-- `make quality-full`
+- `http://127.0.0.1:8000/?id=Poll_Name_2026`
 
 ## CI merge gates
 
 This repository includes GitHub Actions checks in `.github/workflows/ci.yml`:
 
-- `ruff check .`
-- `mypy polls timepoll manage.py`
-- `bandit -r polls timepoll manage.py`
-- `pip-audit --requirement requirements-dev.txt`
-- `coverage run manage.py test`
-- Playwright browser smoke test
-- axe accessibility smoke test
+- `sh tools/quality-core.sh`
+- `sh tools/install-browser.sh`
+- `sh tools/test-browser.sh`
 
 Note: the `pip-audit` target currently ignores advisory `GHSA-5239-wwwm-4pmq`
 for `pygments`, because no fixed upstream release is available yet.
@@ -185,6 +135,7 @@ To enforce these checks as merge gates in GitHub:
 - Frontend logic is split between `polls/static/polls/js/app_logic.js` and `polls/static/polls/js/app.js`.
 - The application page loads those two JavaScript files directly without a build step.
 - Browser-run JS unit tests live under `polls/static/polls/js/tests/` and are executed via Playwright.
+- Browser tests also include the axe accessibility smoke test.
 - Vue runtime is loaded from Wikimedia CDN: `https://tools-static.wmflabs.org/cdnjs/...`.
 - Required environment variables:
   - `TIMEPOLL_SECRET_KEY`: non-empty secret string

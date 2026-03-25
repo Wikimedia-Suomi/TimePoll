@@ -6,43 +6,50 @@ PIP_AUDIT_IGNORE ?= GHSA-5239-wwwm-4pmq
 TIMEPOLL_SECRET_KEY ?= dev-only-secret-change-me
 TIMEPOLL_DEBUG ?= 1
 TIMEPOLL_ALLOWED_HOSTS ?= 127.0.0.1,localhost,testserver,[::1]
+PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/.playwright-browsers
 
-DJANGO_ENV = TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
+TOOL_ENV = PYTHON_BIN="$(PYTHON)" PIP_BIN="$(PIP)" PLAYWRIGHT_INSTALL_ARGS="$(PLAYWRIGHT_INSTALL_ARGS)" PIP_AUDIT_IGNORE="$(PIP_AUDIT_IGNORE)" PLAYWRIGHT_BROWSERS_PATH="$(PLAYWRIGHT_BROWSERS_PATH)" TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
 
-.PHONY: install-dev install-browser lint typecheck security audit test test-browser pytest coverage quality quality-full
+.PHONY: bootstrap dev install-dev install-browser lint typecheck security audit test test-browser pytest coverage quality quality-full
+
+bootstrap:
+	$(TOOL_ENV) sh tools/bootstrap.sh
+
+dev:
+	$(TOOL_ENV) sh tools/dev.sh
 
 install-dev:
-	$(PIP) install -r requirements-dev.txt
+	$(TOOL_ENV) sh tools/install-dev.sh
 
 install-browser:
-	$(PYTHON) -m playwright install $(PLAYWRIGHT_INSTALL_ARGS)
+	$(TOOL_ENV) sh tools/install-browser.sh
 
 lint:
-	$(PYTHON) -m ruff check .
+	$(TOOL_ENV) sh tools/lint.sh
 
 typecheck:
-	$(PYTHON) -m mypy polls timepoll manage.py
+	$(TOOL_ENV) sh tools/typecheck.sh
 
 security:
-	$(PYTHON) -m bandit --ini .bandit -r polls timepoll manage.py
+	$(TOOL_ENV) sh tools/security.sh
 
 audit:
-	$(PYTHON) -m pip_audit -r requirements-dev.txt --ignore-vuln $(PIP_AUDIT_IGNORE)
+	$(TOOL_ENV) sh tools/audit.sh
 
 test:
-	$(DJANGO_ENV) $(PYTHON) manage.py test --exclude-tag=browser
+	$(TOOL_ENV) sh tools/test-backend.sh
 
 test-browser:
-	$(DJANGO_ENV) $(PYTHON) manage.py test --tag=browser
+	$(TOOL_ENV) sh tools/test-browser.sh
 
 pytest:
-	$(DJANGO_ENV) $(PYTHON) -m pytest
+	$(TOOL_ENV) sh tools/pytest.sh
 
 coverage:
-	$(DJANGO_ENV) $(PYTHON) -m coverage run manage.py test --exclude-tag=browser
-	$(PYTHON) -m coverage report --show-missing
-	$(PYTHON) -m coverage xml
+	$(TOOL_ENV) sh tools/coverage.sh
 
-quality: lint typecheck security audit coverage
+quality:
+	$(TOOL_ENV) sh tools/quality-core.sh
 
-quality-full: quality test-browser
+quality-full:
+	$(TOOL_ENV) sh tools/quality-full.sh

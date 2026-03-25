@@ -2,12 +2,12 @@
   --bg: #f7f8f4;
   --panel: #ffffff;
   --ink: #19211f;
-  --ink-soft: #52605b;
-  --accent: #0b7285;
-  --accent-strong: #095c6b;
-  --danger: #b9471f;
+  --ink-soft: #3f4c47;
+  --accent: #0a5f70;
+  --accent-strong: #095767;
+  --danger: #943a1b;
   --line: #d7dfdc;
-  --success: #0f7a3f;
+  --success: #1e552d;
   --radius: 14px;
 }
 
@@ -143,7 +143,7 @@ button.secondary {
 
 button.danger {
   background: var(--danger);
-  border-color: #943a1b;
+  border-color: #7c2b10;
 }
 
 button:disabled {
@@ -270,6 +270,7 @@ fieldset {
   align-items: baseline;
 }
 
+.timezone-suggestion.is-active,
 .timezone-suggestion:hover,
 .timezone-suggestion:focus-visible {
   background: #eef6fa;
@@ -469,12 +470,12 @@ fieldset {
 
 .state-pill.open {
   background: #d9f3e6;
-  color: #115e37;
+  color: #0f4b2c;
 }
 
 .state-pill.closed {
   background: #fbe6dc;
-  color: #9d3615;
+  color: #7c2b10;
 }
 
 .poll-edit {
@@ -802,6 +803,11 @@ td {
   border-color: #c7d4d0;
 }
 
+.bulk-trigger:focus-visible {
+  outline: 2px solid rgba(11, 114, 133, 0.24);
+  outline-offset: 1px;
+}
+
 .bulk-day-trigger .calendar-day-long,
 .bulk-static-label .calendar-day-long {
   margin-top: 0.02rem;
@@ -993,6 +999,11 @@ td {
 .bulk-menu-item:focus-visible {
   background: #f1f6f4;
   border-color: #c7d4d0;
+}
+
+.bulk-menu-item:focus-visible {
+  outline: 2px solid rgba(11, 114, 133, 0.24);
+  outline-offset: 1px;
 }
 
 .bulk-menu-item:disabled {

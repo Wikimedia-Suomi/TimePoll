@@ -1182,6 +1182,8 @@ const translations = {
           voteDisplayMode: "own",
           showCalendarTimezoneSuggestions: false,
           showTimezoneSuggestions: false,
+          activeTimezoneSuggestionIndex: -1,
+          activeCalendarTimezoneSuggestionIndex: -1,
           profileData: null,
           profileLoading: false,
           profileDeleting: false,
@@ -1281,6 +1283,26 @@ const translations = {
           return options
             .filter((item) => item.label.toLowerCase().includes(rawQuery))
             .slice(0, 200);
+        },
+        activeCreateTimezoneSuggestionId() {
+          if (
+            !this.showTimezoneSuggestions
+            || this.activeTimezoneSuggestionIndex < 0
+            || this.activeTimezoneSuggestionIndex >= this.filteredTimezoneOptions.length
+          ) {
+            return "";
+          }
+          return this.timezoneSuggestionOptionId("create", this.activeTimezoneSuggestionIndex);
+        },
+        activeCalendarTimezoneSuggestionId() {
+          if (
+            !this.showCalendarTimezoneSuggestions
+            || this.activeCalendarTimezoneSuggestionIndex < 0
+            || this.activeCalendarTimezoneSuggestionIndex >= this.filteredCalendarTimezoneOptions.length
+          ) {
+            return "";
+          }
+          return this.timezoneSuggestionOptionId("calendar", this.activeCalendarTimezoneSuggestionIndex);
         },
         selectedTimezoneDisplay() {
           return this.timezoneDisplay(this.createForm.timezone);
@@ -1423,6 +1445,20 @@ const translations = {
             this.calendarTimezoneMode = "poll";
           }
         },
+        showTimezoneSuggestions(isVisible) {
+          if (!isVisible) {
+            this.activeTimezoneSuggestionIndex = -1;
+            return;
+          }
+          this.syncTimezoneSuggestionIndex("create");
+        },
+        showCalendarTimezoneSuggestions(isVisible) {
+          if (!isVisible) {
+            this.activeCalendarTimezoneSuggestionIndex = -1;
+            return;
+          }
+          this.syncTimezoneSuggestionIndex("calendar");
+        },
         "editForm.title"(newValue, oldValue) {
           if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
             return;
@@ -1476,6 +1512,227 @@ const translations = {
         }
       },
       methods: {
+        focusableElementsIn(root) {
+          if (!root || typeof root.querySelectorAll !== "function") {
+            return [];
+          }
+          return Array.from(
+            root.querySelectorAll(
+              "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"
+            )
+          ).filter((element) => element.getClientRects().length > 0);
+        },
+        focusAuthDialogInitialField() {
+          this.$nextTick(() => {
+            const input = this.$refs.authNameInput;
+            if (input && typeof input.focus === "function") {
+              input.focus();
+            }
+          });
+        },
+        closeAuthDialog(options = {}) {
+          const restoreFocus = options.restoreFocus !== false;
+          const returnFocusTarget = restoreFocus ? this._authDialogReturnFocus : null;
+          this.showAuthDialog = false;
+          this._authDialogReturnFocus = null;
+          this.$nextTick(() => {
+            if (
+              returnFocusTarget
+              && typeof returnFocusTarget.focus === "function"
+              && document.contains(returnFocusTarget)
+            ) {
+              returnFocusTarget.focus();
+            }
+          });
+        },
+        handleAuthDialogKeydown(event) {
+          if (!this.showAuthDialog) {
+            return;
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            this.closeAuthDialog();
+            return;
+          }
+          if (event.key !== "Tab") {
+            return;
+          }
+          const focusable = this.focusableElementsIn(this.$refs.authDialog);
+          if (!focusable.length) {
+            event.preventDefault();
+            return;
+          }
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        },
+        timezoneSuggestionOptions(scope = "create") {
+          return scope === "calendar" ? this.filteredCalendarTimezoneOptions : this.filteredTimezoneOptions;
+        },
+        timezoneSuggestionIndex(scope = "create") {
+          return scope === "calendar"
+            ? this.activeCalendarTimezoneSuggestionIndex
+            : this.activeTimezoneSuggestionIndex;
+        },
+        setTimezoneSuggestionIndex(scope = "create", index = -1) {
+          const options = this.timezoneSuggestionOptions(scope);
+          const nextIndex = options.length
+            ? Math.min(Math.max(Number(index) || 0, 0), options.length - 1)
+            : -1;
+          if (scope === "calendar") {
+            this.activeCalendarTimezoneSuggestionIndex = nextIndex;
+          } else {
+            this.activeTimezoneSuggestionIndex = nextIndex;
+          }
+          if (nextIndex >= 0) {
+            this.$nextTick(() => {
+              const option = document.getElementById(this.timezoneSuggestionOptionId(scope, nextIndex));
+              if (option && typeof option.scrollIntoView === "function") {
+                option.scrollIntoView({ block: "nearest" });
+              }
+            });
+          }
+        },
+        syncTimezoneSuggestionIndex(scope = "create") {
+          const options = this.timezoneSuggestionOptions(scope);
+          if (!options.length) {
+            this.setTimezoneSuggestionIndex(scope, -1);
+            return;
+          }
+          const rawValue = scope === "calendar" ? this.calendarCustomTimezone : this.createForm.timezone;
+          const normalizedValue = String(rawValue || "").trim().toLowerCase();
+          const matchedIndex = options.findIndex((item) => item.id.toLowerCase() === normalizedValue);
+          this.setTimezoneSuggestionIndex(scope, matchedIndex >= 0 ? matchedIndex : 0);
+        },
+        moveTimezoneSuggestionIndex(scope = "create", delta = 1) {
+          const options = this.timezoneSuggestionOptions(scope);
+          if (!options.length) {
+            return;
+          }
+          const currentIndex = this.timezoneSuggestionIndex(scope);
+          const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+          const nextIndex = (baseIndex + delta + options.length) % options.length;
+          this.setTimezoneSuggestionIndex(scope, nextIndex);
+        },
+        timezoneSuggestionOptionId(scope = "create", index = 0) {
+          return `${scope}-timezone-suggestion-${index}`;
+        },
+        selectActiveTimezoneSuggestion(scope = "create") {
+          const options = this.timezoneSuggestionOptions(scope);
+          const index = this.timezoneSuggestionIndex(scope);
+          if (index < 0 || index >= options.length) {
+            return;
+          }
+          const value = options[index].id;
+          if (scope === "calendar") {
+            this.selectCalendarTimezone(value);
+          } else {
+            this.selectTimezone(value);
+          }
+        },
+        closeTimezoneSuggestions(scope = "create") {
+          if (scope === "calendar") {
+            this.showCalendarTimezoneSuggestions = false;
+            this.activeCalendarTimezoneSuggestionIndex = -1;
+          } else {
+            this.showTimezoneSuggestions = false;
+            this.activeTimezoneSuggestionIndex = -1;
+          }
+        },
+        handleTimezoneKeydown(event, scope = "create") {
+          const hasOptions = this.timezoneSuggestionOptions(scope).length > 0;
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            if (scope === "calendar") {
+              this.openCalendarTimezoneSuggestions();
+            } else {
+              this.openTimezoneSuggestions();
+            }
+            if (hasOptions) {
+              this.moveTimezoneSuggestionIndex(scope, 1);
+            }
+            return;
+          }
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            if (scope === "calendar") {
+              this.openCalendarTimezoneSuggestions();
+            } else {
+              this.openTimezoneSuggestions();
+            }
+            if (hasOptions) {
+              this.moveTimezoneSuggestionIndex(scope, -1);
+            }
+            return;
+          }
+          if (event.key === "Home" && hasOptions) {
+            event.preventDefault();
+            this.setTimezoneSuggestionIndex(scope, 0);
+            return;
+          }
+          if (event.key === "End" && hasOptions) {
+            event.preventDefault();
+            this.setTimezoneSuggestionIndex(scope, this.timezoneSuggestionOptions(scope).length - 1);
+            return;
+          }
+          if (event.key === "Enter" && hasOptions) {
+            const isOpen = scope === "calendar"
+              ? this.showCalendarTimezoneSuggestions
+              : this.showTimezoneSuggestions;
+            if (isOpen) {
+              event.preventDefault();
+              this.selectActiveTimezoneSuggestion(scope);
+            }
+            return;
+          }
+          if (event.key === "Escape") {
+            const isOpen = scope === "calendar"
+              ? this.showCalendarTimezoneSuggestions
+              : this.showTimezoneSuggestions;
+            if (isOpen) {
+              event.preventDefault();
+              this.closeTimezoneSuggestions(scope);
+            }
+            return;
+          }
+          if (event.key === "Tab") {
+            this.closeTimezoneSuggestions(scope);
+          }
+        },
+        bulkMenuStatuses() {
+          return ["", "yes", "no", "maybe"];
+        },
+        bulkMenuIdPart(value) {
+          return String(value || "").replace(/[^A-Za-z0-9_-]+/g, "-");
+        },
+        bulkMenuTriggerId(type, weekKey, key) {
+          return `bulk-trigger-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(weekKey)}-${this.bulkMenuIdPart(key)}`;
+        },
+        bulkMenuId(type, weekKey, key) {
+          return `bulk-menu-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(weekKey)}-${this.bulkMenuIdPart(key)}`;
+        },
+        bulkMenuItemId(type, weekKey, key, status) {
+          const suffix = status || "none";
+          return `bulk-menu-item-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(weekKey)}-${this.bulkMenuIdPart(key)}-${this.bulkMenuIdPart(suffix)}`;
+        },
+        focusBulkTrigger(type, weekKey, key) {
+          const trigger = document.getElementById(this.bulkMenuTriggerId(type, weekKey, key));
+          if (trigger && typeof trigger.focus === "function") {
+            trigger.focus();
+          }
+        },
+        focusBulkMenuItem(type, weekKey, key, status = "") {
+          const menuItem = document.getElementById(this.bulkMenuItemId(type, weekKey, key, status));
+          if (menuItem && typeof menuItem.focus === "function") {
+            menuItem.focus();
+          }
+        },
         t(key) {
           const set = translations[this.language] || translations.en;
           return set[key] || translations.en[key] || key;
@@ -2038,8 +2295,14 @@ const translations = {
           }
           return "none";
         },
-        closeVoteMenus() {
+        closeVoteMenus(options = {}) {
+          const activeMenu = this.bulkMenu;
           this.bulkMenu = null;
+          if (options.restoreFocus && activeMenu) {
+            this.$nextTick(() => {
+              this.focusBulkTrigger(activeMenu.type, activeMenu.weekKey, activeMenu.key);
+            });
+          }
         },
         updateVisibleDayCount() {
           const root = document.getElementById("app");
@@ -2150,6 +2413,75 @@ const translations = {
           const isOpen = this.isBulkMenuOpen(type, weekKey, key);
           this.bulkMenu = isOpen ? null : { type, weekKey, key };
         },
+        openBulkMenu(type, weekKey, key, options = {}) {
+          if (!this.canVoteInPoll) {
+            return;
+          }
+          this.bulkMenu = { type, weekKey, key };
+          if (Object.prototype.hasOwnProperty.call(options, "focusStatus")) {
+            this.$nextTick(() => {
+              this.focusBulkMenuItem(type, weekKey, key, options.focusStatus);
+            });
+          }
+        },
+        handleBulkTriggerKeydown(event, type, weekKey, key) {
+          if (!this.canVoteInPoll) {
+            return;
+          }
+          if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            this.openBulkMenu(type, weekKey, key, { focusStatus: "" });
+            return;
+          }
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            this.openBulkMenu(type, weekKey, key, { focusStatus: "maybe" });
+            return;
+          }
+          if (event.key === "Escape" && this.isBulkMenuOpen(type, weekKey, key)) {
+            event.preventDefault();
+            this.closeVoteMenus({ restoreFocus: true });
+          }
+        },
+        handleBulkMenuKeydown(event, type, weekKey, key) {
+          const items = this.bulkMenuStatuses()
+            .map((status) => document.getElementById(this.bulkMenuItemId(type, weekKey, key, status)))
+            .filter((item) => item && !item.disabled);
+          if (!items.length) {
+            return;
+          }
+          const currentIndex = items.findIndex((item) => item === document.activeElement);
+          if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+            event.preventDefault();
+            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % items.length : 0;
+            items[nextIndex].focus();
+            return;
+          }
+          if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+            event.preventDefault();
+            const nextIndex = currentIndex >= 0 ? (currentIndex - 1 + items.length) % items.length : items.length - 1;
+            items[nextIndex].focus();
+            return;
+          }
+          if (event.key === "Home") {
+            event.preventDefault();
+            items[0].focus();
+            return;
+          }
+          if (event.key === "End") {
+            event.preventDefault();
+            items[items.length - 1].focus();
+            return;
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            this.closeVoteMenus({ restoreFocus: true });
+            return;
+          }
+          if (event.key === "Tab") {
+            this.closeVoteMenus();
+          }
+        },
         collectDayOptionIds(week, dayKey) {
           return collectDayOptionIdsFromRows(this.filteredRowsForWeek(week), dayKey);
         },
@@ -2157,13 +2489,62 @@ const translations = {
           return collectRowOptionIdsFromCells(row, dayKeys);
         },
         async chooseBulkVoteForDay(week, dayKey, status) {
-          this.closeVoteMenus();
+          this.closeVoteMenus({ restoreFocus: true });
           await this.applyVotes(this.collectDayOptionIds(week, dayKey), status);
         },
         async chooseBulkVoteForRow(week, row, status) {
-          this.closeVoteMenus();
+          this.closeVoteMenus({ restoreFocus: true });
           const visibleDayKeys = this.visibleDaysForWeek(week).map((day) => day.key);
           await this.applyVotes(this.collectRowOptionIds(row, visibleDayKeys), status);
+        },
+        voteStatusOrder() {
+          return ["yes", "maybe", "no"];
+        },
+        voteButtonTabIndex(option, status) {
+          if (!option || !Number.isInteger(option.id)) {
+            return -1;
+          }
+          const selected = this.voteValueForOption(option);
+          if (selected) {
+            return selected === status ? 0 : -1;
+          }
+          return status === "yes" ? 0 : -1;
+        },
+        focusVoteButton(optionId, status) {
+          const selector = `.vote-switch-option[data-vote-option-id="${optionId}"][data-vote-status="${status}"]`;
+          const button = document.querySelector(selector);
+          if (button && typeof button.focus === "function") {
+            button.focus();
+          }
+        },
+        async handleVoteSwitchKeydown(event, option, status) {
+          if (
+            !option
+            || !Number.isInteger(option.id)
+            || !this.canVoteInPoll
+            || this.isVoteSaving(option.id)
+          ) {
+            return;
+          }
+          const order = this.voteStatusOrder();
+          const currentIndex = order.indexOf(status);
+          let nextStatus = "";
+          if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+            nextStatus = order[(currentIndex + 1) % order.length];
+          } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+            nextStatus = order[(currentIndex - 1 + order.length) % order.length];
+          } else if (event.key === "Home") {
+            nextStatus = order[0];
+          } else if (event.key === "End") {
+            nextStatus = order[order.length - 1];
+          } else {
+            return;
+          }
+          event.preventDefault();
+          await this.setVoteStatus(option, nextStatus);
+          this.$nextTick(() => {
+            this.focusVoteButton(option.id, nextStatus);
+          });
         },
         async setVoteStatus(option, status) {
           if (!option || !Number.isInteger(option.id)) {
@@ -2403,21 +2784,25 @@ const translations = {
         },
         openTimezoneSuggestions() {
           this.showTimezoneSuggestions = true;
+          this.syncTimezoneSuggestionIndex("create");
         },
         selectTimezone(value) {
           this.createForm.timezone = value;
           this.handleFormFieldChange("timezone", "create");
-          this.showTimezoneSuggestions = false;
+          this.closeTimezoneSuggestions("create");
         },
         handleCreateTimezoneInput() {
           this.openTimezoneSuggestions();
           this.handleFormFieldChange("timezone", "create");
         },
+        handleCreateTimezoneKeydown(event) {
+          this.handleTimezoneKeydown(event, "create");
+        },
         handleTimezoneBlur() {
           window.setTimeout(() => {
             this.normalizeTimezoneInput();
             this.handleFormFieldChange("timezone", "create");
-            this.showTimezoneSuggestions = false;
+            this.closeTimezoneSuggestions("create");
           }, 120);
         },
         normalizeTimezoneInput() {
@@ -2435,20 +2820,24 @@ const translations = {
             return;
           }
           this.showCalendarTimezoneSuggestions = true;
+          this.syncTimezoneSuggestionIndex("calendar");
         },
         selectCalendarTimezone(value) {
           this.calendarCustomTimezone = value;
-          this.showCalendarTimezoneSuggestions = false;
+          this.closeTimezoneSuggestions("calendar");
           this.savePreferredCalendarTimezonePreference();
         },
         handleCalendarTimezoneInput() {
           this.openCalendarTimezoneSuggestions();
         },
+        handleCalendarTimezoneKeydown(event) {
+          this.handleTimezoneKeydown(event, "calendar");
+        },
         handleCalendarTimezoneBlur() {
           window.setTimeout(() => {
             this.normalizeCalendarTimezoneInput();
             this.savePreferredCalendarTimezonePreference();
-            this.showCalendarTimezoneSuggestions = false;
+            this.closeTimezoneSuggestions("calendar");
           }, 120);
         },
         normalizeCalendarTimezoneInput() {
@@ -2642,9 +3031,13 @@ const translations = {
           }
         },
         openAuthDialog() {
+          this._authDialogReturnFocus = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
           this.showAuthDialog = true;
           this.authForm.name = this.authForm.name || "";
           this.authForm.pin = "";
+          this.focusAuthDialogInitialField();
         },
         async submitAuth() {
           this.clearFeedback();
@@ -2660,6 +3053,7 @@ const translations = {
             this.session.authenticated = data.authenticated;
             this.session.identity = data.identity;
             this.showAuthDialog = false;
+            this._authDialogReturnFocus = null;
             this.authForm.pin = "";
             this.profileData = null;
             this.profileVoteDeletingOptionIds = {};

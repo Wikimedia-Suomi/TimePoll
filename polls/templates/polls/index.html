@@ -276,29 +276,44 @@
           <div class="timezone-picker">
             <input
               id="poll-timezone"
+              ref="createTimezoneInput"
               type="text"
+              role="combobox"
               v-model.trim="createForm.timezone"
               @focus="openTimezoneSuggestions"
+              @click="openTimezoneSuggestions"
               @input="handleCreateTimezoneInput"
+              @keydown="handleCreateTimezoneKeydown"
               @blur="handleTimezoneBlur"
               placeholder="Europe/Helsinki"
               required
               spellcheck="false"
               autocomplete="off"
               aria-describedby="timezone-help"
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-controls="create-timezone-suggestions"
+              :aria-expanded="showTimezoneSuggestions && filteredTimezoneOptions.length ? 'true' : 'false'"
+              :aria-activedescendant="activeCreateTimezoneSuggestionId || null"
               :class="{ 'input-invalid': hasFieldError('create', 'timezone') }"
             >
             <ul
+              id="create-timezone-suggestions"
               v-if="showTimezoneSuggestions && filteredTimezoneOptions.length"
               class="timezone-suggestions"
               role="listbox"
               aria-label="Timezone suggestions"
             >
-              <li v-for="tz in filteredTimezoneOptions" :key="`tz-${tz.id}`">
+              <li v-for="(tz, index) in filteredTimezoneOptions" :key="`tz-${tz.id}`" role="presentation">
                 <button
                   type="button"
                   class="timezone-suggestion"
+                  :class="{ 'is-active': activeTimezoneSuggestionIndex === index }"
+                  :id="timezoneSuggestionOptionId('create', index)"
+                  role="option"
+                  :aria-selected="createForm.timezone === tz.id ? 'true' : 'false'"
                   @mousedown.prevent="selectTimezone(tz.id)"
+                  @mouseenter="setTimezoneSuggestionIndex('create', index)"
                 >
                   <span class="timezone-suggestion-name">[[ tz.id ]]</span>
                   <span class="timezone-suggestion-meta" v-if="tz.meta">[[ tz.meta ]]</span>
@@ -615,27 +630,45 @@
             <div class="timezone-picker" v-if="calendarTimezoneMode === 'custom'">
               <input
                 id="calendar-timezone"
+                ref="calendarTimezoneInput"
                 type="text"
+                role="combobox"
                 v-model.trim="calendarCustomTimezone"
                 @focus="openCalendarTimezoneSuggestions"
                 @click="openCalendarTimezoneSuggestions"
                 @input="handleCalendarTimezoneInput"
+                @keydown="handleCalendarTimezoneKeydown"
                 @blur="handleCalendarTimezoneBlur"
                 placeholder="Europe/Helsinki"
                 spellcheck="false"
                 autocomplete="off"
+                aria-autocomplete="list"
+                aria-haspopup="listbox"
+                aria-controls="calendar-timezone-suggestions"
+                :aria-expanded="showCalendarTimezoneSuggestions && filteredCalendarTimezoneOptions.length ? 'true' : 'false'"
+                :aria-activedescendant="activeCalendarTimezoneSuggestionId || null"
               >
               <ul
+                id="calendar-timezone-suggestions"
                 v-if="showCalendarTimezoneSuggestions && filteredCalendarTimezoneOptions.length"
                 class="timezone-suggestions"
                 role="listbox"
                 aria-label="Timezone suggestions"
               >
-                <li v-for="tz in filteredCalendarTimezoneOptions" :key="`calendar-tz-${tz.id}`">
+                <li
+                  v-for="(tz, index) in filteredCalendarTimezoneOptions"
+                  :key="`calendar-tz-${tz.id}`"
+                  role="presentation"
+                >
                   <button
                     type="button"
                     class="timezone-suggestion"
+                    :class="{ 'is-active': activeCalendarTimezoneSuggestionIndex === index }"
+                    :id="timezoneSuggestionOptionId('calendar', index)"
+                    role="option"
+                    :aria-selected="calendarCustomTimezone === tz.id ? 'true' : 'false'"
                     @mousedown.prevent="selectCalendarTimezone(tz.id)"
+                    @mouseenter="setTimezoneSuggestionIndex('calendar', index)"
                   >
                     <span class="timezone-suggestion-name">[[ tz.id ]]</span>
                     <span class="timezone-suggestion-meta" v-if="tz.meta">[[ tz.meta ]]</span>
@@ -729,8 +762,12 @@
                             v-if="canVoteInPoll"
                             type="button"
                             class="bulk-trigger bulk-day-trigger"
+                            :id="bulkMenuTriggerId('column', week.key, day.key)"
                             @click="toggleBulkMenu('column', week.key, day.key)"
+                            @keydown="handleBulkTriggerKeydown($event, 'column', week.key, day.key)"
+                            aria-haspopup="menu"
                             :aria-expanded="isBulkMenuOpen('column', week.key, day.key) ? 'true' : 'false'"
+                            :aria-controls="isBulkMenuOpen('column', week.key, day.key) ? bulkMenuId('column', week.key, day.key) : null"
                           >
                             <span class="calendar-day-short">[[ day.label ]]</span>
                             <span class="calendar-day-long">[[ day.longLabel ]]</span>
@@ -742,13 +779,39 @@
                           <div
                             v-if="canVoteInPoll && isBulkMenuOpen('column', week.key, day.key)"
                             class="bulk-menu"
+                            :id="bulkMenuId('column', week.key, day.key)"
                             role="menu"
                             :aria-label="day.longLabel"
+                            @keydown="handleBulkMenuKeydown($event, 'column', week.key, day.key)"
                           >
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, '')">[[ t('noVote') ]]</button>
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, 'yes')">[[ t('voteYes') ]]</button>
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, 'no')">[[ t('voteNo') ]]</button>
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForDay(week, day.key, 'maybe')">[[ t('voteMaybe') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('column', week.key, day.key, '')"
+                              @click="chooseBulkVoteForDay(week, day.key, '')"
+                            >[[ t('noVote') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('column', week.key, day.key, 'yes')"
+                              @click="chooseBulkVoteForDay(week, day.key, 'yes')"
+                            >[[ t('voteYes') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('column', week.key, day.key, 'no')"
+                              @click="chooseBulkVoteForDay(week, day.key, 'no')"
+                            >[[ t('voteNo') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('column', week.key, day.key, 'maybe')"
+                              @click="chooseBulkVoteForDay(week, day.key, 'maybe')"
+                            >[[ t('voteMaybe') ]]</button>
                           </div>
                         </div>
                       </th>
@@ -766,8 +829,12 @@
                             v-if="canVoteInPoll"
                             type="button"
                             class="bulk-trigger bulk-time-trigger"
+                            :id="bulkMenuTriggerId('row', week.key, row.timeKey)"
                             @click="toggleBulkMenu('row', week.key, row.timeKey)"
+                            @keydown="handleBulkTriggerKeydown($event, 'row', week.key, row.timeKey)"
+                            aria-haspopup="menu"
                             :aria-expanded="isBulkMenuOpen('row', week.key, row.timeKey) ? 'true' : 'false'"
+                            :aria-controls="isBulkMenuOpen('row', week.key, row.timeKey) ? bulkMenuId('row', week.key, row.timeKey) : null"
                           >
                             [[ row.timeKey ]]
                           </button>
@@ -775,13 +842,39 @@
                           <div
                             v-if="canVoteInPoll && isBulkMenuOpen('row', week.key, row.timeKey)"
                             class="bulk-menu"
+                            :id="bulkMenuId('row', week.key, row.timeKey)"
                             role="menu"
                             :aria-label="`${t('timeColumn')} ${row.timeKey}`"
+                            @keydown="handleBulkMenuKeydown($event, 'row', week.key, row.timeKey)"
                           >
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, '')">[[ t('noVote') ]]</button>
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, 'yes')">[[ t('voteYes') ]]</button>
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, 'no')">[[ t('voteNo') ]]</button>
-                            <button type="button" class="bulk-menu-item" @click="chooseBulkVoteForRow(week, row, 'maybe')">[[ t('voteMaybe') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('row', week.key, row.timeKey, '')"
+                              @click="chooseBulkVoteForRow(week, row, '')"
+                            >[[ t('noVote') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('row', week.key, row.timeKey, 'yes')"
+                              @click="chooseBulkVoteForRow(week, row, 'yes')"
+                            >[[ t('voteYes') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('row', week.key, row.timeKey, 'no')"
+                              @click="chooseBulkVoteForRow(week, row, 'no')"
+                            >[[ t('voteNo') ]]</button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              class="bulk-menu-item"
+                              :id="bulkMenuItemId('row', week.key, row.timeKey, 'maybe')"
+                              @click="chooseBulkVoteForRow(week, row, 'maybe')"
+                            >[[ t('voteMaybe') ]]</button>
                           </div>
                         </div>
                       </th>
@@ -807,10 +900,14 @@
                                 type="button"
                                 role="radio"
                                 :aria-checked="isSelectedVoteValue(row.cells[day.key], 'yes') ? 'true' : 'false'"
+                                :tabindex="voteButtonTabIndex(row.cells[day.key], 'yes')"
+                                :data-vote-option-id="row.cells[day.key].id"
+                                data-vote-status="yes"
                                 class="vote-switch-option vote-switch-option-yes"
                                 :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }"
                                 :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
                                 @click="setVoteStatus(row.cells[day.key], 'yes')"
+                                @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'yes')"
                               >
                                 <span class="vote-switch-label">[[ t('voteYes') ]]</span>
                                 <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'yes') ]]</span>
@@ -819,10 +916,14 @@
                                 type="button"
                                 role="radio"
                                 :aria-checked="isSelectedVoteValue(row.cells[day.key], 'maybe') ? 'true' : 'false'"
+                                :tabindex="voteButtonTabIndex(row.cells[day.key], 'maybe')"
+                                :data-vote-option-id="row.cells[day.key].id"
+                                data-vote-status="maybe"
                                 class="vote-switch-option vote-switch-option-maybe"
                                 :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }"
                                 :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
                                 @click="setVoteStatus(row.cells[day.key], 'maybe')"
+                                @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'maybe')"
                               >
                                 <span class="vote-switch-label">[[ t('voteMaybe') ]]</span>
                                 <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'maybe') ]]</span>
@@ -831,10 +932,14 @@
                                 type="button"
                                 role="radio"
                                 :aria-checked="isSelectedVoteValue(row.cells[day.key], 'no') ? 'true' : 'false'"
+                                :tabindex="voteButtonTabIndex(row.cells[day.key], 'no')"
+                                :data-vote-option-id="row.cells[day.key].id"
+                                data-vote-status="no"
                                 class="vote-switch-option vote-switch-option-no"
                                 :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'no') }"
                                 :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
                                 @click="setVoteStatus(row.cells[day.key], 'no')"
+                                @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'no')"
                               >
                                 <span class="vote-switch-label">[[ t('voteNo') ]]</span>
                                 <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'no') ]]</span>
@@ -868,14 +973,22 @@
       </section>
     </section>
 
-    <div class="dialog-backdrop" v-if="showAuthDialog" @click="showAuthDialog = false"></div>
-    <section class="auth-dialog" v-if="showAuthDialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="dialog-backdrop" v-if="showAuthDialog" @click="closeAuthDialog"></div>
+    <section
+      ref="authDialog"
+      class="auth-dialog"
+      v-if="showAuthDialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-title"
+      @keydown="handleAuthDialogKeydown"
+    >
       <h2 id="auth-title">[[ t('login') ]]</h2>
       <p class="muted">[[ t('authPrompt') ]]</p>
 
       <form @submit.prevent="submitAuth">
         <label for="auth-name">[[ t('name') ]]</label>
-        <input id="auth-name" type="text" v-model.trim="authForm.name" maxlength="80" required>
+        <input ref="authNameInput" id="auth-name" type="text" v-model.trim="authForm.name" maxlength="80" required>
 
         <label for="auth-pin">[[ t('pin') ]]</label>
         <input id="auth-pin" type="password" inputmode="numeric" v-model.trim="authForm.pin" minlength="4" maxlength="12" required>

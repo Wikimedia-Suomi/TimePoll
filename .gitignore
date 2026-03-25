@@ -12,5 +12,6 @@ local-dev-env.sh
 .coverage
 coverage.xml
 htmlcov/
+.playwright-browsers/
 playwright-report/
 test-results/
