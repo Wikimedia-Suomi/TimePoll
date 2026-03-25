@@ -9,7 +9,7 @@ TIMEPOLL_ALLOWED_HOSTS ?= 127.0.0.1,localhost,testserver,[::1]
 
 DJANGO_ENV = TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
 
-.PHONY: install-dev install-browser lint typecheck security audit test pytest coverage quality
+.PHONY: install-dev install-browser lint typecheck security audit test test-browser pytest coverage quality quality-full
 
 install-dev:
 	$(PIP) install -r requirements-dev.txt
@@ -30,14 +30,19 @@ audit:
 	$(PYTHON) -m pip_audit -r requirements-dev.txt --ignore-vuln $(PIP_AUDIT_IGNORE)
 
 test:
-	$(DJANGO_ENV) $(PYTHON) manage.py test
+	$(DJANGO_ENV) $(PYTHON) manage.py test --exclude-tag=browser
+
+test-browser:
+	$(DJANGO_ENV) $(PYTHON) manage.py test --tag=browser
 
 pytest:
 	$(DJANGO_ENV) $(PYTHON) -m pytest
 
 coverage:
-	$(DJANGO_ENV) $(PYTHON) -m coverage run manage.py test
+	$(DJANGO_ENV) $(PYTHON) -m coverage run manage.py test --exclude-tag=browser
 	$(PYTHON) -m coverage report --show-missing
 	$(PYTHON) -m coverage xml
 
 quality: lint typecheck security audit coverage
+
+quality-full: quality test-browser

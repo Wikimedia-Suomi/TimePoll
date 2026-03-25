@@ -269,6 +269,45 @@ class PollApiTests(TestCase):
         self.assertEqual(clear_vote.status_code, 200)
         self.assertFalse(PollVote.objects.filter(poll_option_id=option_id, voter__name="voter").exists())
 
+    def test_poll_vote_delete_handles_missing_vote_and_foreign_option(self):
+        self.login(self.client, "creator")
+        first_create = self.create_poll(self.client)
+        second_create = self.create_poll_with_payload(
+            self.client,
+            {
+                "title": "Second delete poll",
+                "description": "",
+                "start_date": "2026-03-11",
+                "end_date": "2026-03-11",
+                "daily_start_hour": 9,
+                "daily_end_hour": 17,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        first_poll = first_create.json()["poll"]
+        second_poll = second_create.json()["poll"]
+        first_poll_id = first_poll["id"]
+        first_option_id = first_poll["options"][0]["id"]
+        foreign_option_id = second_poll["options"][0]["id"]
+
+        self.login(self.other_client, "voter")
+
+        missing_vote_delete = self.other_client.delete(
+            reverse("polls:poll_vote_delete", args=[first_poll_id, first_option_id])
+        )
+        self.assertEqual(missing_vote_delete.status_code, 200)
+        self.assertFalse(missing_vote_delete.json()["deleted"])
+
+        voter = Identity.objects.get(name="voter")
+        foreign_option_request = self.make_request(
+            "DELETE",
+            f"/api/polls/{first_poll_id}/votes/{foreign_option_id}/",
+            identity=voter,
+        )
+        with self.assertRaises(Http404):
+            poll_vote_delete(foreign_option_request, first_poll_id, foreign_option_id)
+
     def test_set_language_sets_cookie(self):
         response = self.client.post(
             reverse("polls:set_language"),
@@ -321,6 +360,151 @@ class PollApiTests(TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(response.json()["error"], "invalid_language")
                 self.assertNotIn("django_language", response.cookies)
+
+    def test_polls_collection_summary_matrix_for_creator_voter_and_anonymous(self):
+        anonymous_client = Client()
+
+        self.login(self.client, "creator")
+        self.login(self.other_client, "voter")
+
+        open_response = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "open_summary_poll",
+                "title": "Open summary poll",
+                "description": "Open poll for summary coverage",
+                "start_date": "2026-03-10",
+                "end_date": "2026-03-10",
+                "daily_start_hour": 9,
+                "daily_end_hour": 12,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(open_response.status_code, 201)
+        open_poll = open_response.json()["poll"]
+        open_poll_id = open_poll["id"]
+        open_option_ids = [option["id"] for option in open_poll["options"]]
+
+        creator_open_vote = self.client.put(
+            reverse("polls:poll_votes_upsert", args=[open_poll_id]),
+            data=json.dumps({"votes": [{"option_id": open_option_ids[0], "status": "yes"}]}),
+            content_type="application/json",
+        )
+        self.assertEqual(creator_open_vote.status_code, 200)
+
+        voter_open_vote = self.other_client.put(
+            reverse("polls:poll_votes_upsert", args=[open_poll_id]),
+            data=json.dumps(
+                {
+                    "votes": [
+                        {"option_id": open_option_ids[0], "status": "maybe"},
+                        {"option_id": open_option_ids[1], "status": "yes"},
+                    ]
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(voter_open_vote.status_code, 200)
+
+        closed_response = self.create_poll_with_payload(
+            self.client,
+            {
+                "identifier": "closed_summary_poll",
+                "title": "Closed summary poll",
+                "description": "Closed poll for summary coverage",
+                "start_date": "2026-03-11",
+                "end_date": "2026-03-11",
+                "daily_start_hour": 9,
+                "daily_end_hour": 11,
+                "allowed_weekdays": [0, 1, 2, 3, 4],
+                "timezone": "Europe/Helsinki",
+            },
+        )
+        self.assertEqual(closed_response.status_code, 201)
+        closed_poll = closed_response.json()["poll"]
+        closed_poll_id = closed_poll["id"]
+        closed_option_ids = [option["id"] for option in closed_poll["options"]]
+
+        creator_closed_vote = self.client.put(
+            reverse("polls:poll_votes_upsert", args=[closed_poll_id]),
+            data=json.dumps({"votes": [{"option_id": closed_option_ids[0], "status": "no"}]}),
+            content_type="application/json",
+        )
+        self.assertEqual(creator_closed_vote.status_code, 200)
+
+        voter_closed_vote = self.other_client.put(
+            reverse("polls:poll_votes_upsert", args=[closed_poll_id]),
+            data=json.dumps({"votes": [{"option_id": closed_option_ids[1], "status": "yes"}]}),
+            content_type="application/json",
+        )
+        self.assertEqual(voter_closed_vote.status_code, 200)
+
+        close_response = self.client.post(reverse("polls:poll_close", args=[closed_poll_id]))
+        self.assertEqual(close_response.status_code, 200)
+
+        anonymous_response = anonymous_client.get(reverse("polls:polls_collection"))
+        creator_response = self.client.get(reverse("polls:polls_collection"))
+        voter_response = self.other_client.get(reverse("polls:polls_collection"))
+
+        self.assertEqual(anonymous_response.status_code, 200)
+        self.assertEqual(creator_response.status_code, 200)
+        self.assertEqual(voter_response.status_code, 200)
+
+        def summary_lookup(response, identifier):
+            return next(
+                poll for poll in response.json()["polls"] if poll["identifier"] == identifier
+            )
+
+        anonymous_open = summary_lookup(anonymous_response, "open_summary_poll")
+        creator_open = summary_lookup(creator_response, "open_summary_poll")
+        voter_open = summary_lookup(voter_response, "open_summary_poll")
+
+        self.assertEqual(anonymous_open["participant_count"], 2)
+        self.assertEqual(anonymous_open["my_vote_count"], 0)
+        self.assertFalse(anonymous_open["can_close"])
+        self.assertFalse(anonymous_open["can_reopen"])
+        self.assertFalse(anonymous_open["can_delete"])
+        self.assertFalse(anonymous_open["can_edit"])
+
+        self.assertEqual(creator_open["participant_count"], 2)
+        self.assertEqual(creator_open["my_vote_count"], 1)
+        self.assertTrue(creator_open["can_close"])
+        self.assertFalse(creator_open["can_reopen"])
+        self.assertFalse(creator_open["can_delete"])
+        self.assertTrue(creator_open["can_edit"])
+
+        self.assertEqual(voter_open["participant_count"], 2)
+        self.assertEqual(voter_open["my_vote_count"], 2)
+        self.assertFalse(voter_open["can_close"])
+        self.assertFalse(voter_open["can_reopen"])
+        self.assertFalse(voter_open["can_delete"])
+        self.assertFalse(voter_open["can_edit"])
+
+        anonymous_closed = summary_lookup(anonymous_response, "closed_summary_poll")
+        creator_closed = summary_lookup(creator_response, "closed_summary_poll")
+        voter_closed = summary_lookup(voter_response, "closed_summary_poll")
+
+        self.assertEqual(anonymous_closed["participant_count"], 2)
+        self.assertEqual(anonymous_closed["my_vote_count"], 0)
+        self.assertFalse(anonymous_closed["can_close"])
+        self.assertFalse(anonymous_closed["can_reopen"])
+        self.assertFalse(anonymous_closed["can_delete"])
+        self.assertFalse(anonymous_closed["can_edit"])
+
+        self.assertEqual(creator_closed["participant_count"], 2)
+        self.assertEqual(creator_closed["my_vote_count"], 1)
+        self.assertFalse(creator_closed["can_close"])
+        self.assertTrue(creator_closed["can_reopen"])
+        self.assertTrue(creator_closed["can_delete"])
+        self.assertFalse(creator_closed["can_edit"])
+
+        self.assertEqual(voter_closed["participant_count"], 2)
+        self.assertEqual(voter_closed["my_vote_count"], 1)
+        self.assertFalse(voter_closed["can_close"])
+        self.assertFalse(voter_closed["can_reopen"])
+        self.assertFalse(voter_closed["can_delete"])
+        self.assertFalse(voter_closed["can_edit"])
 
     def test_create_poll_forces_fixed_60_minute_slots(self):
         self.login(self.client, "alice")

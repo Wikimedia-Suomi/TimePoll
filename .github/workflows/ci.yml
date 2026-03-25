@@ -47,8 +47,11 @@ jobs:
       - name: pip-audit
         run: make audit PYTHON=python
 
-      - name: Coverage + Django + browser tests
+      - name: Coverage + Django backend tests
         run: make coverage PYTHON=python
+
+      - name: Playwright browser tests
+        run: TIMEPOLL_REQUIRE_BROWSER_TESTS=1 make test-browser PYTHON=python
 
       - name: Upload coverage XML
         uses: actions/upload-artifact@v4

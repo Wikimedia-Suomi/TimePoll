@@ -6,6 +6,38 @@ Django + Vue.js polling app for scheduling meetings with multilingual UI (`en`, 
 
 - Python 3.13+
 
+## Quick start
+
+Create the virtualenv and install development dependencies:
+
+```bash
+python3.13 -m venv venv
+./venv/bin/pip install -r requirements-dev.txt
+```
+
+Set the required environment variables:
+
+```bash
+export TIMEPOLL_SECRET_KEY='dev-only-secret-change-me'
+export TIMEPOLL_DEBUG='1'
+export TIMEPOLL_ALLOWED_HOSTS='127.0.0.1,localhost'
+```
+
+Apply migrations and start the development server:
+
+```bash
+./venv/bin/python manage.py migrate
+./venv/bin/python manage.py runserver
+```
+
+Open the app at [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
+
+Optional browser test setup:
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" ./venv/bin/python -m playwright install chromium
+```
+
 ## Features
 
 - Vue.js frontend with static assets under `polls/static/`
@@ -76,14 +108,32 @@ Optional poll link format with custom identifier:
 
 ## Tests
 
+Run the backend Django suite:
+
 ```bash
-python manage.py test
+python manage.py test --exclude-tag=browser
+# or
+make test
 ```
 
-Run the full automated quality suite:
+Run the tagged Playwright browser suite explicitly:
+
+```bash
+python manage.py test --tag=browser
+# or
+make test-browser
+```
+
+Run the core automated quality checks:
 
 ```bash
 make quality
+```
+
+Run the full quality suite, including Playwright browser tests:
+
+```bash
+make quality-full
 ```
 
 Run the Django suite with `pytest`:
@@ -101,9 +151,11 @@ Available local automation targets:
 - `make security`
 - `make audit`
 - `make test`
+- `make test-browser`
 - `make pytest`
 - `make coverage`
 - `make quality`
+- `make quality-full`
 
 ## CI merge gates
 

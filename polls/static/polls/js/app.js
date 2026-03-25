@@ -2042,7 +2042,7 @@ const translations = {
           this.bulkMenu = null;
         },
         updateVisibleDayCount() {
-          const root = this.$el;
+          const root = document.getElementById("app");
           if (!root) {
             return;
           }
