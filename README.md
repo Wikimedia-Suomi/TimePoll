@@ -58,6 +58,12 @@ sh tools/test-browser.sh
 sh tools/quality-full.sh
 ```
 
+Optional storyboard workflow e2e checks:
+
+```bash
+sh tools/test-browser-storyboard.sh
+```
+
 Optional `make` shortcuts:
 
 ```bash
@@ -65,6 +71,7 @@ make dev
 make test
 make quality
 make test-browser
+make test-browser-storyboard
 make quality-full
 ```
 

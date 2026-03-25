@@ -10,7 +10,7 @@ PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/.playwright-browsers
 
 TOOL_ENV = PYTHON_BIN="$(PYTHON)" PIP_BIN="$(PIP)" PLAYWRIGHT_INSTALL_ARGS="$(PLAYWRIGHT_INSTALL_ARGS)" PIP_AUDIT_IGNORE="$(PIP_AUDIT_IGNORE)" PLAYWRIGHT_BROWSERS_PATH="$(PLAYWRIGHT_BROWSERS_PATH)" TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
 
-.PHONY: bootstrap dev install-dev install-browser lint typecheck security audit test test-browser pytest coverage quality quality-full
+.PHONY: bootstrap dev install-dev install-browser lint typecheck security audit test test-browser test-browser-storyboard pytest coverage quality quality-full
 
 bootstrap:
 	$(TOOL_ENV) sh tools/bootstrap.sh
@@ -41,6 +41,9 @@ test:
 
 test-browser:
 	$(TOOL_ENV) sh tools/test-browser.sh
+
+test-browser-storyboard:
+	$(TOOL_ENV) sh tools/test-browser-storyboard.sh
 
 pytest:
 	$(TOOL_ENV) sh tools/pytest.sh
