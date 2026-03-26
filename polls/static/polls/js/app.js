@@ -1240,7 +1240,7 @@ const translations = {
     const rootPx = rootFontSizePx();
     const timeWidth = estimateTimeColumnWidthPx(viewportWidth);
     const minWidth = 8 * rootPx;
-    const maxWidth = 16 * rootPx;
+    const maxWidth = 18 * rootPx;
     const normalizedDayCount = Number.isFinite(referenceDayCount) && referenceDayCount > 0
       ? Math.floor(referenceDayCount)
       : 1;
@@ -3205,30 +3205,24 @@ const translations = {
         visibleRenderedDayCountForBlock(block) {
           return Array.isArray(block && block.days) && block.days.length ? block.days.length : 1;
         },
-        calendarReferenceDayCount() {
-          const normalizedVisibleDayCount = Number.isFinite(this.visibleDayCount) && this.visibleDayCount > 0
-            ? Math.floor(this.visibleDayCount)
-            : 1;
-          return Math.max(1, Math.min(normalizedVisibleDayCount, 7));
-        },
-        calendarDayColumnWidthPx() {
-          const referenceDayCount = this.calendarReferenceDayCount();
+        calendarDayColumnWidthPxForBlock(block) {
+          const referenceDayCount = this.visibleRenderedDayCountForBlock(block);
           const fallbackWidth = typeof window !== "undefined" ? window.innerWidth : 0;
           const wrapWidth = this.calendarWrapWidth || fallbackWidth;
           return cappedDayColumnWidthPx(wrapWidth, referenceDayCount);
         },
-        calendarDayColumnStyle() {
-          const widthPx = this.calendarDayColumnWidthPx();
+        calendarDayColumnStyleForBlock(block) {
+          const widthPx = this.calendarDayColumnWidthPxForBlock(block);
           return {
             width: `${widthPx}px`,
-            maxWidth: "16em"
+            maxWidth: "18em"
           };
         },
         calendarTableStyleForBlock(block) {
           const dayCount = this.visibleRenderedDayCountForBlock(block);
           const viewportWidth = typeof window !== "undefined" ? window.innerWidth : this.calendarWrapWidth;
           const timeWidth = estimateTimeColumnWidthPx(viewportWidth || 0);
-          const dayWidth = this.calendarDayColumnWidthPx();
+          const dayWidth = this.calendarDayColumnWidthPxForBlock(block);
           return {
             width: `${timeWidth + (dayWidth * dayCount)}px`
           };

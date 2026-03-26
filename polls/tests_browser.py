@@ -3321,16 +3321,16 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertGreater(int(expand_state["firstBlockDayCount"]), shrunken_visible_days, expand_state)
         self.assertLessEqual(int(expand_state["blockCount"]), int(shrink_state["blockCount"]), expand_state)
 
-    def test_browser_partial_week_calendar_columns_match_full_week_width(self) -> None:
+    def test_browser_partial_week_calendar_columns_expand_to_max_width_when_space_is_available(self) -> None:
         page = self.require_page()
         page.set_viewport_size({"width": 1600, "height": 1000})
 
         self.open_home_page()
         self.login(name="column-cap-owner")
         self.create_poll(
-            title="Mixed week width consistency poll",
-            description="Used for partial-week calendar width consistency coverage.",
-            identifier="mixed_week_width_consistency_poll",
+            title="Mixed week width expansion poll",
+            description="Used for partial-week calendar width expansion coverage.",
+            identifier="mixed_week_width_expansion_poll",
             timezone="Europe/Helsinki",
             start_date="2026-04-13",
             end_date="2026-04-21",
@@ -3371,8 +3371,9 @@ class PollBrowserTests(StaticLiveServerTestCase):
         full_week_reference = float(full_week_widths[0])
         self.assertGreater(full_week_reference, 0, width_state)
         for width_in_rem in partial_week_widths:
-            self.assertAlmostEqual(float(width_in_rem), full_week_reference, delta=0.2)
-            self.assertLessEqual(float(width_in_rem), 16.2, width_state)
+            self.assertGreater(float(width_in_rem), full_week_reference + 1.0, width_state)
+            self.assertAlmostEqual(float(width_in_rem), 18.0, delta=0.2)
+            self.assertLessEqual(float(width_in_rem), 18.2, width_state)
         self.assertIsNotNone(width_state["partialWeekLeftGapPx"], width_state)
         self.assertLessEqual(float(width_state["partialWeekLeftGapPx"]), 4.0, width_state)
 

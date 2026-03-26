@@ -901,7 +901,7 @@
                           v-for="day in block.days"
                           :key="`col-${block.key}-${day.key}`"
                           class="calendar-day-track"
-                          :style="calendarDayColumnStyle()"
+                          :style="calendarDayColumnStyleForBlock(block)"
                         >
                       </colgroup>
                       <caption class="sr-only">[[ t('availabilityTable') ]]</caption>
