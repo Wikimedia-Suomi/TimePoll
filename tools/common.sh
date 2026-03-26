@@ -20,6 +20,86 @@ export REPO_ROOT VENV_DIR PYTHON_BIN PIP_BIN
 export TIMEPOLL_SECRET_KEY TIMEPOLL_DEBUG TIMEPOLL_ALLOWED_HOSTS
 export PLAYWRIGHT_BROWSERS_PATH PLAYWRIGHT_INSTALL_ARGS PIP_AUDIT_IGNORE COVERAGE_FAIL_UNDER
 
+build_python_runtime_read_allowlist() {
+    require_venv
+    run_in_repo "$PYTHON_BIN" - <<'PY'
+import site
+import sys
+import sysconfig
+from pathlib import Path
+
+items = []
+for key in ("stdlib", "platstdlib", "purelib", "platlib", "data"):
+    value = sysconfig.get_paths().get(key)
+    if value:
+        items.append(value)
+for value in (sys.prefix, sys.base_prefix):
+    if value:
+        items.append(value)
+for value in site.getsitepackages():
+    items.append(value)
+
+normalized = []
+seen = set()
+for item in items:
+    path = str(Path(item).resolve(strict=False))
+    if path not in seen:
+        seen.add(path)
+        normalized.append(path)
+
+print(",".join(normalized))
+PY
+}
+
+use_backend_test_guard_profile() {
+    TIMEPOLL_AUDIT_GUARD_MODE=${TIMEPOLL_AUDIT_GUARD_MODE:-off}
+    TIMEPOLL_AUDIT_NETWORK_MODE=${TIMEPOLL_AUDIT_NETWORK_MODE:-enforce}
+    TIMEPOLL_AUDIT_PROCESS_MODE=${TIMEPOLL_AUDIT_PROCESS_MODE:-enforce}
+    TIMEPOLL_AUDIT_FILE_MODE=${TIMEPOLL_AUDIT_FILE_MODE:-off}
+    TIMEPOLL_AUDIT_SQLITE_MODE=${TIMEPOLL_AUDIT_SQLITE_MODE:-enforce}
+    TIMEPOLL_AUDIT_ALLOWLIST=${TIMEPOLL_AUDIT_ALLOWLIST:-}
+    TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST:-"$REPO_ROOT,$VENV_DIR,${TMPDIR:-/tmp},/tmp"}
+    TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST:-"$REPO_ROOT/.coverage,$REPO_ROOT/coverage.xml,$REPO_ROOT/.hypothesis,${TMPDIR:-/tmp},/tmp"}
+    TIMEPOLL_AUDIT_SQLITE_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_SQLITE_PATH_ALLOWLIST:-"$REPO_ROOT/db.sqlite3,:memory:,sqlite-memory-prefix:memorydb_"}
+
+    export TIMEPOLL_AUDIT_GUARD_MODE
+    export TIMEPOLL_AUDIT_NETWORK_MODE TIMEPOLL_AUDIT_PROCESS_MODE
+    export TIMEPOLL_AUDIT_FILE_MODE TIMEPOLL_AUDIT_SQLITE_MODE
+    export TIMEPOLL_AUDIT_ALLOWLIST
+    export TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST
+    export TIMEPOLL_AUDIT_SQLITE_PATH_ALLOWLIST
+}
+
+use_backend_test_file_watch_profile() {
+    use_backend_test_guard_profile
+    TIMEPOLL_AUDIT_FILE_MODE=${TIMEPOLL_AUDIT_FILE_MODE:-log}
+    TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST:-"$REPO_ROOT,$VENV_DIR,${TMPDIR:-/tmp},/tmp"}
+    TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST:-"$REPO_ROOT/db.sqlite3,$REPO_ROOT/.coverage,$REPO_ROOT/coverage.xml,$REPO_ROOT/.hypothesis,${TMPDIR:-/tmp},/tmp"}
+
+    export TIMEPOLL_AUDIT_FILE_MODE
+    export TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST
+}
+
+use_backend_test_file_enforce_smoke_profile() {
+    use_backend_test_guard_profile
+    PYTHONDONTWRITEBYTECODE=${PYTHONDONTWRITEBYTECODE:-1}
+    python_runtime_roots=$(build_python_runtime_read_allowlist)
+
+    TIMEPOLL_AUDIT_NETWORK_MODE=${TIMEPOLL_AUDIT_NETWORK_MODE:-enforce}
+    TIMEPOLL_AUDIT_PROCESS_MODE=${TIMEPOLL_AUDIT_PROCESS_MODE:-enforce}
+    TIMEPOLL_AUDIT_FILE_MODE=${TIMEPOLL_AUDIT_FILE_MODE:-enforce}
+    TIMEPOLL_AUDIT_SQLITE_MODE=${TIMEPOLL_AUDIT_SQLITE_MODE:-enforce}
+    TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST:-"$REPO_ROOT,$VENV_DIR,$python_runtime_roots,${TMPDIR:-/tmp},/tmp"}
+    TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST:-"${TMPDIR:-/tmp},/tmp"}
+    TIMEPOLL_AUDIT_SQLITE_PATH_ALLOWLIST=${TIMEPOLL_AUDIT_SQLITE_PATH_ALLOWLIST:-":memory:,sqlite-memory-prefix:memorydb_"}
+
+    export PYTHONDONTWRITEBYTECODE
+    export TIMEPOLL_AUDIT_NETWORK_MODE TIMEPOLL_AUDIT_PROCESS_MODE
+    export TIMEPOLL_AUDIT_FILE_MODE TIMEPOLL_AUDIT_SQLITE_MODE
+    export TIMEPOLL_AUDIT_READ_PATH_ALLOWLIST TIMEPOLL_AUDIT_WRITE_PATH_ALLOWLIST
+    export TIMEPOLL_AUDIT_SQLITE_PATH_ALLOWLIST
+}
+
 find_bootstrap_python() {
     if [ -n "${BOOTSTRAP_PYTHON:-}" ]; then
         if command -v "$BOOTSTRAP_PYTHON" >/dev/null 2>&1; then

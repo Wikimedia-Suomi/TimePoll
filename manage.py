@@ -2,8 +2,11 @@
 import os
 import sys
 
+from timepoll.runtime_guard import install_runtime_audit_guard
+
 
 def main() -> None:
+    install_runtime_audit_guard()
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "timepoll.settings")
     try:
         from django.core.management import execute_from_command_line

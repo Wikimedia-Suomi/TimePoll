@@ -40,6 +40,9 @@ jobs:
       - name: Core quality suite
         run: sh tools/quality-core.sh
 
+      - name: File-enforce smoke tests
+        run: sh tools/test-backend-file-enforce-smoke.sh
+
       - name: Playwright browser tests
         run: sh tools/test-browser.sh
 
