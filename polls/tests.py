@@ -1,13 +1,22 @@
 import json
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 from django.contrib.sessions.models import Session
 from django.db import IntegrityError
+from django.http import HttpResponse
 from django.http import Http404
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
+
+from timepoll.security import (
+    CONTENT_SECURITY_POLICY,
+    ContentSecurityPolicyMiddleware,
+    WIKIMEDIA_VUE_CDN_INTEGRITY,
+    WIKIMEDIA_VUE_CDN_URL,
+)
 
 from .models import Identity, Poll, PollVote
 from .views import (
@@ -17,7 +26,46 @@ from .views import (
     poll_reopen,
     poll_vote_delete,
     poll_votes_upsert,
+    index,
 )
+
+
+class SecurityHeaderTests(SimpleTestCase):
+    def setUp(self) -> None:
+        self.factory = RequestFactory()
+
+    def test_index_sets_strict_content_security_policy_header(self):
+        middleware = ContentSecurityPolicyMiddleware(lambda request: HttpResponse("ok"))
+        response = middleware(self.factory.get(reverse("polls:index")))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers.get("Content-Security-Policy"),
+            CONTENT_SECURITY_POLICY,
+        )
+
+    def test_index_uses_sri_for_wikimedia_vue_cdn(self):
+        request = self.factory.get(reverse("polls:index"))
+        template_source = (
+            Path(__file__).resolve().parent / "templates" / "polls" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        with patch("polls.views.render", return_value=HttpResponse("ok")) as render_mock:
+            response = index(request)
+
+        self.assertEqual(response.status_code, 200)
+        render_mock.assert_called_once()
+        self.assertEqual(render_mock.call_args.args[1], "polls/index.html")
+        self.assertEqual(
+            render_mock.call_args.args[2],
+            {
+                "vue_cdn_url": WIKIMEDIA_VUE_CDN_URL,
+                "vue_cdn_integrity": WIKIMEDIA_VUE_CDN_INTEGRITY,
+            },
+        )
+        self.assertIn('src="{{ vue_cdn_url }}"', template_source)
+        self.assertIn('integrity="{{ vue_cdn_integrity }}"', template_source)
+        self.assertIn('crossorigin="anonymous"', template_source)
 
 
 class PollApiTests(TestCase):

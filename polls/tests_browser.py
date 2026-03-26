@@ -113,6 +113,42 @@ class PollBrowserTests(StaticLiveServerTestCase):
             raise unittest.SkipTest("axe runner is not available for this test run.")
         return self.axe
 
+    def enable_csp_violation_tracking(self, *, page: Optional["Page"] = None) -> None:
+        page = page or self.require_page()
+        page.add_init_script(
+            """
+            (() => {
+              window.__timePollCspViolations = [];
+              document.addEventListener("securitypolicyviolation", (event) => {
+                window.__timePollCspViolations.push({
+                  blockedURI: event.blockedURI,
+                  disposition: event.disposition,
+                  effectiveDirective: event.effectiveDirective,
+                  violatedDirective: event.violatedDirective,
+                });
+              });
+            })();
+            """
+        )
+
+    def get_csp_violations(self, *, page: Optional["Page"] = None) -> list[dict[str, Any]]:
+        page = page or self.require_page()
+        violations = page.evaluate("window.__timePollCspViolations || []")
+        return violations if isinstance(violations, list) else []
+
+    def assert_no_csp_violations(
+        self,
+        *,
+        page: Optional["Page"] = None,
+        page_name: str,
+    ) -> None:
+        violations = self.get_csp_violations(page=page)
+        self.assertEqual(
+            [],
+            violations,
+            f"Unexpected CSP violations on {page_name}:\n{json.dumps(violations, indent=2)}",
+        )
+
     def run_accessibility_audit(
         self,
         *,
@@ -129,6 +165,57 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.wait_for_load_state("networkidle")
         page.locator("#app").wait_for(state="visible")
         page.get_by_role("heading", name="TimePoll").wait_for()
+
+    def test_home_page_loads_without_csp_violations(self):
+        page = self.require_page()
+        self.enable_csp_violation_tracking(page=page)
+
+        self.open_home_page(page)
+        page.wait_for_timeout(250)
+
+        self.assert_no_csp_violations(page=page, page_name="home page load")
+
+    def test_csp_blocks_cross_origin_fetch_and_image_requests(self):
+        page = self.require_page()
+        self.enable_csp_violation_tracking(page=page)
+
+        self.open_home_page(page)
+
+        fetch_result = page.evaluate(
+            """
+            async () => {
+              try {
+                await fetch("https://example.com/");
+                return { allowed: true };
+              } catch (error) {
+                return {
+                  allowed: false,
+                  message: error instanceof Error ? error.message : String(error),
+                };
+              }
+            }
+            """
+        )
+        image_result = page.evaluate(
+            """
+            () => new Promise((resolve) => {
+              const image = document.createElement("img");
+              image.onload = () => resolve({ loaded: true });
+              image.onerror = () => resolve({ loaded: false });
+              image.src = "https://example.com/tracker.png";
+              document.body.appendChild(image);
+            })
+            """
+        )
+
+        page.wait_for_function("window.__timePollCspViolations.length >= 2", timeout=5000)
+        violations = self.get_csp_violations(page=page)
+        directives = {item.get("effectiveDirective") for item in violations}
+
+        self.assertFalse(fetch_result["allowed"], fetch_result.get("message"))
+        self.assertFalse(image_result["loaded"])
+        self.assertIn("connect-src", directives)
+        self.assertIn("img-src", directives)
 
     def login(
         self,

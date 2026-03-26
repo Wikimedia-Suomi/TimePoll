@@ -7,7 +7,9 @@
   <title>TimePoll</title>
   <link rel="stylesheet" href="{% static 'polls/css/app.css' %}">
   <script
-    src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue/3.4.31/vue.global.prod.min.js"
+    src="{{ vue_cdn_url }}"
+    integrity="{{ vue_cdn_integrity }}"
+    crossorigin="anonymous"
     defer
   ></script>
   <script src="{% static 'polls/js/app_logic.js' %}" defer></script>

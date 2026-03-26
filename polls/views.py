@@ -14,6 +14,8 @@ from django.utils import timezone, translation
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
+from timepoll.security import WIKIMEDIA_VUE_CDN_INTEGRITY, WIKIMEDIA_VUE_CDN_URL
+
 from .models import Identity, Poll, PollOption, PollVote
 
 SESSION_IDENTITY_KEY = "identity_id"
@@ -510,7 +512,14 @@ def serialize_poll_detail(poll: Poll, current_identity: Optional[Identity]) -> D
 @ensure_csrf_cookie
 @require_GET
 def index(request: HttpRequest) -> HttpResponse:
-    return render(request, "polls/index.html")
+    return render(
+        request,
+        "polls/index.html",
+        {
+            "vue_cdn_url": WIKIMEDIA_VUE_CDN_URL,
+            "vue_cdn_integrity": WIKIMEDIA_VUE_CDN_INTEGRITY,
+        },
+    )
 
 
 @require_GET
