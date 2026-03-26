@@ -28,6 +28,7 @@
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
     extractPollIdFromSearch,
+    filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
@@ -46,6 +47,7 @@
     || typeof collectDayOptionIdsFromRows !== "function"
     || typeof collectRowOptionIdsFromCells !== "function"
     || typeof extractPollIdFromSearch !== "function"
+    || typeof filterRowsForVisibleDaysAndMinYesVotes !== "function"
     || typeof filterWeekRowsByMinYesVotes !== "function"
     || typeof isVoteStatusValue !== "function"
     || typeof loadCalendarTimezonePreferenceValue !== "function"
@@ -1784,7 +1786,7 @@ const translations = {
           const timeZone = this.calendarDisplayTimezone || "UTC";
           const dayMap = new Map();
           const timeSet = new Set();
-          const optionLookup = new Map();
+          const optionBuckets = new Map();
 
           for (const option of this.selectedPoll.options) {
             const dateParts = this.timezoneDateParts(option.starts_at, timeZone);
@@ -1801,11 +1803,17 @@ const translations = {
               });
             }
             timeSet.add(timeKey);
-            optionLookup.set(`${dayKey}|${timeKey}`, option);
+            const optionBucketKey = `${dayKey}|${timeKey}`;
+            const existingBucket = optionBuckets.get(optionBucketKey) || [];
+            existingBucket.push(option);
+            optionBuckets.set(optionBucketKey, existingBucket);
           }
 
           const dayKeys = Array.from(dayMap.keys()).sort((a, b) => a.localeCompare(b));
           const timeKeys = Array.from(timeSet).sort((a, b) => a.localeCompare(b));
+          for (const bucket of optionBuckets.values()) {
+            bucket.sort((left, right) => String(left && left.starts_at || "").localeCompare(String(right && right.starts_at || "")));
+          }
 
           const weeksMap = new Map();
           for (const dayKey of dayKeys) {
@@ -1822,20 +1830,34 @@ const translations = {
 
           const weeks = Array.from(weeksMap.values()).sort((a, b) => a.key.localeCompare(b.key));
           for (const week of weeks) {
-            week.rows = timeKeys.map((timeKey) => {
-              const cells = {};
-              for (const day of week.days) {
-                const option = optionLookup.get(`${day.key}|${timeKey}`);
-                if (option) {
-                  cells[day.key] = option;
+            const rows = [];
+            for (const timeKey of timeKeys) {
+              const maxBucketLength = week.days.reduce((currentMax, day) => {
+                const bucketKey = `${day.key}|${timeKey}`;
+                const bucket = optionBuckets.get(bucketKey) || [];
+                return Math.max(currentMax, bucket.length);
+              }, 0);
+              for (let occurrenceIndex = 0; occurrenceIndex < maxBucketLength; occurrenceIndex += 1) {
+                const cells = {};
+                for (const day of week.days) {
+                  const bucketKey = `${day.key}|${timeKey}`;
+                  const bucket = optionBuckets.get(bucketKey) || [];
+                  const option = bucket[occurrenceIndex];
+                  if (option) {
+                    cells[day.key] = option;
+                  }
+                }
+                if (Object.keys(cells).length > 0) {
+                  rows.push({
+                    key: `${week.key}-${timeKey}-${occurrenceIndex}`,
+                    timeKey,
+                    occurrenceIndex,
+                    cells
+                  });
                 }
               }
-              return {
-                key: `${week.key}-${timeKey}`,
-                timeKey,
-                cells
-              };
-            });
+            }
+            week.rows = rows;
           }
 
           return weeks;
@@ -3300,6 +3322,13 @@ const translations = {
         },
         filteredRowsForWeek(week) {
           return filterWeekRowsByMinYesVotes(week, this.minYesVotesFilter);
+        },
+        filteredRowsForBlock(week, block) {
+          const rows = Array.isArray(week && week.rows) ? week.rows : [];
+          const visibleDayKeys = Array.isArray(block && block.days)
+            ? block.days.map((day) => day && day.key).filter((dayKey) => Boolean(dayKey))
+            : [];
+          return filterRowsForVisibleDaysAndMinYesVotes(rows, visibleDayKeys, this.minYesVotesFilter);
         },
         weekBlockRangeLabel(week, block) {
           if (!week || !Array.isArray(week.days) || week.days.length === 0 || !block || !Array.isArray(block.days)) {

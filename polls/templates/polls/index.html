@@ -979,7 +979,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="row in filteredRowsForWeek(week)" :key="`${block.key}-${row.key}`">
+                        <tr v-for="row in filteredRowsForBlock(week, block)" :key="`${block.key}-${row.key}`">
                           <th
                             scope="row"
                             class="calendar-time-row"
@@ -1112,7 +1112,7 @@
                             <div v-else class="vote-cell vote-unavailable">-</div>
                           </td>
                         </tr>
-                        <tr v-if="!filteredRowsForWeek(week).length">
+                        <tr v-if="!filteredRowsForBlock(week, block).length">
                           <td class="calendar-empty-row muted" :colspan="block.days.length + 1">
                             [[ t('noRowsMatchFilter') ]]
                           </td>

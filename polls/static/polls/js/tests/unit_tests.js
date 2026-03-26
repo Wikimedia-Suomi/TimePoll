@@ -6,6 +6,7 @@ function registerUnitTests(harness) {
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
     extractPollIdFromSearch,
+    filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
@@ -87,6 +88,35 @@ function registerUnitTests(harness) {
         }
       }
     ]);
+  });
+
+  test("filterRowsForVisibleDaysAndMinYesVotes removes rows that only match outside the visible block", () => {
+    const rows = [
+      {
+        key: "09:00",
+        cells: {
+          "2026-04-13": { id: 1, counts: { yes: 2 } },
+          "2026-04-14": { id: 2, counts: { yes: 0 } },
+          "2026-04-17": { id: 3, counts: { yes: 0 } }
+        }
+      }
+    ];
+
+    assertDeepEqual(
+      filterRowsForVisibleDaysAndMinYesVotes(rows, ["2026-04-17"], 2),
+      []
+    );
+    assertDeepEqual(
+      filterRowsForVisibleDaysAndMinYesVotes(rows, ["2026-04-13", "2026-04-14"], 2),
+      [
+        {
+          key: "09:00",
+          cells: {
+            "2026-04-13": { id: 1, counts: { yes: 2 } }
+          }
+        }
+      ]
+    );
   });
 
   test("collectDayOptionIdsFromRows returns ids for one visible day", () => {

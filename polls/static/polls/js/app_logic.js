@@ -75,20 +75,33 @@
     if (!week || !Array.isArray(week.rows)) {
       return [];
     }
+    return filterRowsForVisibleDaysAndMinYesVotes(week.rows, null, minYesVotes);
+  }
 
-    const normalizedMinYesVotes = Math.max(0, Number(minYesVotes) || 0);
-    if (normalizedMinYesVotes <= 0) {
-      return week.rows;
+  function filterRowsForVisibleDaysAndMinYesVotes(rows, visibleDayKeys, minYesVotes) {
+    if (!Array.isArray(rows)) {
+      return [];
     }
 
+    const normalizedMinYesVotes = Math.max(0, Number(minYesVotes) || 0);
+    const normalizedVisibleDayKeys = Array.isArray(visibleDayKeys) && visibleDayKeys.length
+      ? visibleDayKeys
+          .map((dayKey) => String(dayKey || "").trim())
+          .filter((dayKey) => Boolean(dayKey))
+      : null;
     const filteredRows = [];
-    for (const row of week.rows) {
+    for (const row of rows) {
       if (!row || !row.cells || typeof row.cells !== "object") {
         continue;
       }
+      const targetDayKeys = normalizedVisibleDayKeys || Object.keys(row.cells);
       const filteredCells = {};
-      for (const [dayKey, option] of Object.entries(row.cells)) {
-        if (matchesYesVoteFilter(option, normalizedMinYesVotes)) {
+      for (const dayKey of targetDayKeys) {
+        const option = row.cells[dayKey];
+        if (!option || typeof option !== "object") {
+          continue;
+        }
+        if (normalizedMinYesVotes <= 0 || matchesYesVoteFilter(option, normalizedMinYesVotes)) {
           filteredCells[dayKey] = option;
         }
       }
@@ -327,6 +340,7 @@
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
     extractPollIdFromSearch,
+    filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,

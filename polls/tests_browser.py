@@ -2814,6 +2814,130 @@ class PollBrowserTests(StaticLiveServerTestCase):
             arg=visible_days,
         )
 
+    def test_browser_result_mode_yes_filter_hides_empty_rows_in_paginated_blocks(self) -> None:
+        page = self.require_page()
+        page.set_viewport_size({"width": 480, "height": 900})
+        poll_identifier = "paginated_yes_filter_block_poll"
+
+        self.open_home_page()
+        self.login(name="paginated-filter-owner")
+        self.create_poll(
+            title="Paginated yes filter block poll",
+            description="Used for paginated yes filter block coverage.",
+            identifier=poll_identifier,
+            timezone="Europe/Helsinki",
+            start_date="2026-06-08",
+            end_date="2026-06-14",
+            daily_start_hour=9,
+            daily_end_hour=10,
+            allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
+        )
+
+        page.locator(".vote-switch-option-yes").first.click()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
+
+        voter_page = self.open_logged_in_poll_page(
+            poll_identifier=poll_identifier,
+            name="paginated-filter-voter",
+        )
+        voter_page.locator(".vote-switch-option-yes").first.click()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=voter_page)
+
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.locator(".details-title").filter(has_text="Paginated yes filter block poll").wait_for()
+        page.locator(".calendar-vote-mode-item").filter(has_text="Result mode").click()
+        page.locator("#min-yes-filter").select_option("2")
+
+        week_blocks = self.week_blocks_locator(page=page)
+        self.assertGreater(week_blocks.count(), 1)
+
+        first_block = self.week_block_locator(block_index=0, page=page)
+        first_block.locator(".vote-switch").first.wait_for()
+        first_block.get_by_role("button", name="Next days").click()
+
+        page.wait_for_function(
+            """
+            (blockIndex) => {
+              const block = document.querySelectorAll('.calendar-week .calendar-week-block')[blockIndex];
+              if (!block) {
+                return false;
+              }
+              const emptyRow = block.querySelector('.calendar-empty-row');
+              const voteSwitches = block.querySelectorAll('.vote-switch');
+              const timeTriggers = block.querySelectorAll('.bulk-time-trigger');
+              return Boolean(emptyRow)
+                && emptyRow.textContent.includes('No options match the current Yes filter.')
+                && voteSwitches.length === 0
+                && timeTriggers.length === 0;
+            }
+            """,
+            arg=1,
+        )
+
+        second_block = self.week_block_locator(block_index=1, page=page)
+        self.assertEqual(second_block.locator(".vote-switch").count(), 0)
+        self.assertEqual(second_block.locator(".bulk-time-trigger").count(), 0)
+        second_block.locator(".calendar-empty-row").filter(
+            has_text="No options match the current Yes filter."
+        ).wait_for()
+
+    def test_browser_calendar_custom_timezone_preserves_duplicate_dst_hour_rows(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="calendar-dst-duplicate-owner")
+        self.create_poll(
+            title="Calendar DST duplicate hour poll",
+            description="Used for duplicate DST hour calendar coverage.",
+            identifier="calendar_dst_duplicate_hour_poll",
+            timezone="UTC",
+            start_date="2026-10-25",
+            end_date="2026-10-25",
+            daily_start_hour=0,
+            daily_end_hour=3,
+            allowed_weekdays=[6],
+        )
+
+        page.locator(".calendar-timezone-mode-item-custom").click()
+        page.locator("#calendar-timezone").fill("Europe/Helsinki")
+        page.locator("#calendar-timezone").blur()
+        page.wait_for_function(
+            """
+            () => {
+              const rowLabels = Array.from(
+                document.querySelectorAll('.calendar-time-row .bulk-time-trigger, .calendar-time-row .bulk-time-label')
+              ).map((element) => element.textContent.trim());
+              const optionIds = Array.from(document.querySelectorAll('.vote-switch-option-yes'))
+                .map((element) => element.getAttribute('data-vote-option-id'))
+                .filter((value) => Boolean(value));
+              return rowLabels.length === 3
+                && rowLabels[0] === '03:00'
+                && rowLabels[1] === '03:00'
+                && rowLabels[2] === '04:00'
+                && optionIds.length === 3
+                && new Set(optionIds).size === 3;
+            }
+            """
+        )
+
+        calendar_state = page.evaluate(
+            """
+            () => ({
+              rowLabels: Array.from(
+                document.querySelectorAll('.calendar-time-row .bulk-time-trigger, .calendar-time-row .bulk-time-label')
+              ).map((element) => element.textContent.trim()),
+              optionIds: Array.from(document.querySelectorAll('.vote-switch-option-yes'))
+                .map((element) => element.getAttribute('data-vote-option-id'))
+                .filter((value) => Boolean(value))
+            })
+            """
+        )
+
+        self.assertEqual(calendar_state["rowLabels"], ["03:00", "03:00", "04:00"], calendar_state)
+        self.assertEqual(len(calendar_state["optionIds"]), 3, calendar_state)
+        self.assertEqual(len(set(calendar_state["optionIds"])), 3, calendar_state)
+
     def test_browser_calendar_gap_indicator_marks_missing_days_between_columns(self) -> None:
         page = self.require_page()
 
