@@ -325,6 +325,24 @@ class PollBrowserTests(StaticLiveServerTestCase):
             arg=expected_count,
         )
 
+    def week_blocks_locator(
+        self,
+        *,
+        week_index: int = 0,
+        page: Optional["Page"] = None,
+    ) -> Any:
+        page = page or self.require_page()
+        return page.locator(".calendar-week").nth(week_index).locator(".calendar-week-block")
+
+    def week_block_locator(
+        self,
+        *,
+        week_index: int = 0,
+        block_index: int = 0,
+        page: Optional["Page"] = None,
+    ) -> Any:
+        return self.week_blocks_locator(week_index=week_index, page=page).nth(block_index)
+
     def submit_auth_dialog(
         self,
         *,
@@ -835,11 +853,23 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
         )
 
-        page.locator(".calendar-nav-range").wait_for()
-        next_button = page.get_by_role("button", name="Next days")
-        if next_button.is_enabled():
-            next_button.click()
-        page.locator(".calendar-nav-range").wait_for()
+        week_blocks = self.week_blocks_locator(page=page)
+        self.assertGreater(week_blocks.count(), 1)
+
+        first_block = self.week_block_locator(block_index=0, page=page)
+        scroll_before = float(page.evaluate("() => window.scrollY"))
+        first_block.get_by_role("button", name="Next days").click()
+        page.wait_for_function("(previousY) => window.scrollY > previousY + 5", arg=scroll_before)
+        page.wait_for_function(
+            """
+            (blockIndex) => {
+              const targetBlock = document.querySelectorAll('.calendar-week .calendar-week-block')[blockIndex];
+              const active = document.activeElement;
+              return Boolean(targetBlock) && Boolean(active) && targetBlock.contains(active);
+            }
+            """,
+            arg=1,
+        )
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="mobile paginated calendar state")
@@ -1429,18 +1459,13 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
         )
 
-        nav_range = page.locator(".calendar-nav-range")
+        first_block = self.week_block_locator(block_index=0, page=page)
+        nav_range = first_block.locator(".calendar-nav-range")
         nav_range.wait_for()
-        visible_days = page.locator(".calendar-day-col").count()
-        page.wait_for_function(
-            """
-            (endDay) => {
-              const range = document.querySelector('.calendar-nav-range');
-              return Boolean(range) && range.textContent.trim() === `Days 1-${endDay}/7`;
-            }
-            """,
-            arg=visible_days,
-        )
+        visible_days = first_block.locator(".calendar-day-col").count()
+        self.assertGreater(visible_days, 0)
+        self.assertLess(visible_days, 7)
+        self.assertEqual(nav_range.inner_text().strip(), f"Days 1-{visible_days}/7")
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="mobile first page calendar state")
@@ -1463,23 +1488,22 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
         )
 
-        nav_range = page.locator(".calendar-nav-range")
-        nav_range.wait_for()
-        visible_days = page.locator(".calendar-day-col").count()
-        next_button = page.get_by_role("button", name="Next days")
-        while next_button.is_enabled():
-            next_button.click()
+        week_blocks = self.week_blocks_locator(page=page)
+        first_block_day_count = self.week_block_locator(block_index=0, page=page).locator(
+            ".calendar-day-col"
+        ).count()
+        block_count = week_blocks.count()
+        self.assertGreater(block_count, 1)
 
-        last_start = 7 - visible_days + 1
-        page.wait_for_function(
-            """
-            ([startDay, endDay]) => {
-              const range = document.querySelector('.calendar-nav-range');
-              return Boolean(range) && range.textContent.trim() === `Days ${startDay}-${endDay}/7`;
-            }
-            """,
-            arg=[last_start, 7],
-        )
+        last_block = self.week_block_locator(block_index=block_count - 1, page=page)
+        last_block.scroll_into_view_if_needed()
+        nav_range = last_block.locator(".calendar-nav-range")
+        nav_range.wait_for()
+        last_visible_days = last_block.locator(".calendar-day-col").count()
+        self.assertGreater(last_visible_days, 0)
+
+        last_start = ((block_count - 1) * first_block_day_count) + 1
+        self.assertEqual(nav_range.inner_text().strip(), f"Days {last_start}-7/7")
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="mobile last page calendar state")
@@ -1573,7 +1597,14 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertTrue(self.active_element_has_visible_focus(page))
 
         page.keyboard.press("Tab")
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Cancel")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+        page.keyboard.press("Tab")
         self.assertEqual(self.active_element_snapshot(page)["id"], "auth-name")
+
+        page.keyboard.press("Shift+Tab")
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Cancel")
 
         page.keyboard.press("Shift+Tab")
         self.assertEqual(self.active_element_snapshot(page)["text"], "Login")
@@ -1581,6 +1612,23 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.keyboard.press("Escape")
         page.get_by_role("dialog").wait_for(state="hidden")
         self.assertTrue(login_button.evaluate("element => document.activeElement === element"))
+
+    def test_browser_auth_dialog_login_moves_focus_to_authenticated_control(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        page.get_by_role("button", name="Login").first.click()
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for()
+
+        page.get_by_label("Name").fill("focus-after-login-user")
+        page.get_by_label("PIN code").fill("1234")
+        dialog.get_by_role("button", name="Login").click()
+
+        dialog.wait_for(state="hidden")
+        auth_name_link = page.locator(".auth-name-link")
+        auth_name_link.wait_for()
+        self.assertTrue(auth_name_link.evaluate("element => document.activeElement === element"))
 
     def test_browser_create_timezone_listbox_supports_keyboard_navigation(self) -> None:
         page = self.require_page()
@@ -1807,41 +1855,118 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
         )
 
-        nav_range = page.locator(".calendar-nav-range")
+        week_blocks = self.week_blocks_locator(page=page)
+        self.assertGreater(week_blocks.count(), 1)
+
+        first_block = self.week_block_locator(block_index=0, page=page)
+        nav_range = first_block.locator(".calendar-nav-range")
         nav_range.wait_for()
-        visible_days = page.locator(".calendar-day-col").count()
+        visible_days = first_block.locator(".calendar-day-col").count()
         self.assertGreater(visible_days, 0)
         self.assertLess(visible_days, 7)
 
-        next_button = page.get_by_role("button", name="Next days")
+        next_button = first_block.get_by_role("button", name="Next days")
         next_button.focus()
         self.assertTrue(next_button.evaluate("element => document.activeElement === element"))
 
+        scroll_before = float(page.evaluate("() => window.scrollY"))
         page.keyboard.press("Enter")
-        page.wait_for_function(
-            """
-            ([startDay, endDay]) => {
-              const range = document.querySelector('.calendar-nav-range');
-              return Boolean(range) && range.textContent.trim() === `Days ${startDay}-${endDay}/7`;
-            }
-            """,
-            arg=[2, visible_days + 1],
+        page.wait_for_function("(previousY) => window.scrollY > previousY + 5", arg=scroll_before)
+
+        second_block = self.week_block_locator(block_index=1, page=page)
+        second_block.locator(".calendar-nav-range").wait_for()
+        second_visible_days = second_block.locator(".calendar-day-col").count()
+        self.assertEqual(
+            second_block.locator(".calendar-nav-range").inner_text().strip(),
+            f"Days {visible_days + 1}-{visible_days + second_visible_days}/7",
         )
 
-        previous_button = page.get_by_role("button", name="Previous days")
+        previous_button = second_block.get_by_role("button", name="Previous days")
         previous_button.focus()
         self.assertTrue(previous_button.evaluate("element => document.activeElement === element"))
 
         page.keyboard.press("Space")
         page.wait_for_function(
             """
-            (endDay) => {
-              const range = document.querySelector('.calendar-nav-range');
-              return Boolean(range) && range.textContent.trim() === `Days 1-${endDay}/7`;
+            (blockIndex) => {
+              const targetBlock = document.querySelectorAll('.calendar-week .calendar-week-block')[blockIndex];
+              const active = document.activeElement;
+              return Boolean(targetBlock) && Boolean(active) && targetBlock.contains(active);
             }
             """,
-            arg=visible_days,
+            arg=0,
         )
+        self.assertEqual(nav_range.inner_text().strip(), f"Days 1-{visible_days}/7")
+
+    def test_browser_calendar_block_navigation_crosses_week_boundaries(self) -> None:
+        page = self.require_page()
+        page.set_viewport_size({"width": 480, "height": 900})
+
+        self.open_home_page()
+        self.login(name="cross-week-pagination-owner")
+        self.create_poll(
+            title="Cross-week pagination poll",
+            description="Used for cross-week calendar block navigation coverage.",
+            identifier="cross_week_pagination_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-13",
+            end_date="2026-04-21",
+            daily_start_hour=9,
+            daily_end_hour=10,
+            allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
+        )
+
+        first_week_blocks = self.week_blocks_locator(week_index=0, page=page)
+        last_block_index = first_week_blocks.count() - 1
+        self.assertGreaterEqual(last_block_index, 1)
+
+        last_block_first_week = self.week_block_locator(
+            week_index=0,
+            block_index=last_block_index,
+            page=page,
+        )
+        last_block_first_week.scroll_into_view_if_needed()
+        nav_range = last_block_first_week.locator(".calendar-nav-range")
+        nav_range.wait_for()
+        last_block_range = nav_range.inner_text().strip()
+        self.assertTrue(last_block_range.startswith("Days "), last_block_range)
+        self.assertTrue(last_block_range.endswith("/7"), last_block_range)
+
+        next_button = last_block_first_week.get_by_role("button", name="Next days")
+        self.assertTrue(next_button.is_enabled())
+        next_button.click()
+
+        first_block_second_week = self.week_block_locator(week_index=1, block_index=0, page=page)
+        page.wait_for_function(
+            """
+            () => {
+              const weeks = document.querySelectorAll('.calendar-week');
+              const targetBlock = weeks[1]?.querySelector('.calendar-week-block');
+              const active = document.activeElement;
+              return Boolean(targetBlock) && Boolean(active) && targetBlock.contains(active);
+            }
+            """
+        )
+        second_week_range = first_block_second_week.locator(".calendar-nav-range")
+        second_week_range.wait_for()
+        self.assertEqual(second_week_range.inner_text().strip(), "Days 1-2/2")
+
+        previous_button = first_block_second_week.get_by_role("button", name="Previous days")
+        self.assertTrue(previous_button.is_enabled())
+        previous_button.click()
+
+        page.wait_for_function(
+            """
+            () => {
+              const weeks = document.querySelectorAll('.calendar-week');
+              const blocks = weeks[0]?.querySelectorAll('.calendar-week-block');
+              const targetBlock = blocks ? blocks[blocks.length - 1] : null;
+              const active = document.activeElement;
+              return Boolean(targetBlock) && Boolean(active) && targetBlock.contains(active);
+            }
+            """
+        )
+        self.assertEqual(nav_range.inner_text().strip(), last_block_range)
 
     def test_browser_result_mode_filter_controls_support_keyboard_navigation(self) -> None:
         page = self.require_page()
@@ -1975,6 +2100,16 @@ class PollBrowserTests(StaticLiveServerTestCase):
             "Created by: playwright-user",
             page.locator(".details-header").inner_text(),
         )
+
+    def test_success_toast_auto_closes_after_login(self) -> None:
+        self.open_home_page()
+        self.login(name="toast-user")
+        page = self.require_page()
+
+        success_toast = page.locator(".feedback.success")
+        success_toast.wait_for()
+        success_toast.wait_for(state="hidden", timeout=5000)
+        self.assertEqual(page.locator(".feedback.success").count(), 0)
 
     def test_browser_creator_can_edit_close_reopen_and_voter_sees_locked_poll(self) -> None:
         creator_page = self.require_page()
@@ -2392,20 +2527,71 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
         )
 
-        nav_range = page.locator(".calendar-nav-range")
+        week_blocks = self.week_blocks_locator(page=page)
+        self.assertGreater(week_blocks.count(), 1)
+
+        first_block = self.week_block_locator(block_index=0, page=page)
+        nav_range = first_block.locator(".calendar-nav-range")
         nav_range.wait_for()
-        visible_days = page.locator(".calendar-day-col").count()
+        visible_days = first_block.locator(".calendar-day-col").count()
         self.assertGreater(visible_days, 0)
         self.assertLess(visible_days, 7)
         self.assertEqual(nav_range.inner_text().strip(), f"Days 1-{visible_days}/7")
+        fit_state = page.evaluate(
+            """
+            () => {
+              const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+              const firstBlock = document.querySelector('.calendar-week .calendar-week-block');
+              const wrap = firstBlock ? firstBlock.querySelector('.table-wrap') : null;
+              const table = firstBlock ? firstBlock.querySelector('.calendar-table') : null;
+              const dayHeaders = Array.from(firstBlock?.querySelectorAll('.calendar-day-col') || []);
+              const overflowing = Array.from(document.querySelectorAll('body *'))
+                .map((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return {
+                    tag: element.tagName.toLowerCase(),
+                    className: typeof element.className === 'string' ? element.className : '',
+                    right: rect.right,
+                    width: rect.width
+                  };
+                })
+                .filter((item) => item.right > document.documentElement.clientWidth + 1)
+                .slice(0, 8);
+              return {
+                documentClientWidthPx: document.documentElement.clientWidth,
+                documentScrollWidthPx: document.documentElement.scrollWidth,
+                wrapWidthPx: wrap ? wrap.getBoundingClientRect().width : 0,
+                wrapScrollWidthPx: wrap ? wrap.scrollWidth : 0,
+                tableWidthPx: table ? table.getBoundingClientRect().width : 0,
+                widthsInRem: dayHeaders.map((header) => header.getBoundingClientRect().width / rootPx),
+                overflowing
+              };
+            }
+            """
+        )
+        self.assertTrue(fit_state["widthsInRem"], fit_state)
+        for width_in_rem in fit_state["widthsInRem"]:
+            self.assertGreaterEqual(float(width_in_rem), 7.9, fit_state)
+        self.assertLessEqual(
+            float(fit_state["documentScrollWidthPx"]),
+            float(fit_state["documentClientWidthPx"]) + 2.0,
+            fit_state,
+        )
+        self.assertLessEqual(
+            float(fit_state["wrapScrollWidthPx"]),
+            float(fit_state["wrapWidthPx"]) + 2.0,
+            fit_state,
+        )
+        self.assertLessEqual(float(fit_state["tableWidthPx"]), float(fit_state["wrapWidthPx"]) + 2.0, fit_state)
 
-        first_time_row = page.locator(".calendar-time-row").first
+        first_time_row = first_block.locator(".calendar-time-row").first
         first_time_row.locator(".bulk-time-trigger").click()
         first_time_row.locator(".bulk-menu-item").filter(has_text="Yes").click()
         page.wait_for_function(
             """
             (expectedCount) => {
-              const row = document.querySelector('.calendar-table tbody tr');
+              const block = document.querySelector('.calendar-week .calendar-week-block');
+              const row = block ? block.querySelector('.calendar-table tbody tr') : null;
               if (!row) {
                 return false;
               }
@@ -2416,24 +2602,26 @@ class PollBrowserTests(StaticLiveServerTestCase):
             arg=visible_days,
         )
 
-        next_button = page.get_by_role("button", name="Next days")
-        while next_button.is_enabled():
-            next_button.click()
-
-        last_start = 7 - visible_days + 1
+        second_block = self.week_block_locator(block_index=1, page=page)
+        second_visible_days = second_block.locator(".calendar-day-col").count()
+        scroll_before = float(page.evaluate("() => window.scrollY"))
+        first_block.get_by_role("button", name="Next days").click()
+        page.wait_for_function("(previousY) => window.scrollY > previousY + 5", arg=scroll_before)
         page.wait_for_function(
             """
             ([startDay, endDay]) => {
-              const range = document.querySelector('.calendar-nav-range');
+              const block = document.querySelectorAll('.calendar-week .calendar-week-block')[1];
+              const range = block ? block.querySelector('.calendar-nav-range') : null;
               return Boolean(range) && range.textContent.trim() === `Days ${startDay}-${endDay}/7`;
             }
             """,
-            arg=[last_start, 7],
+            arg=[visible_days + 1, visible_days + second_visible_days],
         )
         page.wait_for_function(
             """
             (expectedCount) => {
-              const row = document.querySelector('.calendar-table tbody tr');
+              const block = document.querySelectorAll('.calendar-week .calendar-week-block')[1];
+              const row = block ? block.querySelector('.calendar-table tbody tr') : null;
               if (!row) {
                 return false;
               }
@@ -2441,26 +2629,26 @@ class PollBrowserTests(StaticLiveServerTestCase):
               return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('aria-checked') === 'false');
             }
             """,
-            arg=visible_days,
+            arg=second_visible_days,
         )
 
-        previous_button = page.get_by_role("button", name="Previous days")
-        while previous_button.is_enabled():
-            previous_button.click()
-
+        second_block.get_by_role("button", name="Previous days").click()
         page.wait_for_function(
             """
-            (endDay) => {
-              const range = document.querySelector('.calendar-nav-range');
-              return Boolean(range) && range.textContent.trim() === `Days 1-${endDay}/7`;
+            (blockIndex) => {
+              const targetBlock = document.querySelectorAll('.calendar-week .calendar-week-block')[blockIndex];
+              const active = document.activeElement;
+              return Boolean(targetBlock) && Boolean(active) && targetBlock.contains(active);
             }
             """,
-            arg=visible_days,
+            arg=0,
         )
+        self.assertEqual(nav_range.inner_text().strip(), f"Days 1-{visible_days}/7")
         page.wait_for_function(
             """
             (expectedCount) => {
-              const row = document.querySelector('.calendar-table tbody tr');
+              const block = document.querySelector('.calendar-week .calendar-week-block');
+              const row = block ? block.querySelector('.calendar-table tbody tr') : null;
               if (!row) {
                 return false;
               }
@@ -2470,6 +2658,40 @@ class PollBrowserTests(StaticLiveServerTestCase):
             """,
             arg=visible_days,
         )
+
+    def test_browser_calendar_gap_indicator_marks_missing_days_between_columns(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="gap-indicator-owner")
+        self.create_poll(
+            title="Gap indicator poll",
+            description="Used for missing-day calendar gap indicator coverage.",
+            identifier="gap_indicator_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-13",
+            end_date="2026-04-17",
+            daily_start_hour=9,
+            daily_end_hour=10,
+            allowed_weekdays=[0, 1, 3, 4],
+        )
+
+        gap_state = page.evaluate(
+            """
+            () => {
+              const headers = Array.from(document.querySelectorAll('.calendar-week .calendar-day-col'));
+              const firstRow = document.querySelector('.calendar-week .calendar-table tbody tr');
+              const cells = firstRow ? Array.from(firstRow.querySelectorAll('td.calendar-cell')) : [];
+              return {
+                headerGapFlags: headers.map((header) => header.classList.contains('calendar-day-gap-before')),
+                cellGapFlags: cells.map((cell) => cell.classList.contains('calendar-day-gap-before')),
+              };
+            }
+            """
+        )
+
+        self.assertEqual(gap_state["headerGapFlags"], [False, False, True, False], gap_state)
+        self.assertEqual(gap_state["cellGapFlags"], [False, False, True, False], gap_state)
 
     def test_browser_logout_keeps_selected_poll_open_and_refreshes_to_anonymous_state(self) -> None:
         page = self.require_page()
@@ -2883,47 +3105,121 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
         )
 
-        initial_visible_days = page.locator(".calendar-day-col").count()
-        self.assertGreater(initial_visible_days, 3)
+        initial_state = page.evaluate(
+            """
+            () => {
+              const blocks = Array.from(document.querySelectorAll('.calendar-week .calendar-week-block'));
+              return {
+                blockCount: blocks.length,
+                firstBlockDayCount: blocks[0]?.querySelectorAll('.calendar-day-col').length || 0,
+              };
+            }
+            """
+        )
+        initial_visible_days = int(initial_state["firstBlockDayCount"])
+        self.assertGreater(initial_visible_days, 3, initial_state)
 
         shrink_state = page.evaluate(
             """
             async () => {
-              const tableWrap = document.querySelector('.details .table-wrap');
+              const tableWrap = document.querySelector('.details .calendar-week-block .table-wrap');
               if (tableWrap) {
                 tableWrap.style.width = '320px';
               }
               window.dispatchEvent(new Event('resize'));
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+              const blocks = Array.from(document.querySelectorAll('.calendar-week .calendar-week-block'));
               return {
                 wrapWidth: tableWrap ? tableWrap.clientWidth : null,
-                renderedCount: document.querySelectorAll('.calendar-day-col').length,
-                rangeText: document.querySelector('.calendar-nav-range')?.textContent?.trim() || ''
+                blockCount: blocks.length,
+                firstBlockDayCount: blocks[0]?.querySelectorAll('.calendar-day-col').length || 0,
+                rangeTexts: blocks
+                  .map((block) => block.querySelector('.calendar-nav-range')?.textContent?.trim() || '')
+                  .filter((text) => Boolean(text))
               };
             }
             """
         )
-        shrunken_visible_days = int(shrink_state["renderedCount"])
+        shrunken_visible_days = int(shrink_state["firstBlockDayCount"])
         self.assertLess(shrunken_visible_days, initial_visible_days, shrink_state)
-        self.assertTrue(bool(shrink_state["rangeText"]), shrink_state)
+        self.assertGreaterEqual(int(shrink_state["blockCount"]), int(initial_state["blockCount"]), shrink_state)
+        self.assertTrue(bool(shrink_state["rangeTexts"]), shrink_state)
 
         expand_state = page.evaluate(
             """
             async () => {
-              const tableWrap = document.querySelector('.details .table-wrap');
+              const tableWrap = document.querySelector('.details .calendar-week-block .table-wrap');
               if (tableWrap) {
                 tableWrap.style.width = '1600px';
               }
               window.dispatchEvent(new Event('resize'));
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+              const blocks = Array.from(document.querySelectorAll('.calendar-week .calendar-week-block'));
               return {
                 wrapWidth: tableWrap ? tableWrap.clientWidth : null,
-                renderedCount: document.querySelectorAll('.calendar-day-col').length
+                blockCount: blocks.length,
+                firstBlockDayCount: blocks[0]?.querySelectorAll('.calendar-day-col').length || 0
               };
             }
             """
         )
-        self.assertGreater(int(expand_state["renderedCount"]), shrunken_visible_days, expand_state)
+        self.assertGreater(int(expand_state["firstBlockDayCount"]), shrunken_visible_days, expand_state)
+        self.assertLessEqual(int(expand_state["blockCount"]), int(shrink_state["blockCount"]), expand_state)
+
+    def test_browser_partial_week_calendar_columns_match_full_week_width(self) -> None:
+        page = self.require_page()
+        page.set_viewport_size({"width": 1600, "height": 1000})
+
+        self.open_home_page()
+        self.login(name="column-cap-owner")
+        self.create_poll(
+            title="Mixed week width consistency poll",
+            description="Used for partial-week calendar width consistency coverage.",
+            identifier="mixed_week_width_consistency_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-13",
+            end_date="2026-04-21",
+            allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
+        )
+
+        width_state = page.evaluate(
+            """
+            () => {
+              const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+              const weeks = Array.from(document.querySelectorAll('.calendar-week'));
+              const widthsInRemByWeek = weeks.map((week) =>
+                Array.from(week.querySelectorAll('.calendar-day-col'))
+                  .map((header) => header.getBoundingClientRect().width / rootPx)
+              );
+              const secondWeek = weeks[1];
+              const secondWrap = secondWeek ? secondWeek.querySelector('.table-wrap') : null;
+              const secondTable = secondWeek ? secondWeek.querySelector('.calendar-table') : null;
+              const secondWrapRect = secondWrap ? secondWrap.getBoundingClientRect() : null;
+              const secondTableRect = secondTable ? secondTable.getBoundingClientRect() : null;
+              return {
+                weekCounts: widthsInRemByWeek.map((widths) => widths.length),
+                widthsInRemByWeek,
+                partialWeekLeftGapPx: secondWrapRect && secondTableRect ? secondTableRect.left - secondWrapRect.left : null,
+                partialWeekRightGapPx: secondWrapRect && secondTableRect
+                  ? secondWrapRect.right - secondTableRect.right
+                  : null
+              };
+            }
+            """
+        )
+
+        self.assertEqual(width_state["weekCounts"], [7, 2], width_state)
+        full_week_widths = width_state["widthsInRemByWeek"][0]
+        partial_week_widths = width_state["widthsInRemByWeek"][1]
+        self.assertTrue(full_week_widths, width_state)
+        self.assertTrue(partial_week_widths, width_state)
+        full_week_reference = float(full_week_widths[0])
+        self.assertGreater(full_week_reference, 0, width_state)
+        for width_in_rem in partial_week_widths:
+            self.assertAlmostEqual(float(width_in_rem), full_week_reference, delta=0.2)
+            self.assertLessEqual(float(width_in_rem), 16.2, width_state)
+        self.assertIsNotNone(width_state["partialWeekLeftGapPx"], width_state)
+        self.assertLessEqual(float(width_state["partialWeekLeftGapPx"]), 4.0, width_state)
 
     def test_browser_timezone_suggestion_dropdowns_select_and_hide(self) -> None:
         page = self.require_page()
@@ -2975,6 +3271,26 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_text("Start date is required.").first.wait_for()
         page.get_by_text("End date is required.").first.wait_for()
         page.get_by_text("Select at least one weekday.").first.wait_for()
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-title")
+
+        title_input = page.locator("#poll-title")
+        self.assertEqual(title_input.get_attribute("aria-invalid"), "true")
+        self.assertEqual(title_input.get_attribute("aria-describedby"), "create-title-error")
+        self.assertEqual(title_input.get_attribute("aria-errormessage"), "create-title-error")
+
+        identifier_input = page.locator("#poll-identifier")
+        identifier_describedby = identifier_input.get_attribute("aria-describedby") or ""
+        self.assertEqual(identifier_input.get_attribute("aria-invalid"), "true")
+        self.assertIn("poll-identifier-help", identifier_describedby)
+        self.assertIn("create-identifier-error", identifier_describedby)
+        self.assertEqual(identifier_input.get_attribute("aria-errormessage"), "create-identifier-error")
+
+        weekday_fieldset = page.locator("#section-panel-create fieldset").first
+        weekday_checkbox = page.locator("#section-panel-create .weekday-item input").first
+        weekday_describedby = weekday_checkbox.get_attribute("aria-describedby") or ""
+        self.assertEqual(weekday_fieldset.get_attribute("aria-invalid"), "true")
+        self.assertIn("create-allowed-weekdays-error", weekday_describedby)
+        self.assertEqual(weekday_checkbox.get_attribute("aria-errormessage"), "create-allowed-weekdays-error")
 
     def test_browser_create_form_maps_backend_identifier_conflict_to_field(self) -> None:
         page = self.require_page()
@@ -3002,7 +3318,13 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         page.get_by_role("alert").filter(has_text="This identifier is already in use.").wait_for()
         page.get_by_text("This identifier is already in use.").last.wait_for()
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-identifier")
         self.assertIn("input-invalid", page.locator("#poll-identifier").get_attribute("class") or "")
+        identifier_describedby = page.locator("#poll-identifier").get_attribute("aria-describedby") or ""
+        self.assertEqual(page.locator("#poll-identifier").get_attribute("aria-invalid"), "true")
+        self.assertIn("poll-identifier-help", identifier_describedby)
+        self.assertIn("create-identifier-error", identifier_describedby)
+        self.assertEqual(page.locator("#poll-identifier").get_attribute("aria-errormessage"), "create-identifier-error")
 
     def test_browser_edit_form_shows_schedule_conflict_error_for_voted_slot(self) -> None:
         page = self.require_page()
@@ -3050,6 +3372,10 @@ class PollBrowserTests(StaticLiveServerTestCase):
             has_text="You cannot remove time slots that already have votes."
         ).first.wait_for()
         page.get_by_role("button", name="Save changes").wait_for()
+        self.assertEqual(self.active_element_snapshot(page)["id"], "edit-timezone")
+        self.assertEqual(page.locator("#edit-timezone").get_attribute("aria-invalid"), "true")
+        self.assertEqual(page.locator("#edit-timezone").get_attribute("aria-describedby"), "edit-timezone-error")
+        self.assertEqual(page.locator("#edit-timezone").get_attribute("aria-errormessage"), "edit-timezone-error")
 
     def test_browser_open_poll_failure_shows_error_toast(self) -> None:
         page = self.require_page()

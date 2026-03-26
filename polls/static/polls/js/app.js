@@ -58,6 +58,8 @@
     return;
   }
 
+  const successFeedbackAutoCloseMs = 3500;
+
 const translations = {
     en: {
       appTitle: "TimePoll",
@@ -128,6 +130,7 @@ const translations = {
       editHelp: "You can edit poll settings. Time slots that already have votes cannot be removed.",
       saveChanges: "Save changes",
       cancelEdit: "Cancel edit",
+      cancel: "Cancel",
       pollOpen: "Poll is open",
       pollClosed: "Poll is closed",
       availabilityTable: "Availability table",
@@ -262,6 +265,7 @@ const translations = {
       editHelp: "Voit muokata kyselyn tietoja. Ääniä saaneita aikaslotteja ei voi poistaa.",
       saveChanges: "Tallenna muutokset",
       cancelEdit: "Peru muokkaus",
+      cancel: "Peru",
       pollOpen: "Kysely on auki",
       pollClosed: "Kysely on suljettu",
       availabilityTable: "Saatavuustaulukko",
@@ -396,6 +400,7 @@ const translations = {
       editHelp: "Du kan redigera omröstningens inställningar. Tidslots med röster kan inte tas bort.",
       saveChanges: "Spara ändringar",
       cancelEdit: "Avbryt redigering",
+      cancel: "Avbryt",
       pollOpen: "Omröstningen är öppen",
       pollClosed: "Omröstningen är stängd",
       availabilityTable: "Tillgänglighetstabell",
@@ -530,6 +535,7 @@ const translations = {
       editHelp: "Du kan redigere avstemningsinnstillingene. Tidsluker som allerede har stemmer kan ikke fjernes.",
       saveChanges: "Lagre endringer",
       cancelEdit: "Avbryt redigering",
+      cancel: "Avbryt",
       pollOpen: "Avstemningen er åpen",
       pollClosed: "Avstemningen er lukket",
       availabilityTable: "Tilgjengelighetstabell",
@@ -664,6 +670,7 @@ const translations = {
       editHelp: "Saad küsitluse seadeid muuta. Ajapesasid, millel on hääled, ei saa eemaldada.",
       saveChanges: "Salvesta muudatused",
       cancelEdit: "Tühista muutmine",
+      cancel: "Tühista",
       pollOpen: "Küsitlus on avatud",
       pollClosed: "Küsitlus on suletud",
       availabilityTable: "Saadavuse tabel",
@@ -729,6 +736,43 @@ const translations = {
       profileVoteCount: "Häälte arv",
       profileDistinctVotedPollCount: "Küsitlused, milles oled hääletanud"
     }
+  };
+
+  const pollFormFieldOrder = [
+    "title",
+    "identifier",
+    "timezone",
+    "start_date",
+    "end_date",
+    "daily_start_hour",
+    "daily_end_hour",
+    "allowed_weekdays"
+  ];
+
+  const pollFormFieldIds = {
+    create: {
+      title: "poll-title",
+      identifier: "poll-identifier",
+      timezone: "poll-timezone",
+      start_date: "start-date",
+      end_date: "end-date",
+      daily_start_hour: "daily-start-hour",
+      daily_end_hour: "daily-end-hour"
+    },
+    edit: {
+      title: "edit-title",
+      identifier: "edit-identifier",
+      timezone: "edit-timezone",
+      start_date: "edit-start-date",
+      end_date: "edit-end-date",
+      daily_start_hour: "edit-daily-start-hour",
+      daily_end_hour: "edit-daily-end-hour"
+    }
+  };
+
+  const pollFormWeekdaySelectorByScope = {
+    create: "#section-panel-create .weekday-item input",
+    edit: "#section-panel-selected .poll-edit .weekday-item input"
   };
 
   const errorMessages = {
@@ -1113,19 +1157,27 @@ const translations = {
   }
 
   function estimateDayColumnWidthPx(viewportWidth) {
-    const rootPx = rootFontSizePx();
-    if (viewportWidth <= 860) {
-      return 7.2 * rootPx;
-    }
-    const minWidth = 7.8 * rootPx;
-    const preferred = viewportWidth * 0.16;
-    const maxWidth = 10.6 * rootPx;
-    return Math.min(Math.max(preferred, minWidth), maxWidth);
+    void viewportWidth;
+    return 8 * rootFontSizePx();
   }
 
   function estimateTimeColumnWidthPx(viewportWidth) {
     const rootPx = rootFontSizePx();
-    return viewportWidth <= 860 ? 5 * rootPx : 5.8 * rootPx;
+    return viewportWidth <= 860 ? 4.6 * rootPx : 5.2 * rootPx;
+  }
+
+  function cappedDayColumnWidthPx(containerWidth, referenceDayCount) {
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : containerWidth;
+    const rootPx = rootFontSizePx();
+    const timeWidth = estimateTimeColumnWidthPx(viewportWidth);
+    const minWidth = 8 * rootPx;
+    const maxWidth = 16 * rootPx;
+    const normalizedDayCount = Number.isFinite(referenceDayCount) && referenceDayCount > 0
+      ? Math.floor(referenceDayCount)
+      : 1;
+    const availableWidth = Math.max(0, containerWidth - timeWidth);
+    const idealWidth = availableWidth / normalizedDayCount;
+    return Math.min(maxWidth, Math.max(minWidth, idealWidth));
   }
 
   function visibleDayCountForWidth(containerWidth) {
@@ -1197,9 +1249,10 @@ const translations = {
           pendingAction: null,
           errorMessage: "",
           successMessage: "",
+          successFeedbackTimerId: null,
           bulkMenu: null,
+          calendarWrapWidth: typeof window !== "undefined" ? window.innerWidth : 0,
           visibleDayCount: detectInitialVisibleDayCount(),
-          dayOffsetsByWeek: {},
           minYesVotesFilter: 0,
           savingVoteOptionIds: {}
         };
@@ -1411,14 +1464,9 @@ const translations = {
       },
       watch: {
         calendarWeeks() {
-          this.normalizeDayOffsets();
           this.$nextTick(() => {
             this.updateVisibleDayCount();
-            this.normalizeDayOffsets();
           });
-        },
-        visibleDayCount() {
-          this.normalizeDayOffsets();
         },
         maxYesVotesInPoll(newValue) {
           const normalizedMax = Number.isInteger(newValue) && newValue > 0 ? newValue : 0;
@@ -1527,6 +1575,97 @@ const translations = {
             const input = this.$refs.authNameInput;
             if (input && typeof input.focus === "function") {
               input.focus();
+            }
+          });
+        },
+        focusElementIfPossible(element) {
+          if (
+            element
+            && typeof element.focus === "function"
+            && document.contains(element)
+          ) {
+            element.focus();
+            return true;
+          }
+          return false;
+        },
+        focusElementById(id) {
+          if (!id) {
+            return false;
+          }
+          return this.focusElementIfPossible(document.getElementById(id));
+        },
+        fieldErrorId(scope, field) {
+          return `${scope}-${String(field || "").replaceAll("_", "-")}-error`;
+        },
+        fieldHasValidationError(scope, field) {
+          return Boolean((this.formErrors[scope] || {})[field]);
+        },
+        fieldAriaInvalid(scope, field) {
+          return this.fieldHasValidationError(scope, field) ? "true" : null;
+        },
+        fieldDescribedBy(scope, field, describedByIds = []) {
+          const ids = Array.isArray(describedByIds)
+            ? describedByIds.filter(Boolean)
+            : [describedByIds].filter(Boolean);
+          if (this.hasFieldError(scope, field)) {
+            ids.push(this.fieldErrorId(scope, field));
+          }
+          return ids.length ? ids.join(" ") : null;
+        },
+        focusPollField(scope, field) {
+          if (field === "allowed_weekdays") {
+            const weekdayInput = document.querySelector(pollFormWeekdaySelectorByScope[scope] || "");
+            return this.focusElementIfPossible(weekdayInput);
+          }
+          const fieldIds = pollFormFieldIds[scope] || {};
+          return this.focusElementById(fieldIds[field] || "");
+        },
+        firstInvalidPollField(errors) {
+          for (const field of pollFormFieldOrder) {
+            if (errors && errors[field]) {
+              return field;
+            }
+          }
+          return "";
+        },
+        focusFirstInvalidPollField(scope, errors) {
+          const firstField = this.firstInvalidPollField(errors || this.formErrors[scope] || {});
+          if (!firstField) {
+            return;
+          }
+          this.$nextTick(() => {
+            this.focusPollField(scope, firstField);
+          });
+        },
+        focusAuthSuccessTarget(returnFocusTarget, options = {}) {
+          this.$nextTick(() => {
+            if (this.focusElementIfPossible(returnFocusTarget)) {
+              return;
+            }
+            const sectionHeadingById = {
+              list: "poll-list-heading",
+              create: "create-poll-heading",
+              selected: "details-heading",
+              profile: "profile-heading"
+            };
+            const focusSectionHeading = () => this.focusElementById(
+              sectionHeadingById[this.activeSection] || "poll-list-heading"
+            );
+            const focusTopbarTarget = () => {
+              const topbarTarget = document.querySelector(".auth-actions .auth-name-link, .auth-actions .secondary");
+              return this.focusElementIfPossible(topbarTarget);
+            };
+
+            if (options.preferSectionTarget) {
+              if (!focusSectionHeading()) {
+                focusTopbarTarget();
+              }
+              return;
+            }
+
+            if (!focusTopbarTarget()) {
+              focusSectionHeading();
             }
           });
         },
@@ -1715,24 +1854,24 @@ const translations = {
         bulkMenuIdPart(value) {
           return String(value || "").replace(/[^A-Za-z0-9_-]+/g, "-");
         },
-        bulkMenuTriggerId(type, weekKey, key) {
-          return `bulk-trigger-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(weekKey)}-${this.bulkMenuIdPart(key)}`;
+        bulkMenuTriggerId(type, scopeKey, key) {
+          return `bulk-trigger-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(scopeKey)}-${this.bulkMenuIdPart(key)}`;
         },
-        bulkMenuId(type, weekKey, key) {
-          return `bulk-menu-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(weekKey)}-${this.bulkMenuIdPart(key)}`;
+        bulkMenuId(type, scopeKey, key) {
+          return `bulk-menu-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(scopeKey)}-${this.bulkMenuIdPart(key)}`;
         },
-        bulkMenuItemId(type, weekKey, key, status) {
+        bulkMenuItemId(type, scopeKey, key, status) {
           const suffix = status || "none";
-          return `bulk-menu-item-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(weekKey)}-${this.bulkMenuIdPart(key)}-${this.bulkMenuIdPart(suffix)}`;
+          return `bulk-menu-item-${this.bulkMenuIdPart(type)}-${this.bulkMenuIdPart(scopeKey)}-${this.bulkMenuIdPart(key)}-${this.bulkMenuIdPart(suffix)}`;
         },
-        focusBulkTrigger(type, weekKey, key) {
-          const trigger = document.getElementById(this.bulkMenuTriggerId(type, weekKey, key));
+        focusBulkTrigger(type, scopeKey, key) {
+          const trigger = document.getElementById(this.bulkMenuTriggerId(type, scopeKey, key));
           if (trigger && typeof trigger.focus === "function") {
             trigger.focus();
           }
         },
-        focusBulkMenuItem(type, weekKey, key, status = "") {
-          const menuItem = document.getElementById(this.bulkMenuItemId(type, weekKey, key, status));
+        focusBulkMenuItem(type, scopeKey, key, status = "") {
+          const menuItem = document.getElementById(this.bulkMenuItemId(type, scopeKey, key, status));
           if (menuItem && typeof menuItem.focus === "function") {
             menuItem.focus();
           }
@@ -1818,7 +1957,6 @@ const translations = {
           }
           this.$nextTick(() => {
             this.updateVisibleDayCount();
-            this.normalizeDayOffsets();
           });
         },
         resetFormValidation(scope = "create") {
@@ -2074,7 +2212,6 @@ const translations = {
         },
         handleFormFieldChange(field, scope = "create") {
           this.markFieldTouched(field, scope);
-          this.showAllFormErrors[scope] = false;
           this.validateFormScope(scope);
         },
         fieldError(scope, field) {
@@ -2092,15 +2229,35 @@ const translations = {
         hasFieldError(scope, field) {
           return Boolean(this.fieldError(scope, field));
         },
+        clearSuccessFeedbackTimer() {
+          if (this.successFeedbackTimerId !== null) {
+            window.clearTimeout(this.successFeedbackTimerId);
+            this.successFeedbackTimerId = null;
+          }
+        },
+        scheduleSuccessFeedbackDismiss() {
+          this.clearSuccessFeedbackTimer();
+          if (!this.successMessage) {
+            return;
+          }
+          this.successFeedbackTimerId = window.setTimeout(() => {
+            this.successMessage = "";
+            this.successFeedbackTimerId = null;
+          }, successFeedbackAutoCloseMs);
+        },
         setSuccess(message) {
+          this.clearSuccessFeedbackTimer();
           this.successMessage = message;
           this.errorMessage = "";
+          this.scheduleSuccessFeedbackDismiss();
         },
         setError(error) {
+          this.clearSuccessFeedbackTimer();
           this.errorMessage = error;
           this.successMessage = "";
         },
         clearFeedback() {
+          this.clearSuccessFeedbackTimer();
           this.errorMessage = "";
           this.successMessage = "";
         },
@@ -2185,6 +2342,24 @@ const translations = {
           }
 
           return new Date(Date.UTC(year, month - 1, day));
+        },
+        dayGapCountBetween(previousDayKey, nextDayKey) {
+          const previousDate = this.dayKeyToUtcDate(previousDayKey);
+          const nextDate = this.dayKeyToUtcDate(nextDayKey);
+          if (!previousDate || !nextDate) {
+            return 0;
+          }
+          const diffMs = nextDate.getTime() - previousDate.getTime();
+          const diffDays = Math.round(diffMs / 86400000);
+          return diffDays > 1 ? diffDays - 1 : 0;
+        },
+        dayHasGapBefore(days, dayIndex) {
+          if (!Array.isArray(days) || dayIndex <= 0 || dayIndex >= days.length) {
+            return false;
+          }
+          const previousDay = days[dayIndex - 1];
+          const currentDay = days[dayIndex];
+          return this.dayGapCountBetween(previousDay && previousDay.key, currentDay && currentDay.key) > 0;
         },
         weekStartKey(dayKey) {
           const utcDate = this.dayKeyToUtcDate(dayKey);
@@ -2304,7 +2479,7 @@ const translations = {
           this.bulkMenu = null;
           if (options.restoreFocus && activeMenu) {
             this.$nextTick(() => {
-              this.focusBulkTrigger(activeMenu.type, activeMenu.weekKey, activeMenu.key);
+              this.focusBulkTrigger(activeMenu.type, activeMenu.scopeKey, activeMenu.key);
             });
           }
         },
@@ -2315,10 +2490,42 @@ const translations = {
           }
           const tableWrap = root.querySelector(".details .table-wrap");
           const wrapWidth = tableWrap ? tableWrap.clientWidth : root.clientWidth || window.innerWidth;
+          this.calendarWrapWidth = wrapWidth;
           const nextCount = visibleDayCountForWidth(wrapWidth);
           if (nextCount !== this.visibleDayCount) {
             this.visibleDayCount = nextCount;
           }
+        },
+        visibleRenderedDayCountForBlock(block) {
+          return Array.isArray(block && block.days) && block.days.length ? block.days.length : 1;
+        },
+        calendarReferenceDayCount() {
+          const normalizedVisibleDayCount = Number.isFinite(this.visibleDayCount) && this.visibleDayCount > 0
+            ? Math.floor(this.visibleDayCount)
+            : 1;
+          return Math.max(1, Math.min(normalizedVisibleDayCount, 7));
+        },
+        calendarDayColumnWidthPx() {
+          const referenceDayCount = this.calendarReferenceDayCount();
+          const fallbackWidth = typeof window !== "undefined" ? window.innerWidth : 0;
+          const wrapWidth = this.calendarWrapWidth || fallbackWidth;
+          return cappedDayColumnWidthPx(wrapWidth, referenceDayCount);
+        },
+        calendarDayColumnStyle() {
+          const widthPx = this.calendarDayColumnWidthPx();
+          return {
+            width: `${widthPx}px`,
+            maxWidth: "16em"
+          };
+        },
+        calendarTableStyleForBlock(block) {
+          const dayCount = this.visibleRenderedDayCountForBlock(block);
+          const viewportWidth = typeof window !== "undefined" ? window.innerWidth : this.calendarWrapWidth;
+          const timeWidth = estimateTimeColumnWidthPx(viewportWidth || 0);
+          const dayWidth = this.calendarDayColumnWidthPx();
+          return {
+            width: `${timeWidth + (dayWidth * dayCount)}px`
+          };
         },
         visibleDayCountForWeek(week) {
           if (!week || !Array.isArray(week.days) || week.days.length === 0) {
@@ -2326,25 +2533,67 @@ const translations = {
           }
           return Math.max(1, Math.min(this.visibleDayCount, week.days.length));
         },
-        weekDayStartIndex(week) {
-          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
-            return 0;
-          }
-          const count = this.visibleDayCountForWeek(week);
-          const maxStart = Math.max(0, week.days.length - count);
-          const raw = Number(this.dayOffsetsByWeek[week.key] || 0);
-          if (!Number.isFinite(raw)) {
-            return 0;
-          }
-          return Math.min(Math.max(Math.floor(raw), 0), maxStart);
-        },
-        visibleDaysForWeek(week) {
+        weekBlocksForWeek(week) {
           if (!week || !Array.isArray(week.days) || week.days.length === 0) {
             return [];
           }
-          const start = this.weekDayStartIndex(week);
           const count = this.visibleDayCountForWeek(week);
-          return week.days.slice(start, start + count);
+          const blocks = [];
+          for (let startIndex = 0, blockIndex = 0; startIndex < week.days.length; startIndex += count, blockIndex += 1) {
+            const days = week.days.slice(startIndex, startIndex + count);
+            blocks.push({
+              key: `${week.key}-block-${blockIndex}`,
+              index: blockIndex,
+              startIndex,
+              days
+            });
+          }
+          return blocks;
+        },
+        weekBlockCount(week) {
+          return this.weekBlocksForWeek(week).length;
+        },
+        hasMultipleWeekBlocks(week) {
+          return this.weekBlockCount(week) > 1;
+        },
+        calendarBlockEntries() {
+          const entries = [];
+          for (const week of this.calendarWeeks) {
+            const blocks = this.weekBlocksForWeek(week);
+            for (const block of blocks) {
+              entries.push({
+                week,
+                weekKey: week.key,
+                block,
+                blockKey: block.key
+              });
+            }
+          }
+          return entries;
+        },
+        findCalendarBlockEntryIndex(week, block, entries = null) {
+          if (!week || !block) {
+            return -1;
+          }
+          const sourceEntries = Array.isArray(entries) ? entries : this.calendarBlockEntries();
+          return sourceEntries.findIndex(
+            (entry) => entry.weekKey === week.key && entry.blockKey === block.key
+          );
+        },
+        adjacentCalendarBlockEntry(week, block, direction) {
+          const entries = this.calendarBlockEntries();
+          const currentIndex = this.findCalendarBlockEntryIndex(week, block, entries);
+          if (currentIndex < 0) {
+            return null;
+          }
+          const targetIndex = currentIndex + (direction < 0 ? -1 : 1);
+          return entries[targetIndex] || null;
+        },
+        hasWeekBlockNavigation(week, block) {
+          return Boolean(
+            this.adjacentCalendarBlockEntry(week, block, -1)
+            || this.adjacentCalendarBlockEntry(week, block, 1)
+          );
         },
         optionMatchesYesFilter(option, minYesVotes) {
           return matchesYesVoteFilter(option, minYesVotes);
@@ -2352,104 +2601,134 @@ const translations = {
         filteredRowsForWeek(week) {
           return filterWeekRowsByMinYesVotes(week, this.minYesVotesFilter);
         },
-        visibleRangeLabel(week) {
-          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+        weekBlockRangeLabel(week, block) {
+          if (!week || !Array.isArray(week.days) || week.days.length === 0 || !block || !Array.isArray(block.days)) {
             return "";
           }
-          const startIndex = this.weekDayStartIndex(week);
-          const count = this.visibleDayCountForWeek(week);
-          const start = startIndex + 1;
-          const end = Math.min(week.days.length, startIndex + count);
+          const start = block.startIndex + 1;
+          const end = Math.min(week.days.length, block.startIndex + block.days.length);
           return `${this.t("daysRange")} ${start}-${end}/${week.days.length}`;
         },
-        canShiftWeekDays(week, direction) {
-          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
-            return false;
+        weekBlockId(week, block) {
+          if (!week || !block) {
+            return "";
           }
-          const start = this.weekDayStartIndex(week);
-          const count = this.visibleDayCountForWeek(week);
-          if (direction < 0) {
-            return start > 0;
-          }
-          return start + count < week.days.length;
+          return `calendar-week-block-${this.bulkMenuIdPart(week.key)}-${this.bulkMenuIdPart(block.key)}`;
         },
-        shiftWeekDays(week, direction) {
-          if (!week || !Array.isArray(week.days) || week.days.length === 0) {
+        canScrollWeekBlock(week, block, direction) {
+          return Boolean(this.adjacentCalendarBlockEntry(week, block, direction));
+        },
+        scrollToWeekBlock(week, block, direction = 0) {
+          if (!week || !block) {
             return;
           }
-          const start = this.weekDayStartIndex(week);
-          const count = this.visibleDayCountForWeek(week);
-          const maxStart = Math.max(0, week.days.length - count);
-          const candidate = direction < 0 ? start - 1 : start + 1;
-          const nextStart = Math.min(Math.max(candidate, 0), maxStart);
-          if (nextStart === start) {
-            return;
-          }
-          this.dayOffsetsByWeek = {
-            ...this.dayOffsetsByWeek,
-            [week.key]: nextStart
-          };
           this.closeVoteMenus();
+          const targetId = this.weekBlockId(week, block);
+          this.$nextTick(() => {
+            const targetElement = document.getElementById(targetId);
+            if (!targetElement) {
+              return;
+            }
+            const focusTarget = () => {
+              const preferredSelector = direction < 0
+                ? '[data-nav-direction="prev"]'
+                : '[data-nav-direction="next"]';
+              const fallbackSelector = direction < 0
+                ? '[data-nav-direction="next"]'
+                : '[data-nav-direction="prev"]';
+              const preferredButton = direction
+                ? targetElement.querySelector(preferredSelector)
+                : null;
+              const fallbackButton = direction
+                ? targetElement.querySelector(fallbackSelector)
+                : null;
+              const focusCandidate = [preferredButton, fallbackButton, targetElement]
+                .find((element) => element && !element.disabled && typeof element.focus === "function");
+              if (focusCandidate) {
+                focusCandidate.focus();
+              }
+            };
+            const scrollTop = typeof window !== "undefined" ? window.scrollY || window.pageYOffset || 0 : 0;
+            const targetTop = scrollTop + targetElement.getBoundingClientRect().top - 16;
+            if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
+              window.scrollTo({
+                top: Math.max(0, targetTop),
+                behavior: "auto"
+              });
+              if (typeof window.requestAnimationFrame === "function") {
+                window.requestAnimationFrame(() => {
+                  focusTarget();
+                });
+              } else {
+                focusTarget();
+              }
+            } else if (typeof targetElement.scrollIntoView === "function") {
+              targetElement.scrollIntoView({ block: "start", inline: "nearest" });
+              focusTarget();
+            }
+          });
         },
-        normalizeDayOffsets() {
-          const next = {};
-          for (const week of this.calendarWeeks) {
-            const count = this.visibleDayCountForWeek(week);
-            const maxStart = Math.max(0, week.days.length - count);
-            const raw = Number(this.dayOffsetsByWeek[week.key] || 0);
-            const normalized = Number.isFinite(raw) ? Math.min(Math.max(Math.floor(raw), 0), maxStart) : 0;
-            next[week.key] = normalized;
+        jumpWeekBlocks(week, block, direction) {
+          const targetEntry = this.adjacentCalendarBlockEntry(week, block, direction);
+          if (!targetEntry) {
+            return;
           }
-          this.dayOffsetsByWeek = next;
+          this.scrollToWeekBlock(targetEntry.week, targetEntry.block, direction);
         },
-        isBulkMenuOpen(type, weekKey, key) {
+        blockRowMenuKey(block, row) {
+          if (!block || !row) {
+            return "";
+          }
+          return `${block.key}-${row.timeKey}`;
+        },
+        isBulkMenuOpen(type, scopeKey, key) {
           return Boolean(
             this.bulkMenu &&
             this.bulkMenu.type === type &&
-            this.bulkMenu.weekKey === weekKey &&
+            this.bulkMenu.scopeKey === scopeKey &&
             this.bulkMenu.key === key
           );
         },
-        toggleBulkMenu(type, weekKey, key) {
+        toggleBulkMenu(type, scopeKey, key) {
           if (!this.canVoteInPoll) {
             return;
           }
-          const isOpen = this.isBulkMenuOpen(type, weekKey, key);
-          this.bulkMenu = isOpen ? null : { type, weekKey, key };
+          const isOpen = this.isBulkMenuOpen(type, scopeKey, key);
+          this.bulkMenu = isOpen ? null : { type, scopeKey, key };
         },
-        openBulkMenu(type, weekKey, key, options = {}) {
+        openBulkMenu(type, scopeKey, key, options = {}) {
           if (!this.canVoteInPoll) {
             return;
           }
-          this.bulkMenu = { type, weekKey, key };
+          this.bulkMenu = { type, scopeKey, key };
           if (Object.prototype.hasOwnProperty.call(options, "focusStatus")) {
             this.$nextTick(() => {
-              this.focusBulkMenuItem(type, weekKey, key, options.focusStatus);
+              this.focusBulkMenuItem(type, scopeKey, key, options.focusStatus);
             });
           }
         },
-        handleBulkTriggerKeydown(event, type, weekKey, key) {
+        handleBulkTriggerKeydown(event, type, scopeKey, key) {
           if (!this.canVoteInPoll) {
             return;
           }
           if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            this.openBulkMenu(type, weekKey, key, { focusStatus: "" });
+            this.openBulkMenu(type, scopeKey, key, { focusStatus: "" });
             return;
           }
           if (event.key === "ArrowUp") {
             event.preventDefault();
-            this.openBulkMenu(type, weekKey, key, { focusStatus: "maybe" });
+            this.openBulkMenu(type, scopeKey, key, { focusStatus: "maybe" });
             return;
           }
-          if (event.key === "Escape" && this.isBulkMenuOpen(type, weekKey, key)) {
+          if (event.key === "Escape" && this.isBulkMenuOpen(type, scopeKey, key)) {
             event.preventDefault();
             this.closeVoteMenus({ restoreFocus: true });
           }
         },
-        handleBulkMenuKeydown(event, type, weekKey, key) {
+        handleBulkMenuKeydown(event, type, scopeKey, key) {
           const items = this.bulkMenuStatuses()
-            .map((status) => document.getElementById(this.bulkMenuItemId(type, weekKey, key, status)))
+            .map((status) => document.getElementById(this.bulkMenuItemId(type, scopeKey, key, status)))
             .filter((item) => item && !item.disabled);
           if (!items.length) {
             return;
@@ -2496,9 +2775,9 @@ const translations = {
           this.closeVoteMenus({ restoreFocus: true });
           await this.applyVotes(this.collectDayOptionIds(week, dayKey), status);
         },
-        async chooseBulkVoteForRow(week, row, status) {
+        async chooseBulkVoteForRow(block, row, status) {
           this.closeVoteMenus({ restoreFocus: true });
-          const visibleDayKeys = this.visibleDaysForWeek(week).map((day) => day.key);
+          const visibleDayKeys = Array.isArray(block && block.days) ? block.days.map((day) => day.key) : [];
           await this.applyVotes(this.collectRowOptionIds(row, visibleDayKeys), status);
         },
         voteStatusOrder() {
@@ -2710,20 +2989,9 @@ const translations = {
           const scope = form === this.editForm ? "edit" : "create";
           const errors = this.validateFormScope(scope);
           this.showAllFormErrors[scope] = true;
-          const order = [
-            "title",
-            "identifier",
-            "timezone",
-            "start_date",
-            "end_date",
-            "daily_start_hour",
-            "daily_end_hour",
-            "allowed_weekdays"
-          ];
-          for (const field of order) {
-            if (errors[field]) {
-              return errors[field];
-            }
+          const firstField = this.firstInvalidPollField(errors);
+          if (firstField) {
+            return errors[firstField];
           }
           return "";
         },
@@ -3055,10 +3323,11 @@ const translations = {
               }
             });
 
+            const returnFocusTarget = this._authDialogReturnFocus;
+            const hadPendingAction = Boolean(this.pendingAction);
             this.session.authenticated = data.authenticated;
             this.session.identity = data.identity;
-            this.showAuthDialog = false;
-            this._authDialogReturnFocus = null;
+            this.closeAuthDialog({ restoreFocus: false, clearPendingAction: false });
             this.authForm.pin = "";
             this.profileData = null;
             this.profileVoteDeletingOptionIds = {};
@@ -3075,6 +3344,8 @@ const translations = {
               this.pendingAction = null;
               await action();
             }
+            await this.$nextTick();
+            this.focusAuthSuccessTarget(returnFocusTarget, { preferSectionTarget: hadPendingAction });
           } catch (error) {
             this.setError(this.resolveError(error.payload, this.t("authNeeded")));
           }
@@ -3199,6 +3470,7 @@ const translations = {
             const validationError = this.validatePollForm(this.createForm);
             if (validationError) {
               this.setError(validationError);
+              this.focusFirstInvalidPollField("create");
               return;
             }
 
@@ -3215,8 +3487,11 @@ const translations = {
               await this.fetchPolls();
               await this.openPoll(data.poll.id, { preserveFeedback: true });
             } catch (error) {
-              this.applyBackendFormError("create", error.payload);
+              const mappedToField = this.applyBackendFormError("create", error.payload);
               this.setError(this.resolveError(error.payload, "Could not create poll."));
+              if (mappedToField) {
+                this.focusFirstInvalidPollField("create");
+              }
             }
           });
         },
@@ -3235,6 +3510,7 @@ const translations = {
             const validationError = this.validatePollForm(this.editForm);
             if (validationError) {
               this.setError(validationError);
+              this.focusFirstInvalidPollField("edit");
               return;
             }
 
@@ -3251,8 +3527,11 @@ const translations = {
               this.setSuccess(this.t("pollUpdatedSuccess"));
               await this.fetchPolls();
             } catch (error) {
-              this.applyBackendFormError("edit", error.payload);
+              const mappedToField = this.applyBackendFormError("edit", error.payload);
               this.setError(this.resolveError(error.payload, "Could not update poll."));
+              if (mappedToField) {
+                this.focusFirstInvalidPollField("edit");
+              }
             }
           });
         },
@@ -3328,7 +3607,6 @@ const translations = {
       async mounted() {
         this._onWindowResize = () => {
           this.updateVisibleDayCount();
-          this.normalizeDayOffsets();
         };
         this._onPopState = () => {
           this.applyPollFromUrl({ replace: true });
@@ -3341,10 +3619,10 @@ const translations = {
         await this.applyPollFromUrl({ replace: true });
         this.$nextTick(() => {
           this.updateVisibleDayCount();
-          this.normalizeDayOffsets();
         });
       },
       beforeUnmount() {
+        this.clearSuccessFeedbackTimer();
         if (this._onWindowResize) {
           window.removeEventListener("resize", this._onWindowResize);
           this._onWindowResize = null;

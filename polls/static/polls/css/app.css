@@ -185,6 +185,7 @@ fieldset {
 
 .workspace {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.85rem;
   margin-top: 1rem;
 }
@@ -680,6 +681,7 @@ fieldset {
 }
 
 .table-wrap {
+  min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
@@ -696,6 +698,7 @@ table {
 
 th,
 td {
+  box-sizing: border-box;
   border: 1px solid var(--line);
   padding: 0.55rem;
   text-align: left;
@@ -704,7 +707,14 @@ td {
 
 .calendar-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+}
+
+.calendar-week {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .calendar-week-title {
@@ -713,12 +723,29 @@ td {
   color: var(--ink-soft);
 }
 
-.calendar-week-toolbar {
+.calendar-week-blocks {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.calendar-week-block {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  scroll-margin-top: 1rem;
+}
+
+.calendar-week-toolbar,
+.calendar-block-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  margin: 0 0 0.45rem;
+}
+
+.calendar-block-toolbar {
+  justify-content: flex-end;
 }
 
 .calendar-nav {
@@ -740,14 +767,14 @@ td {
 }
 
 .calendar-table {
-  width: 100%;
-  min-width: 100%;
+  width: auto;
+  min-width: 0;
   table-layout: fixed;
 }
 
 .calendar-time-col,
 .calendar-time-row {
-  width: 5.8rem;
+  width: 5.2rem;
   white-space: nowrap;
   background: #f1f4f2;
   position: sticky;
@@ -761,8 +788,12 @@ td {
 }
 
 .calendar-day-col {
-  min-width: clamp(7.8rem, 16vw, 10.6rem);
+  min-width: 8em;
   position: relative;
+}
+
+.calendar-day-track {
+  max-width: 16em;
 }
 
 .calendar-time-row.menu-open,
@@ -835,6 +866,11 @@ td {
 
 .calendar-cell {
   padding: 0.3rem;
+}
+
+.calendar-day-col.calendar-day-gap-before,
+.calendar-cell.calendar-day-gap-before {
+  border-left: 0.7em double lightgray;
 }
 
 .vote-cell {
@@ -1207,7 +1243,8 @@ td {
     grid-template-columns: 1fr;
   }
 
-  .calendar-week-toolbar {
+  .calendar-week-toolbar,
+  .calendar-block-toolbar {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1220,13 +1257,31 @@ td {
     width: auto !important;
   }
 
+  .calendar-timezone-mode-list,
+  .calendar-vote-mode-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .calendar-timezone-mode-item,
+  .calendar-vote-mode-item {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .calendar-timezone-mode-title,
+  .calendar-timezone-mode-meta,
+  .calendar-timezone-mode-item-custom .calendar-timezone-mode-meta {
+    white-space: normal;
+  }
+
   .calendar-time-col,
   .calendar-time-row {
-    width: 5rem;
+    width: 4.6rem;
   }
 
   .calendar-day-col {
-    min-width: 7.2rem;
+    min-width: 8em;
     padding:0.25rem;
   }
 
