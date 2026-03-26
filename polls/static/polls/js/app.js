@@ -22,6 +22,7 @@
   }
 
   const {
+    autoGrowScheduleForm,
     buildPollUrlState,
     calendarTimezonePreferenceStorageKeyForSession,
     collectDayOptionIdsFromRows,
@@ -39,7 +40,8 @@
   } = logic;
 
   if (
-    typeof buildPollUrlState !== "function"
+    typeof autoGrowScheduleForm !== "function"
+    || typeof buildPollUrlState !== "function"
     || typeof calendarTimezonePreferenceStorageKeyForSession !== "function"
     || typeof collectDayOptionIdsFromRows !== "function"
     || typeof collectRowOptionIdsFromCells !== "function"
@@ -128,6 +130,21 @@ const translations = {
       deletePoll: "Delete poll",
       editPoll: "Edit poll",
       editHelp: "You can edit poll settings. Time slots that already have votes cannot be removed.",
+      editStartDateBoundByEndDate: "Start date cannot be later than the selected end date.",
+      editStartDateBoundByVotes: "Existing votes require the start date to be on or before {date}.",
+      editEndDateBoundByStartDate: "End date cannot be earlier than the selected start date.",
+      editEndDateBoundByVotes: "Existing votes require the end date to be on or after {date}.",
+      editStartHourBoundByEndHour: "Day start hour must be earlier than the selected end hour.",
+      editStartHourBoundByVotes: "Existing votes require the day start hour to be at or before {hour}.",
+      editEndHourBoundByStartHour: "Day end hour must be later than the selected start hour.",
+      editEndHourBoundByVotes: "Existing votes require the day end hour to be at or after {hour}.",
+      editAllowedWeekdaysBoundByVotes: "Existing votes require these weekdays to remain selected: {days}.",
+      editTimezoneAutoGrowNotice: "Timezone change expanded the schedule so existing votes remain valid.",
+      editTimezoneConfirmTitle: "Confirm timezone change",
+      editTimezoneConfirmDescription:
+        "Changing timezone from {from} to {to} expands the schedule so existing votes remain valid.",
+      editTimezoneConfirmPrompt: "Please confirm these automatic changes before applying them.",
+      editTimezoneConfirmButton: "Apply timezone change",
       saveChanges: "Save changes",
       cancelEdit: "Cancel edit",
       cancel: "Cancel",
@@ -263,6 +280,21 @@ const translations = {
       deletePoll: "Poista kysely",
       editPoll: "Muokkaa kyselyä",
       editHelp: "Voit muokata kyselyn tietoja. Ääniä saaneita aikaslotteja ei voi poistaa.",
+      editStartDateBoundByEndDate: "Alkupäivä ei voi olla valittua loppupäivää myöhemmin.",
+      editStartDateBoundByVotes: "Annetut vastaukset edellyttävät, että alkupäivä on viimeistään {date}.",
+      editEndDateBoundByStartDate: "Loppupäivä ei voi olla valittua alkupäivää aikaisemmin.",
+      editEndDateBoundByVotes: "Annetut vastaukset edellyttävät, että loppupäivä on aikaisintaan {date}.",
+      editStartHourBoundByEndHour: "Päivän aloitustunnin on oltava ennen valittua lopetustuntia.",
+      editStartHourBoundByVotes: "Annetut vastaukset edellyttävät, että päivän aloitustunti on viimeistään {hour}.",
+      editEndHourBoundByStartHour: "Päivän lopetustunnin on oltava valittua aloitustuntia myöhemmin.",
+      editEndHourBoundByVotes: "Annetut vastaukset edellyttävät, että päivän lopetustunti on aikaisintaan {hour}.",
+      editAllowedWeekdaysBoundByVotes: "Annetut vastaukset edellyttävät, että nämä viikonpäivät pysyvät valittuina: {days}.",
+      editTimezoneAutoGrowNotice: "Aikavyöhykkeen vaihto laajensi aikataulua, jotta annetut vastaukset säilyvät voimassa.",
+      editTimezoneConfirmTitle: "Vahvista aikavyöhykkeen vaihto",
+      editTimezoneConfirmDescription:
+        "Aikavyöhykkeen vaihto {from} -> {to} laajentaa aikataulua, jotta annetut vastaukset säilyvät voimassa.",
+      editTimezoneConfirmPrompt: "Vahvista nämä automaattiset muutokset ennen käyttöönottoa.",
+      editTimezoneConfirmButton: "Vahvista aikavyöhykkeen vaihto",
       saveChanges: "Tallenna muutokset",
       cancelEdit: "Peru muokkaus",
       cancel: "Peru",
@@ -398,6 +430,12 @@ const translations = {
       deletePoll: "Ta bort omröstning",
       editPoll: "Redigera omröstning",
       editHelp: "Du kan redigera omröstningens inställningar. Tidslots med röster kan inte tas bort.",
+      editTimezoneAutoGrowNotice: "Byte av tidszon utökade schemat så att befintliga röster fortfarande är giltiga.",
+      editTimezoneConfirmTitle: "Bekräfta byte av tidszon",
+      editTimezoneConfirmDescription:
+        "Att byta tidszon från {from} till {to} utökar schemat så att befintliga röster fortsätter att vara giltiga.",
+      editTimezoneConfirmPrompt: "Bekräfta dessa automatiska ändringar innan de används.",
+      editTimezoneConfirmButton: "Bekräfta byte av tidszon",
       saveChanges: "Spara ändringar",
       cancelEdit: "Avbryt redigering",
       cancel: "Avbryt",
@@ -533,6 +571,12 @@ const translations = {
       deletePoll: "Slett avstemning",
       editPoll: "Rediger avstemning",
       editHelp: "Du kan redigere avstemningsinnstillingene. Tidsluker som allerede har stemmer kan ikke fjernes.",
+      editTimezoneAutoGrowNotice: "Bytte av tidssone utvidet planen slik at eksisterende stemmer fortsatt er gyldige.",
+      editTimezoneConfirmTitle: "Bekreft bytte av tidssone",
+      editTimezoneConfirmDescription:
+        "Å bytte tidssone fra {from} til {to} utvider planen slik at eksisterende stemmer fortsatt er gyldige.",
+      editTimezoneConfirmPrompt: "Bekreft disse automatiske endringene før de tas i bruk.",
+      editTimezoneConfirmButton: "Bekreft bytte av tidssone",
       saveChanges: "Lagre endringer",
       cancelEdit: "Avbryt redigering",
       cancel: "Avbryt",
@@ -668,6 +712,12 @@ const translations = {
       deletePoll: "Kustuta küsitlus",
       editPoll: "Muuda küsitlust",
       editHelp: "Saad küsitluse seadeid muuta. Ajapesasid, millel on hääled, ei saa eemaldada.",
+      editTimezoneAutoGrowNotice: "Ajavööndi vahetus laiendas ajakava, et olemasolevad hääled jääksid kehtima.",
+      editTimezoneConfirmTitle: "Kinnita ajavööndi vahetus",
+      editTimezoneConfirmDescription:
+        "Ajavööndi vahetus {from} -> {to} laiendab ajakava, et olemasolevad hääled jääksid kehtima.",
+      editTimezoneConfirmPrompt: "Kinnita need automaatsed muudatused enne rakendamist.",
+      editTimezoneConfirmButton: "Kinnita ajavööndi vahetus",
       saveChanges: "Salvesta muudatused",
       cancelEdit: "Tühista muutmine",
       cancel: "Tühista",
@@ -983,6 +1033,25 @@ const translations = {
     return parsed;
   }
 
+  function parseWholeHourTimeKey(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const match = /^(\d{2}):(\d{2})$/.exec(value.trim());
+    if (!match) {
+      return null;
+    }
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute !== 0) {
+      return null;
+    }
+    if (hour < 0 || hour > 23) {
+      return null;
+    }
+    return hour;
+  }
+
   function getTimeZoneNamePart(timeZone, style) {
     try {
       const parts = new Intl.DateTimeFormat("en-US", {
@@ -1226,6 +1295,12 @@ const translations = {
             edit: false
           },
           isEditingPoll: false,
+          isApplyingEditTimezoneAutoGrow: false,
+          isApplyingEditTimezoneProgrammaticChange: false,
+          editAutoGrowNotice: "",
+          editCommittedTimezone: "",
+          showEditTimezoneConfirmDialog: false,
+          pendingEditTimezoneAutoGrow: null,
           timezoneOptions: detectTimeZoneOptions(),
           timezoneMetaCache: {},
           browserTimeZone: detectBrowserTimeZone(),
@@ -1234,7 +1309,9 @@ const translations = {
           voteDisplayMode: "own",
           showCalendarTimezoneSuggestions: false,
           showTimezoneSuggestions: false,
+          showEditTimezoneSuggestions: false,
           activeTimezoneSuggestionIndex: -1,
+          activeEditTimezoneSuggestionIndex: -1,
           activeCalendarTimezoneSuggestionIndex: -1,
           profileData: null,
           profileLoading: false,
@@ -1310,12 +1387,28 @@ const translations = {
           ];
         },
         filteredTimezoneOptions() {
-          const rawQuery = (this.createForm.timezone || "").trim().toLowerCase();
           const options = this.timezoneOptions.map((tz) => {
             const meta = this.timezoneMeta(tz);
             const label = meta ? `${tz} ${meta}` : tz;
             return { id: tz, meta, label };
           });
+          const rawQuery = (this.createForm.timezone || "").trim().toLowerCase();
+          if (!rawQuery) {
+            return options.slice(0, 200);
+          }
+          return options
+            .filter((item) => item.label.toLowerCase().includes(rawQuery))
+            .slice(0, 200);
+        },
+        filteredEditTimezoneOptions() {
+          const options = this.timezoneOptions.map((tz) => {
+            const meta = this.timezoneMeta(tz);
+            const label = meta ? `${tz} ${meta}` : tz;
+            return { id: tz, meta, label };
+          });
+          const rawQuery = this.editForm && typeof this.editForm.timezone === "string"
+            ? this.editForm.timezone.trim().toLowerCase()
+            : "";
           if (!rawQuery) {
             return options.slice(0, 200);
           }
@@ -1324,12 +1417,12 @@ const translations = {
             .slice(0, 200);
         },
         filteredCalendarTimezoneOptions() {
-          const rawQuery = (this.calendarCustomTimezone || "").trim().toLowerCase();
           const options = this.timezoneOptions.map((tz) => {
             const meta = this.timezoneMeta(tz);
             const label = meta ? `${tz} ${meta}` : tz;
             return { id: tz, meta, label };
           });
+          const rawQuery = (this.calendarCustomTimezone || "").trim().toLowerCase();
           if (!rawQuery) {
             return options.slice(0, 200);
           }
@@ -1346,6 +1439,16 @@ const translations = {
             return "";
           }
           return this.timezoneSuggestionOptionId("create", this.activeTimezoneSuggestionIndex);
+        },
+        activeEditTimezoneSuggestionId() {
+          if (
+            !this.showEditTimezoneSuggestions
+            || this.activeEditTimezoneSuggestionIndex < 0
+            || this.activeEditTimezoneSuggestionIndex >= this.filteredEditTimezoneOptions.length
+          ) {
+            return "";
+          }
+          return this.timezoneSuggestionOptionId("edit", this.activeEditTimezoneSuggestionIndex);
         },
         activeCalendarTimezoneSuggestionId() {
           if (
@@ -1365,6 +1468,282 @@ const translations = {
             return "";
           }
           return this.timezoneDisplay(this.editForm.timezone);
+        },
+        editVotedDateBounds() {
+          if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options) || !this.editForm) {
+            return {
+              earliestDay: "",
+              latestDay: "",
+              hasVotes: false
+            };
+          }
+
+          const fallbackTimeZone = this.selectedPoll && typeof this.selectedPoll.timezone === "string"
+            ? this.selectedPoll.timezone
+            : "";
+          const timeZone = this.normalizeKnownTimeZone(this.editForm.timezone)
+            || this.normalizeKnownTimeZone(fallbackTimeZone)
+            || "UTC";
+          let earliestDay = "";
+          let latestDay = "";
+
+          for (const option of this.selectedPoll.options) {
+            if (!this.pollOptionHasVotes(option)) {
+              continue;
+            }
+            const dateParts = this.timezoneDateParts(option.starts_at, timeZone);
+            if (!dateParts || !dateParts.dayKey) {
+              continue;
+            }
+            const dayKey = dateParts.dayKey;
+            if (!earliestDay || dayKey < earliestDay) {
+              earliestDay = dayKey;
+            }
+            if (!latestDay || dayKey > latestDay) {
+              latestDay = dayKey;
+            }
+          }
+
+          return {
+            earliestDay,
+            latestDay,
+            hasVotes: Boolean(earliestDay && latestDay)
+          };
+        },
+        editStartDateMax() {
+          if (!this.editForm) {
+            return "";
+          }
+          const candidates = [];
+          const endDateRaw = String(this.editForm.end_date || "").trim();
+          if (parseIsoDateValue(endDateRaw)) {
+            candidates.push(endDateRaw);
+          }
+          if (this.editVotedDateBounds.earliestDay) {
+            candidates.push(this.editVotedDateBounds.earliestDay);
+          }
+          if (!candidates.length) {
+            return "";
+          }
+          return candidates.sort((a, b) => a.localeCompare(b))[0];
+        },
+        editEndDateMin() {
+          if (!this.editForm) {
+            return "";
+          }
+          const candidates = [];
+          const startDateRaw = String(this.editForm.start_date || "").trim();
+          if (parseIsoDateValue(startDateRaw)) {
+            candidates.push(startDateRaw);
+          }
+          if (this.editVotedDateBounds.latestDay) {
+            candidates.push(this.editVotedDateBounds.latestDay);
+          }
+          if (!candidates.length) {
+            return "";
+          }
+          return candidates.sort((a, b) => b.localeCompare(a))[0];
+        },
+        editStartDateConstraintHints() {
+          if (!this.editForm) {
+            return [];
+          }
+          if (this.editVotedDateBounds.earliestDay) {
+            return [
+              this.formatTemplate(this.t("editStartDateBoundByVotes"), {
+                date: this.formatDayLongLabel(this.editVotedDateBounds.earliestDay)
+              })
+            ];
+          }
+          const endDateRaw = String(this.editForm.end_date || "").trim();
+          if (parseIsoDateValue(endDateRaw)) {
+            return [this.t("editStartDateBoundByEndDate")];
+          }
+          return [];
+        },
+        editEndDateConstraintHints() {
+          if (!this.editForm) {
+            return [];
+          }
+          if (this.editVotedDateBounds.latestDay) {
+            return [
+              this.formatTemplate(this.t("editEndDateBoundByVotes"), {
+                date: this.formatDayLongLabel(this.editVotedDateBounds.latestDay)
+              })
+            ];
+          }
+          const startDateRaw = String(this.editForm.start_date || "").trim();
+          if (parseIsoDateValue(startDateRaw)) {
+            return [this.t("editEndDateBoundByStartDate")];
+          }
+          return [];
+        },
+        editVotedHourBounds() {
+          if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options) || !this.editForm) {
+            return {
+              earliestHour: null,
+              latestHour: null,
+              minEndHour: null,
+              hasVotes: false
+            };
+          }
+
+          const fallbackTimeZone = this.selectedPoll && typeof this.selectedPoll.timezone === "string"
+            ? this.selectedPoll.timezone
+            : "";
+          const timeZone = this.normalizeKnownTimeZone(this.editForm.timezone)
+            || this.normalizeKnownTimeZone(fallbackTimeZone)
+            || "UTC";
+          let earliestHour = null;
+          let latestHour = null;
+
+          for (const option of this.selectedPoll.options) {
+            if (!this.pollOptionHasVotes(option)) {
+              continue;
+            }
+            const dateParts = this.timezoneDateParts(option.starts_at, timeZone);
+            const hour = parseWholeHourTimeKey(dateParts && dateParts.timeKey ? dateParts.timeKey : "");
+            if (!Number.isInteger(hour)) {
+              continue;
+            }
+            if (earliestHour === null || hour < earliestHour) {
+              earliestHour = hour;
+            }
+            if (latestHour === null || hour > latestHour) {
+              latestHour = hour;
+            }
+          }
+
+          return {
+            earliestHour,
+            latestHour,
+            minEndHour: Number.isInteger(latestHour) ? Math.min(24, latestHour + 1) : null,
+            hasVotes: earliestHour !== null && latestHour !== null
+          };
+        },
+        editStartHourMax() {
+          if (!this.editForm) {
+            return null;
+          }
+          const candidates = [];
+          if (Number.isInteger(this.editForm.daily_end_hour)) {
+            candidates.push(this.editForm.daily_end_hour - 1);
+          }
+          if (Number.isInteger(this.editVotedHourBounds.earliestHour)) {
+            candidates.push(this.editVotedHourBounds.earliestHour);
+          }
+          if (!candidates.length) {
+            return null;
+          }
+          return Math.min(...candidates);
+        },
+        editEndHourMin() {
+          if (!this.editForm) {
+            return null;
+          }
+          const candidates = [];
+          if (Number.isInteger(this.editForm.daily_start_hour)) {
+            candidates.push(this.editForm.daily_start_hour + 1);
+          }
+          if (Number.isInteger(this.editVotedHourBounds.minEndHour)) {
+            candidates.push(this.editVotedHourBounds.minEndHour);
+          }
+          if (!candidates.length) {
+            return null;
+          }
+          return Math.max(...candidates);
+        },
+        editStartHourOptions() {
+          const maxHour = this.editStartHourMax;
+          return this.startHourOptions.map((hour) => ({
+            value: hour,
+            disabled: Number.isInteger(maxHour) && hour > maxHour
+          }));
+        },
+        editEndHourOptions() {
+          const minHour = this.editEndHourMin;
+          return this.endHourOptions.map((hour) => ({
+            value: hour,
+            disabled: Number.isInteger(minHour) && hour < minHour
+          }));
+        },
+        editStartHourConstraintHints() {
+          if (!this.editForm) {
+            return [];
+          }
+          if (Number.isInteger(this.editVotedHourBounds.earliestHour)) {
+            return [
+              this.formatTemplate(this.t("editStartHourBoundByVotes"), {
+                hour: this.hourLabel(this.editVotedHourBounds.earliestHour)
+              })
+            ];
+          }
+          if (Number.isInteger(this.editForm.daily_end_hour)) {
+            return [this.t("editStartHourBoundByEndHour")];
+          }
+          return [];
+        },
+        editEndHourConstraintHints() {
+          if (!this.editForm) {
+            return [];
+          }
+          if (Number.isInteger(this.editVotedHourBounds.minEndHour)) {
+            return [
+              this.formatTemplate(this.t("editEndHourBoundByVotes"), {
+                hour: this.hourLabel(this.editVotedHourBounds.minEndHour)
+              })
+            ];
+          }
+          if (Number.isInteger(this.editForm.daily_start_hour)) {
+            return [this.t("editEndHourBoundByStartHour")];
+          }
+          return [];
+        },
+        editLockedWeekdayValues() {
+          if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options) || !this.editForm) {
+            return [];
+          }
+
+          const fallbackTimeZone = this.selectedPoll && typeof this.selectedPoll.timezone === "string"
+            ? this.selectedPoll.timezone
+            : "";
+          const timeZone = this.normalizeKnownTimeZone(this.editForm.timezone)
+            || this.normalizeKnownTimeZone(fallbackTimeZone)
+            || "UTC";
+          const lockedWeekdays = new Set();
+
+          for (const option of this.selectedPoll.options) {
+            if (!this.pollOptionHasVotes(option)) {
+              continue;
+            }
+            const dateParts = this.timezoneDateParts(option.starts_at, timeZone);
+            if (!dateParts || !dateParts.dayKey) {
+              continue;
+            }
+            const optionDate = parseIsoDateValue(dateParts.dayKey);
+            if (!optionDate) {
+              continue;
+            }
+            const weekdayJs = optionDate.getUTCDay();
+            const weekday = weekdayJs === 0 ? 6 : weekdayJs - 1;
+            lockedWeekdays.add(weekday);
+          }
+
+          return Array.from(lockedWeekdays).sort((a, b) => a - b);
+        },
+        editAllowedWeekdaysConstraintHints() {
+          if (!this.editLockedWeekdayValues.length) {
+            return [];
+          }
+          const labels = this.editLockedWeekdayValues.map((weekday) => {
+            const option = this.weekdayOptions.find((item) => item.value === weekday);
+            return option ? option.label : String(weekday);
+          });
+          return [
+            this.formatTemplate(this.t("editAllowedWeekdaysBoundByVotes"), {
+              days: labels.join(", ")
+            })
+          ];
         },
         pollCalendarTimezone() {
           const pollTimeZone = this.selectedPoll && this.selectedPoll.timezone ? this.selectedPoll.timezone : "";
@@ -1500,6 +1879,13 @@ const translations = {
           }
           this.syncTimezoneSuggestionIndex("create");
         },
+        showEditTimezoneSuggestions(isVisible) {
+          if (!isVisible) {
+            this.activeEditTimezoneSuggestionIndex = -1;
+            return;
+          }
+          this.syncTimezoneSuggestionIndex("edit");
+        },
         showCalendarTimezoneSuggestions(isVisible) {
           if (!isVisible) {
             this.activeCalendarTimezoneSuggestionIndex = -1;
@@ -1520,37 +1906,72 @@ const translations = {
           this.handleFormFieldChange("identifier", "edit");
         },
         "editForm.timezone"(newValue, oldValue) {
-          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+          if (
+            !this.isEditingPoll
+            || this.isApplyingEditTimezoneProgrammaticChange
+            || oldValue === null
+            || oldValue === undefined
+            || newValue === oldValue
+          ) {
             return;
           }
-          this.handleFormFieldChange("timezone", "edit");
+          this.editAutoGrowNotice = "";
         },
         "editForm.start_date"(newValue, oldValue) {
-          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+          if (
+            !this.isEditingPoll
+            || this.isApplyingEditTimezoneAutoGrow
+            || oldValue === null
+            || oldValue === undefined
+            || newValue === oldValue
+          ) {
             return;
           }
           this.handleFormFieldChange("start_date", "edit");
         },
         "editForm.end_date"(newValue, oldValue) {
-          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+          if (
+            !this.isEditingPoll
+            || this.isApplyingEditTimezoneAutoGrow
+            || oldValue === null
+            || oldValue === undefined
+            || newValue === oldValue
+          ) {
             return;
           }
           this.handleFormFieldChange("end_date", "edit");
         },
         "editForm.daily_start_hour"(newValue, oldValue) {
-          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+          if (
+            !this.isEditingPoll
+            || this.isApplyingEditTimezoneAutoGrow
+            || oldValue === null
+            || oldValue === undefined
+            || newValue === oldValue
+          ) {
             return;
           }
           this.handleFormFieldChange("daily_start_hour", "edit");
         },
         "editForm.daily_end_hour"(newValue, oldValue) {
-          if (!this.isEditingPoll || oldValue === null || oldValue === undefined || newValue === oldValue) {
+          if (
+            !this.isEditingPoll
+            || this.isApplyingEditTimezoneAutoGrow
+            || oldValue === null
+            || oldValue === undefined
+            || newValue === oldValue
+          ) {
             return;
           }
           this.handleFormFieldChange("daily_end_hour", "edit");
         },
         "editForm.allowed_weekdays"(newValue, oldValue) {
-          if (!this.isEditingPoll || !Array.isArray(newValue) || !Array.isArray(oldValue)) {
+          if (
+            !this.isEditingPoll
+            || this.isApplyingEditTimezoneAutoGrow
+            || !Array.isArray(newValue)
+            || !Array.isArray(oldValue)
+          ) {
             return;
           }
           if (newValue.join(",") === oldValue.join(",")) {
@@ -1638,6 +2059,16 @@ const translations = {
             this.focusPollField(scope, firstField);
           });
         },
+        focusPollFormInitialField(scope = "create") {
+          const fieldIds = pollFormFieldIds[scope] || {};
+          const primaryFieldId = fieldIds.title || "";
+          const fallbackHeadingId = scope === "create" ? "create-poll-heading" : "details-heading";
+          this.$nextTick(() => {
+            if (!this.focusElementById(primaryFieldId)) {
+              this.focusElementById(fallbackHeadingId);
+            }
+          });
+        },
         focusAuthSuccessTarget(returnFocusTarget, options = {}) {
           this.$nextTick(() => {
             if (this.focusElementIfPossible(returnFocusTarget)) {
@@ -1688,6 +2119,73 @@ const translations = {
             }
           });
         },
+        focusEditTimezoneConfirmDialogInitialField() {
+          this.$nextTick(() => {
+            const button = this.$refs.editTimezoneConfirmButton;
+            if (button && typeof button.focus === "function") {
+              button.focus();
+            }
+          });
+        },
+        openEditTimezoneConfirmDialog(proposal) {
+          this.pendingEditTimezoneAutoGrow = proposal;
+          this._editTimezoneConfirmDialogReturnFocus = this.$refs.editTimezoneInput
+            || document.getElementById("edit-timezone")
+            || document.activeElement;
+          this.showEditTimezoneConfirmDialog = true;
+          this.focusEditTimezoneConfirmDialogInitialField();
+        },
+        closeEditTimezoneConfirmDialog(options = {}) {
+          const restoreFocus = options.restoreFocus !== false;
+          const clearProposal = options.clearProposal !== false;
+          const returnFocusTarget = restoreFocus ? this._editTimezoneConfirmDialogReturnFocus : null;
+          if (clearProposal) {
+            this.pendingEditTimezoneAutoGrow = null;
+          }
+          this.showEditTimezoneConfirmDialog = false;
+          this._editTimezoneConfirmDialogReturnFocus = null;
+          this.$nextTick(() => {
+            if (
+              returnFocusTarget
+              && typeof returnFocusTarget.focus === "function"
+              && document.contains(returnFocusTarget)
+            ) {
+              returnFocusTarget.focus();
+            }
+          });
+        },
+        cancelEditTimezoneChangeConfirmation() {
+          this.editAutoGrowNotice = "";
+          this.closeEditTimezoneConfirmDialog();
+          this.validateFormScope("edit");
+        },
+        handleEditTimezoneConfirmDialogKeydown(event) {
+          if (!this.showEditTimezoneConfirmDialog) {
+            return;
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            this.cancelEditTimezoneChangeConfirmation();
+            return;
+          }
+          if (event.key !== "Tab") {
+            return;
+          }
+          const focusable = this.focusableElementsIn(this.$refs.editTimezoneConfirmDialog);
+          if (!focusable.length) {
+            event.preventDefault();
+            return;
+          }
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        },
         handleAuthDialogKeydown(event) {
           if (!this.showAuthDialog) {
             return;
@@ -1716,12 +2214,22 @@ const translations = {
           }
         },
         timezoneSuggestionOptions(scope = "create") {
-          return scope === "calendar" ? this.filteredCalendarTimezoneOptions : this.filteredTimezoneOptions;
+          if (scope === "calendar") {
+            return this.filteredCalendarTimezoneOptions;
+          }
+          if (scope === "edit") {
+            return this.filteredEditTimezoneOptions;
+          }
+          return this.filteredTimezoneOptions;
         },
         timezoneSuggestionIndex(scope = "create") {
-          return scope === "calendar"
-            ? this.activeCalendarTimezoneSuggestionIndex
-            : this.activeTimezoneSuggestionIndex;
+          if (scope === "calendar") {
+            return this.activeCalendarTimezoneSuggestionIndex;
+          }
+          if (scope === "edit") {
+            return this.activeEditTimezoneSuggestionIndex;
+          }
+          return this.activeTimezoneSuggestionIndex;
         },
         setTimezoneSuggestionIndex(scope = "create", index = -1) {
           const options = this.timezoneSuggestionOptions(scope);
@@ -1730,6 +2238,8 @@ const translations = {
             : -1;
           if (scope === "calendar") {
             this.activeCalendarTimezoneSuggestionIndex = nextIndex;
+          } else if (scope === "edit") {
+            this.activeEditTimezoneSuggestionIndex = nextIndex;
           } else {
             this.activeTimezoneSuggestionIndex = nextIndex;
           }
@@ -1748,7 +2258,11 @@ const translations = {
             this.setTimezoneSuggestionIndex(scope, -1);
             return;
           }
-          const rawValue = scope === "calendar" ? this.calendarCustomTimezone : this.createForm.timezone;
+          const rawValue = scope === "calendar"
+            ? this.calendarCustomTimezone
+            : scope === "edit"
+              ? (this.editForm ? this.editForm.timezone : "")
+              : this.createForm.timezone;
           const normalizedValue = String(rawValue || "").trim().toLowerCase();
           const matchedIndex = options.findIndex((item) => item.id.toLowerCase() === normalizedValue);
           this.setTimezoneSuggestionIndex(scope, matchedIndex >= 0 ? matchedIndex : 0);
@@ -1776,13 +2290,16 @@ const translations = {
           if (scope === "calendar") {
             this.selectCalendarTimezone(value);
           } else {
-            this.selectTimezone(value);
+            this.selectTimezone(value, scope);
           }
         },
         closeTimezoneSuggestions(scope = "create") {
           if (scope === "calendar") {
             this.showCalendarTimezoneSuggestions = false;
             this.activeCalendarTimezoneSuggestionIndex = -1;
+          } else if (scope === "edit") {
+            this.showEditTimezoneSuggestions = false;
+            this.activeEditTimezoneSuggestionIndex = -1;
           } else {
             this.showTimezoneSuggestions = false;
             this.activeTimezoneSuggestionIndex = -1;
@@ -1794,6 +2311,8 @@ const translations = {
             event.preventDefault();
             if (scope === "calendar") {
               this.openCalendarTimezoneSuggestions();
+            } else if (scope === "edit") {
+              this.openTimezoneSuggestions("edit");
             } else {
               this.openTimezoneSuggestions();
             }
@@ -1806,6 +2325,8 @@ const translations = {
             event.preventDefault();
             if (scope === "calendar") {
               this.openCalendarTimezoneSuggestions();
+            } else if (scope === "edit") {
+              this.openTimezoneSuggestions("edit");
             } else {
               this.openTimezoneSuggestions();
             }
@@ -1827,7 +2348,9 @@ const translations = {
           if (event.key === "Enter" && hasOptions) {
             const isOpen = scope === "calendar"
               ? this.showCalendarTimezoneSuggestions
-              : this.showTimezoneSuggestions;
+              : scope === "edit"
+                ? this.showEditTimezoneSuggestions
+                : this.showTimezoneSuggestions;
             if (isOpen) {
               event.preventDefault();
               this.selectActiveTimezoneSuggestion(scope);
@@ -1837,7 +2360,9 @@ const translations = {
           if (event.key === "Escape") {
             const isOpen = scope === "calendar"
               ? this.showCalendarTimezoneSuggestions
-              : this.showTimezoneSuggestions;
+              : scope === "edit"
+                ? this.showEditTimezoneSuggestions
+                : this.showTimezoneSuggestions;
             if (isOpen) {
               event.preventDefault();
               this.closeTimezoneSuggestions(scope);
@@ -1951,12 +2476,21 @@ const translations = {
           if (section !== "selected") {
             this.isEditingPoll = false;
             this.editForm = null;
+            this.editCommittedTimezone = "";
+            this.showEditTimezoneConfirmDialog = false;
+            this.pendingEditTimezoneAutoGrow = null;
+            this.editAutoGrowNotice = "";
+            this.isApplyingEditTimezoneAutoGrow = false;
+            this.isApplyingEditTimezoneProgrammaticChange = false;
             if (!options.skipUrlSync) {
               this.setPollIdInCurrentUrl("", { replace: Boolean(options.replaceUrl) });
             }
           }
           this.$nextTick(() => {
             this.updateVisibleDayCount();
+            if (section === "create" && !options.skipFocus) {
+              this.focusPollFormInitialField("create");
+            }
           });
         },
         resetFormValidation(scope = "create") {
@@ -1973,6 +2507,178 @@ const translations = {
         },
         pollOptionHasVotes(option) {
           return optionHasVotes(option);
+        },
+        editVoteAutoGrowBounds() {
+          const dateBounds = this.editVotedDateBounds || {};
+          const hourBounds = this.editVotedHourBounds || {};
+          const lockedWeekdays = Array.isArray(this.editLockedWeekdayValues)
+            ? [...this.editLockedWeekdayValues]
+            : [];
+          return {
+            earliestDay: dateBounds.earliestDay || "",
+            latestDay: dateBounds.latestDay || "",
+            earliestHour: Number.isInteger(hourBounds.earliestHour) ? hourBounds.earliestHour : null,
+            minEndHour: Number.isInteger(hourBounds.minEndHour) ? hourBounds.minEndHour : null,
+            lockedWeekdays,
+            hasVotes: Boolean(dateBounds.hasVotes || hourBounds.hasVotes || lockedWeekdays.length)
+          };
+        },
+        buildEditTimezoneAutoGrowProposal(previousTimezone, nextTimezone) {
+          if (!this.isEditingPoll || !this.editForm) {
+            return null;
+          }
+
+          const votedBounds = this.editVoteAutoGrowBounds();
+          if (!nextTimezone || !votedBounds.hasVotes) {
+            return null;
+          }
+
+          const currentForm = {
+            start_date: String(this.editForm.start_date || "").trim(),
+            end_date: String(this.editForm.end_date || "").trim(),
+            daily_start_hour: this.editForm.daily_start_hour,
+            daily_end_hour: this.editForm.daily_end_hour,
+            allowed_weekdays: Array.isArray(this.editForm.allowed_weekdays)
+              ? [...this.editForm.allowed_weekdays]
+              : []
+          };
+
+          const result = autoGrowScheduleForm(this.editForm, votedBounds);
+          const nextForm = result && typeof result === "object" ? result.nextForm : null;
+          const changedFields = result && Array.isArray(result.changedFields) ? result.changedFields : [];
+          if (!nextForm || !changedFields.length) {
+            return null;
+          }
+
+          return {
+            previousTimezone,
+            nextTimezone,
+            changedFields,
+            nextForm: {
+              timezone: nextTimezone,
+              start_date: String(nextForm.start_date || "").trim(),
+              end_date: String(nextForm.end_date || "").trim(),
+              daily_start_hour: nextForm.daily_start_hour,
+              daily_end_hour: nextForm.daily_end_hour,
+              allowed_weekdays: Array.isArray(nextForm.allowed_weekdays)
+                ? [...nextForm.allowed_weekdays]
+                : []
+            },
+            startDateChange: changedFields.includes("start_date")
+              ? {
+                  from: currentForm.start_date,
+                  to: String(nextForm.start_date || "").trim()
+                }
+              : null,
+            endDateChange: changedFields.includes("end_date")
+              ? {
+                  from: currentForm.end_date,
+                  to: String(nextForm.end_date || "").trim()
+                }
+              : null,
+            startHourChange: changedFields.includes("daily_start_hour")
+              ? {
+                  from: currentForm.daily_start_hour,
+                  to: nextForm.daily_start_hour
+                }
+              : null,
+            endHourChange: changedFields.includes("daily_end_hour")
+              ? {
+                  from: currentForm.daily_end_hour,
+                  to: nextForm.daily_end_hour
+                }
+              : null,
+            weekdayChange: changedFields.includes("allowed_weekdays")
+              ? {
+                  from: [...currentForm.allowed_weekdays],
+                  to: Array.isArray(nextForm.allowed_weekdays)
+                    ? [...nextForm.allowed_weekdays]
+                    : []
+                }
+              : null
+          };
+        },
+        commitEditTimezoneChange() {
+          if (!this.isEditingPoll || !this.editForm) {
+            this.editAutoGrowNotice = "";
+            return;
+          }
+
+          const rawTimeZone = String(this.editForm.timezone || "").trim();
+          const normalizedTimeZone = this.normalizeKnownTimeZone(rawTimeZone);
+          const previousTimezone = String(this.editCommittedTimezone || "").trim();
+
+          if (normalizedTimeZone && rawTimeZone !== normalizedTimeZone) {
+            this.isApplyingEditTimezoneProgrammaticChange = true;
+            try {
+              this.editForm.timezone = normalizedTimeZone;
+            } finally {
+              this.isApplyingEditTimezoneProgrammaticChange = false;
+            }
+          }
+
+          if (!normalizedTimeZone) {
+            this.editAutoGrowNotice = "";
+            this.handleFormFieldChange("timezone", "edit");
+            return;
+          }
+
+          if (!previousTimezone || normalizedTimeZone === previousTimezone) {
+            this.editCommittedTimezone = normalizedTimeZone;
+            this.editAutoGrowNotice = "";
+            this.handleFormFieldChange("timezone", "edit");
+            return;
+          }
+
+          const proposal = this.buildEditTimezoneAutoGrowProposal(previousTimezone, normalizedTimeZone);
+          if (!proposal) {
+            this.editCommittedTimezone = normalizedTimeZone;
+            this.editAutoGrowNotice = "";
+            this.handleFormFieldChange("timezone", "edit");
+            return;
+          }
+
+          this.isApplyingEditTimezoneProgrammaticChange = true;
+          try {
+            this.editForm.timezone = previousTimezone;
+          } finally {
+            this.isApplyingEditTimezoneProgrammaticChange = false;
+          }
+          this.editAutoGrowNotice = "";
+          this.handleFormFieldChange("timezone", "edit");
+          this.openEditTimezoneConfirmDialog(proposal);
+        },
+        confirmEditTimezoneChangeConfirmation() {
+          const proposal = this.pendingEditTimezoneAutoGrow;
+          if (!proposal || !this.editForm) {
+            this.closeEditTimezoneConfirmDialog();
+            return;
+          }
+
+          this.closeEditTimezoneConfirmDialog({ restoreFocus: false, clearProposal: false });
+          this.pendingEditTimezoneAutoGrow = null;
+          this.isApplyingEditTimezoneAutoGrow = true;
+          this.isApplyingEditTimezoneProgrammaticChange = true;
+          try {
+            this.editForm.timezone = proposal.nextTimezone;
+            this.editForm.start_date = String(proposal.nextForm.start_date || "").trim();
+            this.editForm.end_date = String(proposal.nextForm.end_date || "").trim();
+            this.editForm.daily_start_hour = proposal.nextForm.daily_start_hour;
+            this.editForm.daily_end_hour = proposal.nextForm.daily_end_hour;
+            this.editForm.allowed_weekdays = Array.isArray(proposal.nextForm.allowed_weekdays)
+              ? [...proposal.nextForm.allowed_weekdays]
+              : [];
+          } finally {
+            this.isApplyingEditTimezoneProgrammaticChange = false;
+            this.isApplyingEditTimezoneAutoGrow = false;
+          }
+
+          this.editCommittedTimezone = proposal.nextTimezone;
+          this.editAutoGrowNotice = this.t("editTimezoneAutoGrowNotice");
+          this.handleFormFieldChange("timezone", "edit");
+          this.$nextTick(() => {
+            this.focusElementById("edit-timezone");
+          });
         },
         pollOptionConflictsWithSchedule(option, form, startDate, endDate, allowedWeekdaysSet, timeZone) {
           if (!option || typeof option !== "object" || !option.starts_at) {
@@ -2962,6 +3668,73 @@ const translations = {
           }
           return `${String(normalized).padStart(2, "0")}:00`;
         },
+        formatLocalizedList(values = []) {
+          const items = Array.isArray(values)
+            ? values.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+          if (!items.length) {
+            return "";
+          }
+          if (typeof Intl !== "undefined" && typeof Intl.ListFormat === "function") {
+            return new Intl.ListFormat(languageMap[this.language] || "en-GB", {
+              style: "long",
+              type: "conjunction"
+            }).format(items);
+          }
+          return items.join(", ");
+        },
+        formatWeekdaySelectionSummary(values = []) {
+          const labelByValue = new Map(
+            this.weekdayOptions.map((weekday) => [Number(weekday.value), weekday.label])
+          );
+          const labels = (Array.isArray(values) ? values : [])
+            .map((value) => labelByValue.get(Number(value)))
+            .filter(Boolean);
+          return this.formatLocalizedList(labels);
+        },
+        editTimezoneConfirmDescriptionText() {
+          const proposal = this.pendingEditTimezoneAutoGrow;
+          if (!proposal) {
+            return "";
+          }
+          return this.formatTemplate(this.t("editTimezoneConfirmDescription"), {
+            from: this.timezoneDisplay(proposal.previousTimezone),
+            to: this.timezoneDisplay(proposal.nextTimezone)
+          });
+        },
+        editTimezoneAutoGrowProposalSummaryLines() {
+          const proposal = this.pendingEditTimezoneAutoGrow;
+          if (!proposal) {
+            return [];
+          }
+          const lines = [];
+          if (proposal.startDateChange) {
+            lines.push(
+              `${this.t("startDate")}: ${this.formatDayLongLabel(proposal.startDateChange.from)} -> ${this.formatDayLongLabel(proposal.startDateChange.to)}`
+            );
+          }
+          if (proposal.endDateChange) {
+            lines.push(
+              `${this.t("endDate")}: ${this.formatDayLongLabel(proposal.endDateChange.from)} -> ${this.formatDayLongLabel(proposal.endDateChange.to)}`
+            );
+          }
+          if (proposal.startHourChange) {
+            lines.push(
+              `${this.t("dailyStartHour")}: ${this.hourLabel(proposal.startHourChange.from)} -> ${this.hourLabel(proposal.startHourChange.to)}`
+            );
+          }
+          if (proposal.endHourChange) {
+            lines.push(
+              `${this.t("dailyEndHour")}: ${this.hourLabel(proposal.endHourChange.from)} -> ${this.hourLabel(proposal.endHourChange.to)}`
+            );
+          }
+          if (proposal.weekdayChange) {
+            lines.push(
+              `${this.t("allowedWeekdays")}: ${this.formatWeekdaySelectionSummary(proposal.weekdayChange.from)} -> ${this.formatWeekdaySelectionSummary(proposal.weekdayChange.to)}`
+            );
+          }
+          return lines;
+        },
         formForScope(scope = "create") {
           if (scope === "edit") {
             return this.editForm;
@@ -2975,9 +3748,18 @@ const translations = {
           }
           return form.allowed_weekdays.includes(weekday);
         },
+        isWeekdayRemovalLocked(weekday, scope = "create") {
+          if (scope !== "edit") {
+            return false;
+          }
+          return this.isWeekdaySelected(weekday, scope) && this.editLockedWeekdayValues.includes(weekday);
+        },
         toggleWeekday(weekday, scope = "create") {
           const form = this.formForScope(scope);
           if (!form || !Array.isArray(form.allowed_weekdays)) {
+            return;
+          }
+          if (this.isWeekdayRemovalLocked(weekday, scope)) {
             return;
           }
           form.allowed_weekdays = toggleWeekdaySelection(form.allowed_weekdays, weekday);
@@ -3013,13 +3795,28 @@ const translations = {
             return;
           }
           this.editForm = editFormFromPoll(this.selectedPoll);
+          this.editCommittedTimezone = String(this.editForm.timezone || "").trim();
+          this.closeTimezoneSuggestions("edit");
+          this.showEditTimezoneConfirmDialog = false;
+          this.pendingEditTimezoneAutoGrow = null;
+          this.editAutoGrowNotice = "";
+          this.isApplyingEditTimezoneAutoGrow = false;
+          this.isApplyingEditTimezoneProgrammaticChange = false;
           this.resetFormValidation("edit");
           this.isEditingPoll = true;
           this.closeVoteMenus();
+          this.focusPollFormInitialField("edit");
         },
         cancelEditingPoll() {
+          this.closeTimezoneSuggestions("edit");
+          this.showEditTimezoneConfirmDialog = false;
+          this.pendingEditTimezoneAutoGrow = null;
           this.isEditingPoll = false;
           this.editForm = null;
+          this.editCommittedTimezone = "";
+          this.editAutoGrowNotice = "";
+          this.isApplyingEditTimezoneAutoGrow = false;
+          this.isApplyingEditTimezoneProgrammaticChange = false;
           this.resetFormValidation("edit");
         },
         timezoneMeta(timeZone) {
@@ -3054,11 +3851,31 @@ const translations = {
           }
           return "";
         },
-        openTimezoneSuggestions() {
+        openTimezoneSuggestions(scope = "create") {
+          if (scope === "edit" && (!this.isEditingPoll || !this.editForm)) {
+            return;
+          }
+          if (scope === "edit" && this.showEditTimezoneConfirmDialog) {
+            return;
+          }
+          if (scope === "edit") {
+            this.showEditTimezoneSuggestions = true;
+            this.syncTimezoneSuggestionIndex("edit");
+            return;
+          }
           this.showTimezoneSuggestions = true;
           this.syncTimezoneSuggestionIndex("create");
         },
-        selectTimezone(value) {
+        selectTimezone(value, scope = "create") {
+          if (scope === "edit") {
+            if (!this.editForm) {
+              return;
+            }
+            this.editForm.timezone = value;
+            this.closeTimezoneSuggestions("edit");
+            this.commitEditTimezoneChange();
+            return;
+          }
           this.createForm.timezone = value;
           this.handleFormFieldChange("timezone", "create");
           this.closeTimezoneSuggestions("create");
@@ -3067,24 +3884,42 @@ const translations = {
           this.openTimezoneSuggestions();
           this.handleFormFieldChange("timezone", "create");
         },
+        handleEditTimezoneInput() {
+          this.openTimezoneSuggestions("edit");
+        },
         handleCreateTimezoneKeydown(event) {
           this.handleTimezoneKeydown(event, "create");
         },
-        handleTimezoneBlur() {
+        handleEditTimezoneKeydown(event) {
+          this.handleTimezoneKeydown(event, "edit");
+        },
+        handleTimezoneBlur(scope = "create") {
           window.setTimeout(() => {
-            this.normalizeTimezoneInput();
-            this.handleFormFieldChange("timezone", "create");
-            this.closeTimezoneSuggestions("create");
+            this.normalizeTimezoneInput(scope);
+            if (scope === "edit") {
+              this.commitEditTimezoneChange();
+            } else {
+              this.handleFormFieldChange("timezone", "create");
+            }
+            this.closeTimezoneSuggestions(scope);
           }, 120);
         },
-        normalizeTimezoneInput() {
-          const raw = (this.createForm.timezone || "").trim();
+        normalizeTimezoneInput(scope = "create") {
+          const raw = scope === "edit"
+            ? (this.editForm && typeof this.editForm.timezone === "string" ? this.editForm.timezone.trim() : "")
+            : (this.createForm.timezone || "").trim();
           if (!raw) {
             return;
           }
           const matched = this.timezoneOptions.find((tz) => tz.toLowerCase() === raw.toLowerCase());
           if (matched) {
-            this.createForm.timezone = matched;
+            if (scope === "edit") {
+              if (this.editForm) {
+                this.editForm.timezone = matched;
+              }
+            } else {
+              this.createForm.timezone = matched;
+            }
           }
         },
         openCalendarTimezoneSuggestions() {

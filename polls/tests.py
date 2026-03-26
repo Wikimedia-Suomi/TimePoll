@@ -1,32 +1,35 @@
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 from django.contrib.sessions.models import Session
 from django.db import IntegrityError
-from django.http import HttpResponse
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from timepoll.security import (
     CONTENT_SECURITY_POLICY,
-    ContentSecurityPolicyMiddleware,
     WIKIMEDIA_VUE_CDN_INTEGRITY,
     WIKIMEDIA_VUE_CDN_URL,
+    ContentSecurityPolicyMiddleware,
 )
 
 from .models import Identity, Poll, PollVote
 from .views import (
     SESSION_IDENTITY_KEY,
+    generate_poll_options,
+    index,
+    parse_poll_payload,
     poll_close,
     poll_detail,
     poll_reopen,
+    poll_start_end_dates,
     poll_vote_delete,
     poll_votes_upsert,
-    index,
 )
 
 
@@ -66,6 +69,111 @@ class SecurityHeaderTests(SimpleTestCase):
         self.assertIn('src="{{ vue_cdn_url }}"', template_source)
         self.assertIn('integrity="{{ vue_cdn_integrity }}"', template_source)
         self.assertIn('crossorigin="anonymous"', template_source)
+
+
+class PollScheduleLogicTests(SimpleTestCase):
+    def make_schedule(self, **overrides: Any) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "title": "Schedule logic poll",
+            "description": "Used for pure schedule unit tests.",
+            "start_date": "2026-05-03",
+            "end_date": "2026-05-03",
+            "daily_start_hour": 9,
+            "daily_end_hour": 17,
+            "allowed_weekdays": [6],
+            "timezone": "Pacific/Honolulu",
+        }
+        payload.update(overrides)
+        return parse_poll_payload(payload)
+
+    def test_generate_poll_options_maps_local_honolulu_slot_to_expected_utc_slot(self) -> None:
+        schedule = self.make_schedule(
+            daily_start_hour=14,
+            daily_end_hour=15,
+        )
+
+        options = generate_poll_options(schedule)
+
+        self.assertEqual(len(options), 1)
+        self.assertEqual(
+            options[0]["starts_at"].astimezone(ZoneInfo("UTC")).isoformat(),
+            "2026-05-04T00:00:00+00:00",
+        )
+        self.assertEqual(
+            options[0]["ends_at"].astimezone(ZoneInfo("UTC")).isoformat(),
+            "2026-05-04T01:00:00+00:00",
+        )
+
+    def test_generate_poll_options_keeps_full_honolulu_day_as_utc_span_across_two_dates(self) -> None:
+        schedule = self.make_schedule(
+            daily_start_hour=0,
+            daily_end_hour=24,
+        )
+
+        options = generate_poll_options(schedule)
+
+        self.assertEqual(len(options), 24)
+        self.assertEqual(
+            options[0]["starts_at"].astimezone(ZoneInfo("UTC")).isoformat(),
+            "2026-05-03T10:00:00+00:00",
+        )
+        self.assertEqual(
+            options[-1]["starts_at"].astimezone(ZoneInfo("UTC")).isoformat(),
+            "2026-05-04T09:00:00+00:00",
+        )
+
+    def test_poll_start_end_dates_projects_utc_window_back_to_poll_timezone(self) -> None:
+        poll = Poll(
+            title="Projected timezone poll",
+            window_starts_at=datetime(2026, 5, 4, 0, 0, tzinfo=ZoneInfo("UTC")),
+            window_ends_at=datetime(2026, 5, 4, 1, 0, tzinfo=ZoneInfo("UTC")),
+            timezone_name="Pacific/Honolulu",
+        )
+
+        self.assertEqual(
+            poll_start_end_dates(poll),
+            {"start_date": "2026-05-03", "end_date": "2026-05-03"},
+        )
+
+    def test_generate_poll_options_preserves_current_dst_spring_forward_sequence(self) -> None:
+        schedule = self.make_schedule(
+            start_date="2026-03-29",
+            end_date="2026-03-29",
+            daily_start_hour=2,
+            daily_end_hour=5,
+            timezone="Europe/Helsinki",
+        )
+
+        options = generate_poll_options(schedule)
+
+        self.assertEqual(
+            [(item["starts_at"].isoformat(), item["ends_at"].isoformat()) for item in options],
+            [
+                ("2026-03-29T02:00:00+02:00", "2026-03-29T03:00:00+02:00"),
+                ("2026-03-29T03:00:00+02:00", "2026-03-29T04:00:00+03:00"),
+                ("2026-03-29T04:00:00+03:00", "2026-03-29T05:00:00+03:00"),
+            ],
+        )
+
+    def test_generate_poll_options_preserves_current_dst_fall_back_sequence(self) -> None:
+        schedule = self.make_schedule(
+            start_date="2026-10-25",
+            end_date="2026-10-25",
+            daily_start_hour=2,
+            daily_end_hour=5,
+            timezone="Europe/Helsinki",
+        )
+
+        options = generate_poll_options(schedule)
+
+        self.assertEqual(
+            [(item["starts_at"].isoformat(), item["ends_at"].isoformat()) for item in options],
+            [
+                ("2026-10-25T02:00:00+03:00", "2026-10-25T03:00:00+03:00"),
+                ("2026-10-25T03:00:00+03:00", "2026-10-25T04:00:00+02:00"),
+                ("2026-10-25T04:00:00+02:00", "2026-10-25T05:00:00+02:00"),
+            ],
+        )
 
 
 class PollApiTests(TestCase):
@@ -810,6 +918,34 @@ class PollApiTests(TestCase):
         self.assertEqual(duplicate.status_code, 409)
         self.assertEqual(duplicate.json()["error"], "poll_identifier_taken")
 
+    def test_create_poll_rejects_invalid_title_and_description_payloads(self):
+        self.login(self.client, "alice")
+
+        cases = [
+            ("title-not-string", {"title": 1234}, "invalid_title"),
+            ("title-empty", {"title": "   "}, "invalid_title"),
+            ("title-too-long", {"title": "a" * 161}, "invalid_title"),
+            ("description-not-string", {"description": 1234}, "invalid_description"),
+            ("description-too-long", {"description": "a" * 1201}, "invalid_description"),
+        ]
+
+        for label, overrides, expected_error in cases:
+            with self.subTest(case=label):
+                payload = {
+                    "title": "Valid title",
+                    "description": "Valid description",
+                    "start_date": "2026-03-10",
+                    "end_date": "2026-03-10",
+                    "daily_start_hour": 9,
+                    "daily_end_hour": 17,
+                    "allowed_weekdays": [0, 1, 2, 3, 4],
+                    "timezone": "Europe/Helsinki",
+                }
+                payload.update(overrides)
+                response = self.create_poll_with_payload(self.client, payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], expected_error)
+
     def test_create_poll_rejects_invalid_date_range(self):
         self.login(self.client, "alice")
         response = self.create_poll_with_payload(
@@ -1075,6 +1211,93 @@ class PollApiTests(TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(response.json()["error"], "invalid_weekdays")
 
+    def test_edit_poll_rejects_invalid_json_and_payload_matrix(self):
+        self.login(self.client, "alice")
+        create = self.create_poll(self.client)
+        self.assertEqual(create.status_code, 201)
+        poll_id = create.json()["poll"]["id"]
+
+        json_cases = [
+            ("broken-json", "{", "invalid_json"),
+            ("non-object-json", "[]", "invalid_json"),
+        ]
+        for label, body, expected_error in json_cases:
+            with self.subTest(case=label):
+                response = self.request_raw_json(
+                    self.client,
+                    "PUT",
+                    "polls:poll_detail",
+                    body,
+                    args=[poll_id],
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], expected_error)
+
+        payload_cases = [
+            (
+                "invalid-date-range",
+                {
+                    "title": "Bad dates",
+                    "description": "",
+                    "start_date": "2026-03-12",
+                    "end_date": "2026-03-10",
+                    "daily_start_hour": 9,
+                    "daily_end_hour": 17,
+                    "allowed_weekdays": [0, 1, 2, 3, 4],
+                    "timezone": "Europe/Helsinki",
+                },
+                "invalid_date_range",
+            ),
+            (
+                "invalid-daily-hours",
+                {
+                    "title": "Bad hours",
+                    "description": "",
+                    "start_date": "2026-03-10",
+                    "end_date": "2026-03-10",
+                    "daily_start_hour": 18,
+                    "daily_end_hour": 9,
+                    "allowed_weekdays": [0, 1, 2, 3, 4],
+                    "timezone": "Europe/Helsinki",
+                },
+                "invalid_daily_hours",
+            ),
+            (
+                "invalid-timezone",
+                {
+                    "title": "Bad timezone",
+                    "description": "",
+                    "start_date": "2026-03-10",
+                    "end_date": "2026-03-10",
+                    "daily_start_hour": 9,
+                    "daily_end_hour": 17,
+                    "allowed_weekdays": [0, 1, 2, 3, 4],
+                    "timezone": "Mars/Phobos",
+                },
+                "invalid_timezone",
+            ),
+            (
+                "invalid-weekdays",
+                {
+                    "title": "Bad weekdays",
+                    "description": "",
+                    "start_date": "2026-03-10",
+                    "end_date": "2026-03-10",
+                    "daily_start_hour": 9,
+                    "daily_end_hour": 17,
+                    "allowed_weekdays": [],
+                    "timezone": "Europe/Helsinki",
+                },
+                "invalid_weekdays",
+            ),
+        ]
+
+        for label, payload, expected_error in payload_cases:
+            with self.subTest(case=label):
+                response = self.update_poll_with_payload(self.client, poll_id, payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], expected_error)
+
     def test_creator_can_edit_poll(self):
         self.login(self.client, "alice")
         create = self.create_poll(self.client)
@@ -1124,6 +1347,37 @@ class PollApiTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_edit_poll_rejects_invalid_title_and_description_payloads(self):
+        self.login(self.client, "creator")
+        create = self.create_poll(self.client)
+        self.assertEqual(create.status_code, 201)
+        poll_id = create.json()["poll"]["id"]
+
+        cases = [
+            ("title-not-string", {"title": 1234}, "invalid_title"),
+            ("title-empty", {"title": "   "}, "invalid_title"),
+            ("title-too-long", {"title": "a" * 161}, "invalid_title"),
+            ("description-not-string", {"description": 1234}, "invalid_description"),
+            ("description-too-long", {"description": "a" * 1201}, "invalid_description"),
+        ]
+
+        for label, overrides, expected_error in cases:
+            with self.subTest(case=label):
+                payload = {
+                    "title": "Updated title",
+                    "description": "Updated description",
+                    "start_date": "2026-03-10",
+                    "end_date": "2026-03-10",
+                    "daily_start_hour": 9,
+                    "daily_end_hour": 17,
+                    "allowed_weekdays": [0, 1, 2, 3, 4],
+                    "timezone": "Europe/Helsinki",
+                }
+                payload.update(overrides)
+                response = self.update_poll_with_payload(self.client, poll_id, payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], expected_error)
 
     def test_edit_poll_rejects_removing_slot_with_votes(self):
         self.login(self.client, "creator")
@@ -1188,6 +1442,61 @@ class PollApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["poll"]["options"]), 7)
+
+    def test_edit_poll_timezone_change_can_preserve_voted_slot(self):
+        self.login(self.client, "creator")
+        create = self.create_poll_with_payload(
+            self.client,
+            {
+                "title": "Timezone preserve",
+                "description": "Covers timezone-aware edit save.",
+                "start_date": "2026-05-04",
+                "end_date": "2026-05-04",
+                "daily_start_hour": 0,
+                "daily_end_hour": 24,
+                "allowed_weekdays": [0, 1, 2, 3, 4, 5, 6],
+                "timezone": "UTC",
+            },
+        )
+        self.assertEqual(create.status_code, 201)
+        poll = create.json()["poll"]
+        poll_id = poll["id"]
+        option_id = poll["options"][0]["id"]
+
+        self.login(self.other_client, "voter")
+        vote = self.other_client.put(
+            reverse("polls:poll_votes_upsert", args=[poll_id]),
+            data=json.dumps({"votes": [{"option_id": option_id, "status": "yes"}]}),
+            content_type="application/json",
+        )
+        self.assertEqual(vote.status_code, 200)
+
+        response = self.update_poll_with_payload(
+            self.client,
+            poll_id,
+            {
+                "title": "Timezone preserve updated",
+                "description": "Saved after timezone shift.",
+                "start_date": "2026-05-03",
+                "end_date": "2026-05-03",
+                "daily_start_hour": 14,
+                "daily_end_hour": 15,
+                "allowed_weekdays": [6],
+                "timezone": "Pacific/Honolulu",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        updated_poll = response.json()["poll"]
+        self.assertEqual(updated_poll["timezone"], "Pacific/Honolulu")
+        self.assertEqual(updated_poll["start_date"], "2026-05-03")
+        self.assertEqual(updated_poll["end_date"], "2026-05-03")
+        self.assertEqual(updated_poll["daily_start_hour"], 14)
+        self.assertEqual(updated_poll["daily_end_hour"], 15)
+        self.assertEqual(updated_poll["allowed_weekdays"], [6])
+        self.assertEqual(len(updated_poll["options"]), 1)
+        self.assertEqual(updated_poll["options"][0]["starts_at"], "2026-05-04T00:00:00+00:00")
+        self.assertEqual(updated_poll["options"][0]["counts"]["yes"], 1)
 
     def test_poll_detail_does_not_expose_participant_identity_names(self):
         self.login(self.client, "creator")

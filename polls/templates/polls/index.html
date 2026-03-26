@@ -525,22 +525,67 @@
               <p :id="fieldErrorId('edit', 'identifier')" class="field-error" v-if="fieldError('edit', 'identifier')">[[ fieldError('edit', 'identifier') ]]</p>
 
               <label for="edit-timezone">[[ t('timezone') ]]</label>
-              <input
-                id="edit-timezone"
-                type="text"
-                v-model.trim="editForm.timezone"
-                placeholder="Europe/Helsinki"
-                required
-                spellcheck="false"
-                :aria-invalid="fieldAriaInvalid('edit', 'timezone')"
-                :aria-describedby="fieldDescribedBy('edit', 'timezone')"
-                :aria-errormessage="hasFieldError('edit', 'timezone') ? fieldErrorId('edit', 'timezone') : null"
-                :class="{ 'input-invalid': hasFieldError('edit', 'timezone') }"
-                @input="handleFormFieldChange('timezone', 'edit')"
-                @blur="handleFormFieldChange('timezone', 'edit')"
-              >
+              <div class="timezone-picker">
+                <input
+                  id="edit-timezone"
+                  ref="editTimezoneInput"
+                  type="text"
+                  role="combobox"
+                  v-model.trim="editForm.timezone"
+                  @focus="openTimezoneSuggestions('edit')"
+                  @click="openTimezoneSuggestions('edit')"
+                  @input="handleEditTimezoneInput"
+                  @keydown="handleEditTimezoneKeydown"
+                  @blur="handleTimezoneBlur('edit')"
+                  placeholder="Europe/Helsinki"
+                  required
+                  spellcheck="false"
+                  autocomplete="off"
+                  aria-autocomplete="list"
+                  aria-haspopup="listbox"
+                  aria-controls="edit-timezone-suggestions"
+                  :aria-invalid="fieldAriaInvalid('edit', 'timezone')"
+                  :aria-describedby="fieldDescribedBy('edit', 'timezone', 'edit-timezone-help')"
+                  :aria-errormessage="hasFieldError('edit', 'timezone') ? fieldErrorId('edit', 'timezone') : null"
+                  :aria-expanded="showEditTimezoneSuggestions && filteredEditTimezoneOptions.length ? 'true' : 'false'"
+                  :aria-activedescendant="activeEditTimezoneSuggestionId || null"
+                  :class="{ 'input-invalid': hasFieldError('edit', 'timezone') }"
+                >
+                <ul
+                  id="edit-timezone-suggestions"
+                  v-if="showEditTimezoneSuggestions && filteredEditTimezoneOptions.length"
+                  class="timezone-suggestions"
+                  role="listbox"
+                  aria-label="Timezone suggestions"
+                >
+                  <li v-for="(tz, index) in filteredEditTimezoneOptions" :key="`edit-tz-${tz.id}`" role="presentation">
+                    <button
+                      type="button"
+                      class="timezone-suggestion"
+                      :class="{ 'is-active': activeEditTimezoneSuggestionIndex === index }"
+                      :id="timezoneSuggestionOptionId('edit', index)"
+                      role="option"
+                      :aria-selected="editForm.timezone === tz.id ? 'true' : 'false'"
+                      @mousedown.prevent="selectTimezone(tz.id, 'edit')"
+                      @mouseenter="setTimezoneSuggestionIndex('edit', index)"
+                    >
+                      <span class="timezone-suggestion-name">[[ tz.id ]]</span>
+                      <span class="timezone-suggestion-meta" v-if="tz.meta">[[ tz.meta ]]</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+              <p id="edit-timezone-help" class="muted">[[ t('timezoneHelp') ]]</p>
               <p class="muted timezone-selected" v-if="editForm.timezone">
                 [[ t('timezoneSelected') ]]: [[ editTimezoneDisplay ]]
+              </p>
+              <p
+                class="muted edit-autogrow-notice"
+                role="status"
+                aria-live="polite"
+                v-if="editAutoGrowNotice"
+              >
+                [[ editAutoGrowNotice ]]
               </p>
               <p :id="fieldErrorId('edit', 'timezone')" class="field-error" v-if="fieldError('edit', 'timezone')">[[ fieldError('edit', 'timezone') ]]</p>
 
@@ -551,13 +596,17 @@
                 v-model="editForm.start_date"
                 required
                 :aria-invalid="fieldAriaInvalid('edit', 'start_date')"
-                :aria-describedby="fieldDescribedBy('edit', 'start_date')"
+                :aria-describedby="fieldDescribedBy('edit', 'start_date', editStartDateConstraintHints.length ? 'edit-start-date-hints' : null)"
                 :aria-errormessage="hasFieldError('edit', 'start_date') ? fieldErrorId('edit', 'start_date') : null"
                 :class="{ 'input-invalid': hasFieldError('edit', 'start_date') }"
+                :max="editStartDateMax || null"
                 @input="handleFormFieldChange('start_date', 'edit')"
                 @change="handleFormFieldChange('start_date', 'edit')"
                 @blur="handleFormFieldChange('start_date', 'edit')"
               >
+              <ul id="edit-start-date-hints" class="muted field-hint-list" v-if="editStartDateConstraintHints.length">
+                <li v-for="hint in editStartDateConstraintHints" :key="`edit-start-hint-${hint}`">[[ hint ]]</li>
+              </ul>
               <p :id="fieldErrorId('edit', 'start_date')" class="field-error" v-if="fieldError('edit', 'start_date')">[[ fieldError('edit', 'start_date') ]]</p>
 
               <label for="edit-end-date">[[ t('endDate') ]]</label>
@@ -567,13 +616,17 @@
                 v-model="editForm.end_date"
                 required
                 :aria-invalid="fieldAriaInvalid('edit', 'end_date')"
-                :aria-describedby="fieldDescribedBy('edit', 'end_date')"
+                :aria-describedby="fieldDescribedBy('edit', 'end_date', editEndDateConstraintHints.length ? 'edit-end-date-hints' : null)"
                 :aria-errormessage="hasFieldError('edit', 'end_date') ? fieldErrorId('edit', 'end_date') : null"
                 :class="{ 'input-invalid': hasFieldError('edit', 'end_date') }"
+                :min="editEndDateMin || null"
                 @input="handleFormFieldChange('end_date', 'edit')"
                 @change="handleFormFieldChange('end_date', 'edit')"
                 @blur="handleFormFieldChange('end_date', 'edit')"
               >
+              <ul id="edit-end-date-hints" class="muted field-hint-list" v-if="editEndDateConstraintHints.length">
+                <li v-for="hint in editEndDateConstraintHints" :key="`edit-end-hint-${hint}`">[[ hint ]]</li>
+              </ul>
               <p :id="fieldErrorId('edit', 'end_date')" class="field-error" v-if="fieldError('edit', 'end_date')">[[ fieldError('edit', 'end_date') ]]</p>
 
               <label for="edit-daily-start-hour">[[ t('dailyStartHour') ]]</label>
@@ -582,15 +635,23 @@
                 v-model.number="editForm.daily_start_hour"
                 required
                 :aria-invalid="fieldAriaInvalid('edit', 'daily_start_hour')"
-                :aria-describedby="fieldDescribedBy('edit', 'daily_start_hour')"
+                :aria-describedby="fieldDescribedBy('edit', 'daily_start_hour', editStartHourConstraintHints.length ? 'edit-start-hour-hints' : null)"
                 :aria-errormessage="hasFieldError('edit', 'daily_start_hour') ? fieldErrorId('edit', 'daily_start_hour') : null"
                 :class="{ 'input-invalid': hasFieldError('edit', 'daily_start_hour') }"
                 @change="handleFormFieldChange('daily_start_hour', 'edit')"
               >
-                <option v-for="hour in startHourOptions" :key="`edit-start-${hour}`" :value="hour">
-                  [[ hourLabel(hour) ]]
+                <option
+                  v-for="option in editStartHourOptions"
+                  :key="`edit-start-${option.value}`"
+                  :value="option.value"
+                  :disabled="option.disabled"
+                >
+                  [[ hourLabel(option.value) ]]
                 </option>
               </select>
+              <ul id="edit-start-hour-hints" class="muted field-hint-list" v-if="editStartHourConstraintHints.length">
+                <li v-for="hint in editStartHourConstraintHints" :key="`edit-start-hour-hint-${hint}`">[[ hint ]]</li>
+              </ul>
               <p :id="fieldErrorId('edit', 'daily_start_hour')" class="field-error" v-if="fieldError('edit', 'daily_start_hour')">[[ fieldError('edit', 'daily_start_hour') ]]</p>
 
               <label for="edit-daily-end-hour">[[ t('dailyEndHour') ]]</label>
@@ -599,38 +660,55 @@
                 v-model.number="editForm.daily_end_hour"
                 required
                 :aria-invalid="fieldAriaInvalid('edit', 'daily_end_hour')"
-                :aria-describedby="fieldDescribedBy('edit', 'daily_end_hour')"
+                :aria-describedby="fieldDescribedBy('edit', 'daily_end_hour', editEndHourConstraintHints.length ? 'edit-end-hour-hints' : null)"
                 :aria-errormessage="hasFieldError('edit', 'daily_end_hour') ? fieldErrorId('edit', 'daily_end_hour') : null"
                 :class="{ 'input-invalid': hasFieldError('edit', 'daily_end_hour') }"
                 @change="handleFormFieldChange('daily_end_hour', 'edit')"
               >
-                <option v-for="hour in endHourOptions" :key="`edit-end-${hour}`" :value="hour">
-                  [[ hourLabel(hour) ]]
+                <option
+                  v-for="option in editEndHourOptions"
+                  :key="`edit-end-${option.value}`"
+                  :value="option.value"
+                  :disabled="option.disabled"
+                >
+                  [[ hourLabel(option.value) ]]
                 </option>
               </select>
+              <ul id="edit-end-hour-hints" class="muted field-hint-list" v-if="editEndHourConstraintHints.length">
+                <li v-for="hint in editEndHourConstraintHints" :key="`edit-end-hour-hint-${hint}`">[[ hint ]]</li>
+              </ul>
               <p :id="fieldErrorId('edit', 'daily_end_hour')" class="field-error" v-if="fieldError('edit', 'daily_end_hour')">[[ fieldError('edit', 'daily_end_hour') ]]</p>
 
               <fieldset
                 :aria-invalid="fieldAriaInvalid('edit', 'allowed_weekdays')"
-                :aria-describedby="fieldDescribedBy('edit', 'allowed_weekdays')"
+                :aria-describedby="fieldDescribedBy('edit', 'allowed_weekdays', editAllowedWeekdaysConstraintHints.length ? 'edit-allowed-weekdays-hints' : null)"
                 :aria-errormessage="hasFieldError('edit', 'allowed_weekdays') ? fieldErrorId('edit', 'allowed_weekdays') : null"
                 :class="{ 'field-invalid': hasFieldError('edit', 'allowed_weekdays') }"
               >
                 <legend>[[ t('allowedWeekdays') ]]</legend>
                 <div class="weekday-grid">
-                  <label class="weekday-item" v-for="weekday in weekdayOptions" :key="`edit-${weekday.value}`">
+                  <label
+                    class="weekday-item"
+                    :class="{ 'weekday-item-disabled': isWeekdayRemovalLocked(weekday.value, 'edit') }"
+                    v-for="weekday in weekdayOptions"
+                    :key="`edit-${weekday.value}`"
+                  >
                     <input
                       type="checkbox"
                       :value="weekday.value"
                       :checked="isWeekdaySelected(weekday.value, 'edit')"
+                      :disabled="isWeekdayRemovalLocked(weekday.value, 'edit')"
                       :aria-invalid="fieldAriaInvalid('edit', 'allowed_weekdays')"
-                      :aria-describedby="fieldDescribedBy('edit', 'allowed_weekdays')"
+                      :aria-describedby="fieldDescribedBy('edit', 'allowed_weekdays', editAllowedWeekdaysConstraintHints.length ? 'edit-allowed-weekdays-hints' : null)"
                       :aria-errormessage="hasFieldError('edit', 'allowed_weekdays') ? fieldErrorId('edit', 'allowed_weekdays') : null"
                       @change="toggleWeekday(weekday.value, 'edit'); handleFormFieldChange('allowed_weekdays', 'edit')"
                     >
                     <span>[[ weekday.label ]]</span>
                   </label>
                 </div>
+                <ul id="edit-allowed-weekdays-hints" class="muted field-hint-list" v-if="editAllowedWeekdaysConstraintHints.length">
+                  <li v-for="hint in editAllowedWeekdaysConstraintHints" :key="`edit-allowed-weekdays-hint-${hint}`">[[ hint ]]</li>
+                </ul>
               </fieldset>
               <p :id="fieldErrorId('edit', 'allowed_weekdays')" class="field-error" v-if="fieldError('edit', 'allowed_weekdays')">[[ fieldError('edit', 'allowed_weekdays') ]]</p>
 
@@ -1102,6 +1180,33 @@
           <button type="button" class="secondary" @click="closeAuthDialog">[[ t('cancel') ]]</button>
         </div>
       </form>
+    </section>
+
+    <div class="dialog-backdrop" v-if="showEditTimezoneConfirmDialog" @click="cancelEditTimezoneChangeConfirmation"></div>
+    <section
+      ref="editTimezoneConfirmDialog"
+      class="auth-dialog confirm-dialog"
+      v-if="showEditTimezoneConfirmDialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-timezone-confirm-title"
+      aria-describedby="edit-timezone-confirm-description"
+      @keydown="handleEditTimezoneConfirmDialogKeydown"
+    >
+      <h2 id="edit-timezone-confirm-title" tabindex="-1">[[ t('editTimezoneConfirmTitle') ]]</h2>
+      <p id="edit-timezone-confirm-description" class="muted">[[ editTimezoneConfirmDescriptionText() ]]</p>
+      <p class="muted">[[ t('editTimezoneConfirmPrompt') ]]</p>
+      <ul class="dialog-summary-list" v-if="pendingEditTimezoneAutoGrow">
+        <li v-for="(line, index) in editTimezoneAutoGrowProposalSummaryLines()" :key="`edit-timezone-summary-${index}`">
+          [[ line ]]
+        </li>
+      </ul>
+      <div class="auth-buttons">
+        <button ref="editTimezoneConfirmButton" type="button" @click="confirmEditTimezoneChangeConfirmation">
+          [[ t('editTimezoneConfirmButton') ]]
+        </button>
+        <button type="button" class="secondary" @click="cancelEditTimezoneChangeConfirmation">[[ t('cancel') ]]</button>
+      </div>
     </section>
   </main>
   <footer class="site-footer">

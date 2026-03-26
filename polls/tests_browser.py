@@ -274,6 +274,33 @@ class PollBrowserTests(StaticLiveServerTestCase):
             arg=[selector, expected],
         )
 
+    def select_option_disabled_map(
+        self,
+        selector: str,
+        *,
+        page: Optional["Page"] = None,
+    ) -> dict[str, bool]:
+        page = page or self.require_page()
+        options = page.locator(selector).evaluate(
+            """
+            (select) => Array.from(select.options).map((option) => ({
+              value: option.value,
+              disabled: option.disabled,
+            }))
+            """
+        )
+        disabled_map: dict[str, bool] = {}
+        if not isinstance(options, list):
+            return disabled_map
+        for item in options:
+            if not isinstance(item, dict):
+                continue
+            value = item.get("value")
+            if value is None:
+                continue
+            disabled_map[str(value)] = bool(item.get("disabled"))
+        return disabled_map
+
     def create_poll(
         self,
         *,
@@ -374,6 +401,60 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.open_home_page(page, f"/?id={poll_identifier}")
         self.login(name=name, page=page)
         return page
+
+    def open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+        self,
+        *,
+        poll_identifier: str,
+        title: str,
+        owner_name: str,
+        voter_name: str,
+        daily_start_hour: int = 0,
+        daily_end_hour: int = 24,
+        allowed_weekdays: Optional[list[int]] = None,
+        vote_option_index: int = 0,
+    ) -> None:
+        page = self.require_page()
+        self.open_home_page()
+        self.login(name=owner_name)
+        self.create_poll(
+            title=title,
+            description="Used for timezone-aware edit regression coverage.",
+            identifier=poll_identifier,
+            timezone="UTC",
+            start_date="2026-05-04",
+            end_date="2026-05-04",
+            daily_start_hour=daily_start_hour,
+            daily_end_hour=daily_end_hour,
+            allowed_weekdays=allowed_weekdays if allowed_weekdays is not None else [0, 1, 2, 3, 4, 5, 6],
+        )
+
+        voter_page = self.open_logged_in_poll_page(poll_identifier=poll_identifier, name=voter_name)
+        voter_page.locator(".calendar-table tbody tr").first.locator(".vote-switch-option-yes").nth(vote_option_index).click()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=voter_page)
+        page.wait_for_function(
+            """
+            async (pollIdentifier) => {
+              const response = await fetch(`/api/polls/${pollIdentifier}/`, { credentials: 'same-origin' });
+              const poll = await response.json();
+              const firstOption = Array.isArray(poll.options) ? poll.options[0] : null;
+              const counts = firstOption && typeof firstOption.counts === 'object' ? firstOption.counts : null;
+              return Boolean(
+                firstOption
+                && firstOption.starts_at === '2026-05-04T00:00:00+00:00'
+                && counts
+                && counts.yes === 1
+              );
+            }
+            """,
+            arg=poll_identifier,
+        )
+
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.locator(".details-title").filter(has_text=title).wait_for()
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-timezone").wait_for()
 
     def active_element_snapshot(self, page: Optional["Page"] = None) -> dict[str, str]:
         page = page or self.require_page()
@@ -613,9 +694,16 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".details-title").filter(has_text="Edit conflict accessibility poll").wait_for()
         page.get_by_role("button", name="Edit poll").click()
 
-        edit_weekdays = page.locator("#section-panel-selected .weekday-item input")
-        edit_weekdays.nth(0).set_checked(False)
-        edit_weekdays.nth(1).set_checked(True)
+        self.mock_fetch_json(
+            url_part="/api/polls/",
+            method="PUT",
+            status=409,
+            body={
+                "error": "schedule_conflicts_with_votes",
+                "detail": "Cannot remove or shrink time slots that already have votes.",
+            },
+            page=page,
+        )
         page.get_by_role("button", name="Save changes").click()
 
         page.get_by_role("alert").filter(
@@ -1630,6 +1718,39 @@ class PollBrowserTests(StaticLiveServerTestCase):
         auth_name_link.wait_for()
         self.assertTrue(auth_name_link.evaluate("element => document.activeElement === element"))
 
+    def test_browser_create_poll_button_moves_focus_to_create_form(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="create-focus-owner")
+        page.get_by_role("button", name="Create new poll").click()
+        page.locator("#section-panel-create").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'poll-title'")
+
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-title")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_edit_poll_button_moves_focus_to_edit_form(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="edit-focus-owner")
+        self.create_poll(
+            title="Edit focus poll",
+            description="Used for edit focus coverage.",
+            identifier="edit_focus_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-12",
+            end_date="2026-06-12",
+        )
+
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-title").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'edit-title'")
+
+        self.assertEqual(self.active_element_snapshot(page)["id"], "edit-title")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
     def test_browser_create_timezone_listbox_supports_keyboard_navigation(self) -> None:
         page = self.require_page()
 
@@ -1692,6 +1813,40 @@ class PollBrowserTests(StaticLiveServerTestCase):
             """
         )
         self.assertEqual(timezone_input.input_value(), "Pacific/Honolulu")
+
+    def test_browser_edit_timezone_listbox_supports_keyboard_navigation(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="edit-timezone-keyboard-a11y-owner")
+        self.create_poll(
+            title="Edit timezone keyboard accessibility poll",
+            description="Used for edit timezone keyboard coverage.",
+            identifier="edit_timezone_keyboard_a11y_poll",
+            timezone="UTC",
+            start_date="2026-06-10",
+            end_date="2026-06-10",
+        )
+
+        page.get_by_role("button", name="Edit poll").click()
+        timezone_input = page.locator("#edit-timezone")
+        timezone_input.fill("europe/hel")
+        page.locator("#edit-timezone-suggestions").wait_for()
+
+        page.keyboard.press("ArrowDown")
+        self.assertEqual(timezone_input.get_attribute("aria-activedescendant"), "edit-timezone-suggestion-0")
+        self.assertTrue(page.locator("#edit-timezone-suggestions .timezone-suggestion.is-active").is_visible())
+
+        page.keyboard.press("Escape")
+        page.locator("#edit-timezone-suggestions").wait_for(state="hidden")
+
+        timezone_input.fill("europe/hel")
+        page.locator("#edit-timezone-suggestions").wait_for()
+        page.keyboard.press("ArrowDown")
+        page.keyboard.press("Enter")
+
+        page.locator("#edit-timezone-suggestions").wait_for(state="hidden")
+        self.assertEqual(timezone_input.input_value(), "Europe/Helsinki")
 
     def test_browser_bulk_menu_supports_keyboard_navigation(self) -> None:
         page = self.require_page()
@@ -3249,6 +3404,13 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(page.locator("#calendar-timezone").input_value(), "Pacific/Honolulu")
         page.locator(".timezone-suggestions").wait_for(state="hidden")
 
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-timezone").fill("pacific/hon")
+        page.locator("#edit-timezone-suggestions").wait_for()
+        page.locator("#edit-timezone-suggestions .timezone-suggestion").filter(has_text="Pacific/Honolulu").first.click()
+        self.assertEqual(page.locator("#edit-timezone").input_value(), "Pacific/Honolulu")
+        page.locator("#edit-timezone-suggestions").wait_for(state="hidden")
+
     def test_browser_create_form_shows_client_side_validation_errors(self) -> None:
         page = self.require_page()
 
@@ -3326,6 +3488,44 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertIn("create-identifier-error", identifier_describedby)
         self.assertEqual(page.locator("#poll-identifier").get_attribute("aria-errormessage"), "create-identifier-error")
 
+    def test_browser_edit_form_maps_backend_identifier_conflict_to_field(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="edit-duplicate-owner")
+        self.create_poll(
+            title="Edit duplicate source poll",
+            description="Original poll for edit duplicate coverage.",
+            identifier="edit_duplicate_source_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-30",
+            end_date="2026-04-30",
+        )
+
+        page.locator(".title-home").click()
+        self.create_poll(
+            title="Edit duplicate target poll",
+            description="Poll whose identifier will be edited.",
+            identifier="edit_duplicate_target_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-05-01",
+            end_date="2026-05-01",
+        )
+
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-identifier").fill("edit_duplicate_source_poll")
+        page.get_by_role("button", name="Save changes").click()
+
+        page.get_by_role("alert").filter(has_text="This identifier is already in use.").wait_for()
+        page.locator("#edit-identifier-error").filter(has_text="This identifier is already in use.").wait_for()
+        self.assertEqual(self.active_element_snapshot(page)["id"], "edit-identifier")
+        self.assertIn("input-invalid", page.locator("#edit-identifier").get_attribute("class") or "")
+        identifier_describedby = page.locator("#edit-identifier").get_attribute("aria-describedby") or ""
+        self.assertEqual(page.locator("#edit-identifier").get_attribute("aria-invalid"), "true")
+        self.assertIn("edit-poll-identifier-help", identifier_describedby)
+        self.assertIn("edit-identifier-error", identifier_describedby)
+        self.assertEqual(page.locator("#edit-identifier").get_attribute("aria-errormessage"), "edit-identifier-error")
+
     def test_browser_edit_form_shows_schedule_conflict_error_for_voted_slot(self) -> None:
         page = self.require_page()
         poll_identifier = "edit_conflict_poll"
@@ -3360,9 +3560,16 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".details-title").filter(has_text="Edit conflict poll").wait_for()
         page.get_by_role("button", name="Edit poll").click()
 
-        edit_weekdays = page.locator("#section-panel-selected .weekday-item input")
-        edit_weekdays.nth(0).set_checked(False)
-        edit_weekdays.nth(1).set_checked(True)
+        self.mock_fetch_json(
+            url_part="/api/polls/",
+            method="PUT",
+            status=409,
+            body={
+                "error": "schedule_conflicts_with_votes",
+                "detail": "Cannot remove or shrink time slots that already have votes.",
+            },
+            page=page,
+        )
         page.get_by_role("button", name="Save changes").click()
 
         page.get_by_role("alert").filter(
@@ -3374,8 +3581,615 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Save changes").wait_for()
         self.assertEqual(self.active_element_snapshot(page)["id"], "edit-timezone")
         self.assertEqual(page.locator("#edit-timezone").get_attribute("aria-invalid"), "true")
-        self.assertEqual(page.locator("#edit-timezone").get_attribute("aria-describedby"), "edit-timezone-error")
+        self.assertEqual(
+            page.locator("#edit-timezone").get_attribute("aria-describedby"),
+            "edit-timezone-help edit-timezone-error",
+        )
         self.assertEqual(page.locator("#edit-timezone").get_attribute("aria-errormessage"), "edit-timezone-error")
+
+    def test_browser_edit_form_weekday_inputs_disable_days_with_votes(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_weekday_lock_poll"
+
+        self.open_home_page()
+        self.login(name="edit-weekday-lock-owner")
+        self.create_poll(
+            title="Edit weekday lock poll",
+            description="Used for edit weekday lock coverage.",
+            identifier=poll_identifier,
+            timezone="Europe/Helsinki",
+            start_date="2026-05-04",
+            end_date="2026-05-05",
+        )
+
+        browser = self.browser
+        if browser is None:
+            raise unittest.SkipTest("Playwright browser is not available for this test run.")
+
+        voter_context = browser.new_context(base_url=self.live_server_url)
+        self.addCleanup(voter_context.close)
+        voter_page = voter_context.new_page()
+        voter_page.set_default_timeout(15000)
+
+        self.open_home_page(voter_page, f"/?id={poll_identifier}")
+        self.login(name="edit-weekday-lock-voter", page=voter_page)
+        voter_page.locator(".calendar-table tbody tr").first.locator(".vote-switch-option-yes").first.click()
+        page.wait_for_function(
+            """
+            async () => {
+              const response = await fetch('/api/polls/edit_weekday_lock_poll/', { credentials: 'same-origin' });
+              const poll = await response.json();
+              return (poll.options || []).some((item) => {
+                const counts = item.counts || {};
+                return counts.yes === 1;
+              });
+            }
+            """
+        )
+
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.locator(".details-title").filter(has_text="Edit weekday lock poll").wait_for()
+        page.get_by_role("button", name="Edit poll").click()
+
+        monday_checkbox = page.locator("#section-panel-selected .weekday-item input").nth(0)
+        tuesday_checkbox = page.locator("#section-panel-selected .weekday-item input").nth(1)
+
+        self.assertTrue(monday_checkbox.is_checked())
+        self.assertTrue(monday_checkbox.is_disabled())
+        self.assertTrue(tuesday_checkbox.is_checked())
+        self.assertFalse(tuesday_checkbox.is_disabled())
+
+        page.get_by_text("Existing votes require these weekdays to remain selected: Mon.").wait_for()
+        describedby = monday_checkbox.get_attribute("aria-describedby") or ""
+        self.assertIn("edit-allowed-weekdays-hints", describedby)
+
+        tuesday_checkbox.set_checked(False)
+        self.assertFalse(tuesday_checkbox.is_checked())
+
+    def test_browser_edit_form_date_inputs_follow_start_end_bounds_without_votes(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="edit-date-bounds-owner")
+        self.create_poll(
+            title="Edit date bounds poll",
+            description="Used for edit date min/max without votes.",
+            identifier="edit_date_bounds_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-05-10",
+            end_date="2026-05-12",
+        )
+
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-start-date").wait_for()
+
+        self.assertEqual(page.locator("#edit-start-date").get_attribute("max"), "2026-05-12")
+        self.assertEqual(page.locator("#edit-end-date").get_attribute("min"), "2026-05-10")
+        page.get_by_text("Start date cannot be later than the selected end date.").wait_for()
+        page.get_by_text("End date cannot be earlier than the selected start date.").wait_for()
+
+        page.locator("#edit-end-date").fill("2026-05-11")
+        page.wait_for_function(
+            """
+            () => document.querySelector('#edit-start-date')?.getAttribute('max') === '2026-05-11'
+            """
+        )
+
+        page.locator("#edit-start-date").fill("2026-05-11")
+        page.wait_for_function(
+            """
+            () => document.querySelector('#edit-end-date')?.getAttribute('min') === '2026-05-11'
+            """
+        )
+
+    def test_browser_edit_form_date_inputs_reflect_existing_vote_bounds(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_date_vote_bounds_poll"
+
+        self.open_home_page()
+        self.login(name="edit-date-vote-bounds-owner")
+        self.create_poll(
+            title="Edit date vote bounds poll",
+            description="Used for edit date min/max with votes.",
+            identifier=poll_identifier,
+            timezone="Europe/Helsinki",
+            start_date="2026-05-04",
+            end_date="2026-05-06",
+        )
+
+        browser = self.browser
+        if browser is None:
+            raise unittest.SkipTest("Playwright browser is not available for this test run.")
+
+        voter_context = browser.new_context(base_url=self.live_server_url)
+        self.addCleanup(voter_context.close)
+        voter_page = voter_context.new_page()
+        voter_page.set_default_timeout(15000)
+
+        self.open_home_page(voter_page, f"/?id={poll_identifier}")
+        self.login(name="edit-date-vote-bounds-voter", page=voter_page)
+        middle_yes_button = voter_page.locator(".calendar-table tbody tr").first.locator(
+            ".vote-switch-option-yes"
+        ).nth(1)
+        middle_yes_button.click()
+        page.wait_for_function(
+            """
+            async () => {
+              const response = await fetch('/api/polls/edit_date_vote_bounds_poll/', { credentials: 'same-origin' });
+              const poll = await response.json();
+              const option = (poll.options || []).find((item) => {
+                const counts = item.counts || {};
+                return counts.yes === 1;
+              });
+              if (!option) {
+                return false;
+              }
+              const counts = option.counts || {};
+              return counts.yes === 1;
+            }
+            """
+        )
+
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.locator(".details-title").filter(has_text="Edit date vote bounds poll").wait_for()
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-start-date").wait_for()
+
+        self.assertEqual(page.locator("#edit-start-date").get_attribute("max"), "2026-05-05")
+        self.assertEqual(page.locator("#edit-end-date").get_attribute("min"), "2026-05-05")
+        page.get_by_text("Existing votes require the start date to be on or before").wait_for()
+        page.get_by_text("Existing votes require the end date to be on or after").wait_for()
+        self.assertEqual(
+            page.get_by_text("Start date cannot be later than the selected end date.").count(),
+            0,
+        )
+        self.assertEqual(
+            page.get_by_text("End date cannot be earlier than the selected start date.").count(),
+            0,
+        )
+
+        start_describedby = page.locator("#edit-start-date").get_attribute("aria-describedby") or ""
+        end_describedby = page.locator("#edit-end-date").get_attribute("aria-describedby") or ""
+        self.assertIn("edit-start-date-hints", start_describedby)
+        self.assertIn("edit-end-date-hints", end_describedby)
+
+    def test_browser_edit_form_timezone_change_updates_date_vote_bounds(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_timezone_date_bounds_poll"
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier=poll_identifier,
+            title="Edit timezone date bounds poll",
+            owner_name="edit-timezone-date-owner",
+            voter_name="edit-timezone-date-voter",
+        )
+
+        self.assertEqual(page.locator("#edit-start-date").get_attribute("max"), "2026-05-04")
+        self.assertEqual(page.locator("#edit-end-date").get_attribute("min"), "2026-05-04")
+
+        page.locator("#edit-timezone").fill("Pacific/Honolulu")
+        page.locator("#edit-timezone").blur()
+        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
+        dialog.wait_for()
+        dialog.get_by_role("button", name="Apply timezone change").click()
+        page.wait_for_function(
+            """
+            () => document.querySelector('#edit-start-date')?.getAttribute('max') === '2026-05-03'
+            """
+        )
+
+        self.assertEqual(page.locator("#edit-start-date").get_attribute("max"), "2026-05-03")
+        page.locator("#edit-start-date").fill("2026-05-03")
+        page.wait_for_function(
+            """
+            () => document.querySelector('#edit-end-date')?.getAttribute('min') === '2026-05-03'
+            """
+        )
+        self.assertEqual(page.locator("#edit-end-date").get_attribute("min"), "2026-05-03")
+
+    def test_browser_edit_form_hour_selects_follow_start_end_bounds_without_votes(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="edit-hour-bounds-owner")
+        self.create_poll(
+            title="Edit hour bounds poll",
+            description="Used for edit hour bounds without votes.",
+            identifier="edit_hour_bounds_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-05-11",
+            end_date="2026-05-11",
+            daily_start_hour=9,
+            daily_end_hour=12,
+        )
+
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-daily-start-hour").wait_for()
+
+        start_options = self.select_option_disabled_map("#edit-daily-start-hour", page=page)
+        end_options = self.select_option_disabled_map("#edit-daily-end-hour", page=page)
+        self.assertFalse(start_options["11"])
+        self.assertTrue(start_options["12"])
+        self.assertFalse(end_options["10"])
+        self.assertTrue(end_options["9"])
+        page.get_by_text("Day start hour must be earlier than the selected end hour.").wait_for()
+        page.get_by_text("Day end hour must be later than the selected start hour.").wait_for()
+
+        start_describedby = page.locator("#edit-daily-start-hour").get_attribute("aria-describedby") or ""
+        end_describedby = page.locator("#edit-daily-end-hour").get_attribute("aria-describedby") or ""
+        self.assertIn("edit-start-hour-hints", start_describedby)
+        self.assertIn("edit-end-hour-hints", end_describedby)
+
+        page.locator("#edit-daily-end-hour").select_option("10")
+        page.wait_for_function(
+            """
+            () => {
+              const startSelect = document.querySelector('#edit-daily-start-hour');
+              const optionNine = startSelect?.querySelector('option[value="9"]');
+              const optionTen = startSelect?.querySelector('option[value="10"]');
+              return Boolean(optionNine && optionTen)
+                && optionNine.disabled === false
+                && optionTen.disabled === true;
+            }
+            """
+        )
+
+        page.locator("#edit-daily-start-hour").select_option("8")
+        page.wait_for_function(
+            """
+            () => {
+              const endSelect = document.querySelector('#edit-daily-end-hour');
+              const optionEight = endSelect?.querySelector('option[value="8"]');
+              const optionNine = endSelect?.querySelector('option[value="9"]');
+              return Boolean(optionEight && optionNine)
+                && optionEight.disabled === true
+                && optionNine.disabled === false;
+            }
+            """
+        )
+
+    def test_browser_edit_form_timezone_change_updates_hour_vote_bounds(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_timezone_hour_bounds_poll"
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier=poll_identifier,
+            title="Edit timezone hour bounds poll",
+            owner_name="edit-timezone-hour-owner",
+            voter_name="edit-timezone-hour-voter",
+        )
+
+        start_options = self.select_option_disabled_map("#edit-daily-start-hour", page=page)
+        end_options = self.select_option_disabled_map("#edit-daily-end-hour", page=page)
+        self.assertFalse(start_options["0"])
+        self.assertTrue(start_options["14"])
+        self.assertFalse(end_options["14"])
+        self.assertFalse(end_options["15"])
+
+        page.locator("#edit-timezone").fill("Pacific/Honolulu")
+        page.locator("#edit-timezone").blur()
+        page.get_by_role("dialog").filter(has_text="Confirm timezone change").get_by_role(
+            "button",
+            name="Apply timezone change",
+        ).click()
+        page.wait_for_function(
+            """
+            () => {
+              const startSelect = document.querySelector('#edit-daily-start-hour');
+              const endSelect = document.querySelector('#edit-daily-end-hour');
+              const startFourteen = startSelect?.querySelector('option[value="14"]');
+              const startFifteen = startSelect?.querySelector('option[value="15"]');
+              const endFourteen = endSelect?.querySelector('option[value="14"]');
+              const endFifteen = endSelect?.querySelector('option[value="15"]');
+              return Boolean(startFourteen && startFifteen && endFourteen && endFifteen)
+                && startFourteen.disabled === false
+                && startFifteen.disabled === true
+                && endFourteen.disabled === true
+                && endFifteen.disabled === false;
+            }
+            """
+        )
+
+        start_options = self.select_option_disabled_map("#edit-daily-start-hour", page=page)
+        end_options = self.select_option_disabled_map("#edit-daily-end-hour", page=page)
+        self.assertFalse(start_options["14"])
+        self.assertTrue(start_options["15"])
+        self.assertTrue(end_options["14"])
+        self.assertFalse(end_options["15"])
+
+    def test_browser_edit_form_hour_selects_reflect_existing_vote_bounds(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_hour_vote_bounds_poll"
+
+        self.open_home_page()
+        self.login(name="edit-hour-vote-bounds-owner")
+        self.create_poll(
+            title="Edit hour vote bounds poll",
+            description="Used for edit hour bounds with votes.",
+            identifier=poll_identifier,
+            timezone="Europe/Helsinki",
+            start_date="2026-05-04",
+            end_date="2026-05-04",
+            daily_start_hour=9,
+            daily_end_hour=12,
+        )
+
+        browser = self.browser
+        if browser is None:
+            raise unittest.SkipTest("Playwright browser is not available for this test run.")
+
+        voter_context = browser.new_context(base_url=self.live_server_url)
+        self.addCleanup(voter_context.close)
+        voter_page = voter_context.new_page()
+        voter_page.set_default_timeout(15000)
+
+        self.open_home_page(voter_page, f"/?id={poll_identifier}")
+        self.login(name="edit-hour-vote-bounds-voter", page=voter_page)
+        voter_page.locator(".calendar-table tbody tr").nth(1).locator(".vote-switch-option-yes").first.click()
+        page.wait_for_function(
+            """
+            async () => {
+              const response = await fetch('/api/polls/edit_hour_vote_bounds_poll/', { credentials: 'same-origin' });
+              const poll = await response.json();
+              return (poll.options || []).some((item) => {
+                const counts = item.counts || {};
+                return counts.yes === 1;
+              });
+            }
+            """
+        )
+
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.locator(".details-title").filter(has_text="Edit hour vote bounds poll").wait_for()
+        page.get_by_role("button", name="Edit poll").click()
+        page.locator("#edit-daily-start-hour").wait_for()
+
+        start_options = self.select_option_disabled_map("#edit-daily-start-hour", page=page)
+        end_options = self.select_option_disabled_map("#edit-daily-end-hour", page=page)
+        self.assertFalse(start_options["10"])
+        self.assertTrue(start_options["11"])
+        self.assertTrue(end_options["10"])
+        self.assertFalse(end_options["11"])
+        page.get_by_text("Existing votes require the day start hour to be at or before 10:00.").wait_for()
+        page.get_by_text("Existing votes require the day end hour to be at or after 11:00.").wait_for()
+        self.assertEqual(
+            page.get_by_text("Day start hour must be earlier than the selected end hour.").count(),
+            0,
+        )
+        self.assertEqual(
+            page.get_by_text("Day end hour must be later than the selected start hour.").count(),
+            0,
+        )
+
+        start_describedby = page.locator("#edit-daily-start-hour").get_attribute("aria-describedby") or ""
+        end_describedby = page.locator("#edit-daily-end-hour").get_attribute("aria-describedby") or ""
+        self.assertIn("edit-start-hour-hints", start_describedby)
+        self.assertIn("edit-end-hour-hints", end_describedby)
+
+    def test_browser_edit_form_timezone_change_updates_locked_weekday(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_timezone_weekday_bounds_poll"
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier=poll_identifier,
+            title="Edit timezone weekday bounds poll",
+            owner_name="edit-timezone-weekday-owner",
+            voter_name="edit-timezone-weekday-voter",
+        )
+
+        monday_checkbox = page.locator("#section-panel-selected .weekday-item input").nth(0)
+        sunday_checkbox = page.locator("#section-panel-selected .weekday-item input").nth(6)
+        self.assertTrue(monday_checkbox.is_checked())
+        self.assertTrue(monday_checkbox.is_disabled())
+        self.assertTrue(sunday_checkbox.is_checked())
+        self.assertFalse(sunday_checkbox.is_disabled())
+
+        page.locator("#edit-timezone").fill("Pacific/Honolulu")
+        page.locator("#edit-timezone").blur()
+        page.get_by_role("dialog").filter(has_text="Confirm timezone change").get_by_role(
+            "button",
+            name="Apply timezone change",
+        ).click()
+        page.wait_for_function(
+            """
+            () => {
+              const inputs = document.querySelectorAll('#section-panel-selected .weekday-item input');
+              const monday = inputs[0];
+              const sunday = inputs[6];
+              return Boolean(monday && sunday)
+                && monday.disabled === false
+                && sunday.disabled === true;
+            }
+            """
+        )
+
+        self.assertFalse(monday_checkbox.is_disabled())
+        self.assertTrue(sunday_checkbox.is_disabled())
+        page.get_by_text("Existing votes require these weekdays to remain selected: Sun.").wait_for()
+
+        monday_checkbox.set_checked(False)
+        self.assertFalse(monday_checkbox.is_checked())
+
+    def test_browser_edit_form_timezone_change_can_save_valid_shifted_schedule(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_timezone_save_success_poll"
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier=poll_identifier,
+            title="Edit timezone save success poll",
+            owner_name="edit-timezone-save-owner",
+            voter_name="edit-timezone-save-voter",
+            daily_start_hour=0,
+            daily_end_hour=1,
+            allowed_weekdays=[0],
+        )
+
+        page.locator("#edit-timezone").fill("Pacific/Honolulu")
+        page.locator("#edit-timezone").blur()
+        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
+        dialog.wait_for()
+        description_text = dialog.locator("#edit-timezone-confirm-description").text_content() or ""
+        self.assertIn("UTC", description_text)
+        self.assertIn("Pacific/Honolulu", description_text)
+        self.assertIn("expands the schedule", description_text)
+        summary_text = dialog.locator(".dialog-summary-list").text_content() or ""
+        self.assertIn("Start date:", summary_text)
+        self.assertIn("04/05/2026", summary_text)
+        self.assertIn("03/05/2026", summary_text)
+        self.assertIn("Daily end hour: 01:00 -> 15:00", summary_text)
+        self.assertIn("Allowed weekdays: Mon -> Mon", summary_text)
+        self.assertIn("Sun", summary_text)
+        dialog.get_by_role("button", name="Apply timezone change").click()
+        page.wait_for_function(
+            """
+            () => {
+              const startDate = document.querySelector('#edit-start-date');
+              const endDate = document.querySelector('#edit-end-date');
+              const startHour = document.querySelector('#edit-daily-start-hour');
+              const endHour = document.querySelector('#edit-daily-end-hour');
+              const weekdayInputs = document.querySelectorAll('#section-panel-selected .weekday-item input');
+              return Boolean(startDate && endDate && startHour && endHour && weekdayInputs.length >= 7)
+                && startDate.value === '2026-05-03'
+                && endDate.value === '2026-05-04'
+                && startHour.value === '0'
+                && endHour.value === '15'
+                && weekdayInputs[0].checked === true
+                && weekdayInputs[0].disabled === false
+                && weekdayInputs[6].checked === true
+                && weekdayInputs[6].disabled === true;
+            }
+            """
+        )
+
+        self.assertEqual(page.locator("#edit-start-date").input_value(), "2026-05-03")
+        self.assertEqual(page.locator("#edit-end-date").input_value(), "2026-05-04")
+        self.assertEqual(page.locator("#edit-daily-start-hour").input_value(), "0")
+        self.assertEqual(page.locator("#edit-daily-end-hour").input_value(), "15")
+
+        page.get_by_role("button", name="Save changes").click()
+        page.get_by_role("status").filter(has_text="Poll updated successfully.").wait_for()
+        page.get_by_role("button", name="Edit poll").wait_for()
+
+        page.wait_for_function(
+            """
+            async (pollIdentifier) => {
+              const response = await fetch(`/api/polls/${pollIdentifier}/`, { credentials: 'same-origin' });
+              const poll = await response.json();
+              if (!poll || poll.timezone !== 'Pacific/Honolulu') {
+                return false;
+              }
+              if (poll.start_date !== '2026-05-03' || poll.end_date !== '2026-05-04') {
+                return false;
+              }
+              if (poll.daily_start_hour !== 0 || poll.daily_end_hour !== 15) {
+                return false;
+              }
+              if (!Array.isArray(poll.allowed_weekdays) || poll.allowed_weekdays.join(',') !== '0,6') {
+                return false;
+              }
+              if (!Array.isArray(poll.options) || poll.options.length < 2) {
+                return false;
+              }
+              const option = poll.options.find((item) => item.starts_at === '2026-05-04T00:00:00+00:00');
+              const counts = option && typeof option.counts === 'object' ? option.counts : null;
+              return Boolean(
+                option
+                && counts
+                && counts.yes === 1
+              );
+            }
+            """,
+            arg=poll_identifier,
+        )
+
+    def test_browser_edit_form_timezone_change_confirmation_can_be_cancelled(self) -> None:
+        page = self.require_page()
+        poll_identifier = "edit_timezone_cancel_confirm_poll"
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier=poll_identifier,
+            title="Edit timezone cancel confirmation poll",
+            owner_name="edit-timezone-cancel-owner",
+            voter_name="edit-timezone-cancel-voter",
+            daily_start_hour=0,
+            daily_end_hour=1,
+            allowed_weekdays=[0],
+        )
+
+        page.locator("#edit-timezone").fill("Pacific/Honolulu")
+        page.locator("#edit-timezone").blur()
+        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
+        dialog.wait_for()
+        dialog.get_by_role("button", name="Cancel").click()
+        dialog.wait_for(state="hidden")
+
+        self.assertEqual(page.locator("#edit-timezone").input_value(), "UTC")
+        self.assertEqual(page.locator("#edit-start-date").input_value(), "2026-05-04")
+        self.assertEqual(page.locator("#edit-end-date").input_value(), "2026-05-04")
+        self.assertEqual(page.locator("#edit-daily-start-hour").input_value(), "0")
+        self.assertEqual(page.locator("#edit-daily-end-hour").input_value(), "1")
+
+        monday_checkbox = page.locator("#section-panel-selected .weekday-item input").nth(0)
+        sunday_checkbox = page.locator("#section-panel-selected .weekday-item input").nth(6)
+        self.assertTrue(monday_checkbox.is_checked())
+        self.assertFalse(sunday_checkbox.is_checked())
+
+    def test_browser_edit_timezone_confirmation_dialog_focus_is_trapped_and_restored_on_escape(self) -> None:
+        page = self.require_page()
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier="edit_timezone_focus_trap_poll",
+            title="Edit timezone focus trap poll",
+            owner_name="edit-timezone-focus-owner",
+            voter_name="edit-timezone-focus-voter",
+            daily_start_hour=0,
+            daily_end_hour=1,
+            allowed_weekdays=[0],
+        )
+
+        timezone_input = page.locator("#edit-timezone")
+        timezone_input.fill("Pacific/Honolulu")
+        timezone_input.blur()
+        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
+        dialog.wait_for()
+
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Apply timezone change")
+
+        page.keyboard.press("Tab")
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Cancel")
+
+        page.keyboard.press("Tab")
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Apply timezone change")
+
+        page.keyboard.press("Shift+Tab")
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Cancel")
+
+        page.keyboard.press("Escape")
+        dialog.wait_for(state="hidden")
+        self.assertTrue(timezone_input.evaluate("element => document.activeElement === element"))
+
+    def test_edit_timezone_confirmation_dialog_has_no_accessibility_violations(self) -> None:
+        page = self.require_page()
+
+        self.open_edit_form_for_utc_vote_that_shifts_in_honolulu(
+            poll_identifier="edit_timezone_dialog_a11y_poll",
+            title="Edit timezone dialog accessibility poll",
+            owner_name="edit-timezone-dialog-a11y-owner",
+            voter_name="edit-timezone-dialog-a11y-voter",
+            daily_start_hour=0,
+            daily_end_hour=1,
+            allowed_weekdays=[0],
+        )
+
+        page.locator("#edit-timezone").fill("Pacific/Honolulu")
+        page.locator("#edit-timezone").blur()
+        page.get_by_role("dialog").filter(has_text="Confirm timezone change").wait_for()
+
+        results = self.run_accessibility_audit(page=page)
+        self.assert_no_axe_violations(results, page_name="edit timezone confirmation dialog")
 
     def test_browser_open_poll_failure_shows_error_toast(self) -> None:
         page = self.require_page()

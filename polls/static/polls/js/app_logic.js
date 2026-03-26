@@ -157,6 +157,92 @@
     return nextValues;
   }
 
+  function normalizeIsoDayKey(value) {
+    const raw = String(value || "").trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+  }
+
+  function normalizeHourValue(value, minValue, maxValue) {
+    const normalized = Number(value);
+    if (!Number.isInteger(normalized) || normalized < minValue || normalized > maxValue) {
+      return null;
+    }
+    return normalized;
+  }
+
+  function normalizeWeekdayValues(values) {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        values
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+      )
+    ).sort((left, right) => left - right);
+  }
+
+  function autoGrowScheduleForm(form, votedBounds) {
+    const nextForm = form && typeof form === "object" ? { ...form } : {};
+    const normalizedBounds = votedBounds && typeof votedBounds === "object" ? votedBounds : {};
+    const hasVotes = Boolean(normalizedBounds.hasVotes);
+
+    if (!hasVotes) {
+      return {
+        changedFields: [],
+        nextForm
+      };
+    }
+
+    const changedFields = [];
+    const earliestDay = normalizeIsoDayKey(normalizedBounds.earliestDay);
+    const latestDay = normalizeIsoDayKey(normalizedBounds.latestDay);
+    const currentStartDay = normalizeIsoDayKey(nextForm.start_date);
+    const currentEndDay = normalizeIsoDayKey(nextForm.end_date);
+
+    if (earliestDay && (!currentStartDay || currentStartDay > earliestDay)) {
+      nextForm.start_date = earliestDay;
+      changedFields.push("start_date");
+    }
+
+    if (latestDay && (!currentEndDay || currentEndDay < latestDay)) {
+      nextForm.end_date = latestDay;
+      changedFields.push("end_date");
+    }
+
+    const earliestHour = normalizeHourValue(normalizedBounds.earliestHour, 0, 23);
+    const minEndHour = normalizeHourValue(normalizedBounds.minEndHour, 1, 24);
+    const currentStartHour = normalizeHourValue(nextForm.daily_start_hour, 0, 23);
+    const currentEndHour = normalizeHourValue(nextForm.daily_end_hour, 1, 24);
+
+    if (earliestHour !== null && (currentStartHour === null || currentStartHour > earliestHour)) {
+      nextForm.daily_start_hour = earliestHour;
+      changedFields.push("daily_start_hour");
+    }
+
+    if (minEndHour !== null && (currentEndHour === null || currentEndHour < minEndHour)) {
+      nextForm.daily_end_hour = minEndHour;
+      changedFields.push("daily_end_hour");
+    }
+
+    const currentWeekdays = normalizeWeekdayValues(nextForm.allowed_weekdays);
+    const lockedWeekdays = normalizeWeekdayValues(normalizedBounds.lockedWeekdays);
+    const mergedWeekdays = Array.from(new Set([...currentWeekdays, ...lockedWeekdays])).sort(
+      (left, right) => left - right
+    );
+
+    if (mergedWeekdays.join(",") !== currentWeekdays.join(",")) {
+      nextForm.allowed_weekdays = mergedWeekdays;
+      changedFields.push("allowed_weekdays");
+    }
+
+    return {
+      changedFields,
+      nextForm
+    };
+  }
+
   function defaultCalendarTimezonePreference() {
     return {
       mode: "poll",
@@ -248,6 +334,7 @@
     nextVoteStatus,
     optionHasVotes,
     readOptionCount,
+    autoGrowScheduleForm,
     serializeCalendarTimezonePreference,
     toggleWeekdaySelection
   };

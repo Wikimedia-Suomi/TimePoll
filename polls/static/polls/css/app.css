@@ -176,6 +176,16 @@ select:focus-visible {
   font-weight: 600;
 }
 
+.field-hint-list {
+  margin: 0.32rem 0 0.45rem 1rem;
+  padding: 0;
+  font-size: 0.86rem;
+}
+
+.field-hint-list li + li {
+  margin-top: 0.18rem;
+}
+
 fieldset {
   margin-top: 1rem;
   border: 1px solid var(--line);
@@ -228,6 +238,10 @@ fieldset {
 
 .weekday-item input {
   width: auto;
+}
+
+.weekday-item-disabled {
+  opacity: 0.68;
 }
 
 .timezone-picker {
@@ -291,6 +305,10 @@ fieldset {
 
 .timezone-selected {
   margin-top: 0.3rem;
+}
+
+.edit-autogrow-notice {
+  margin: 0.35rem 0 0.45rem;
 }
 
 .poll-list {
@@ -1195,6 +1213,19 @@ td {
   border-radius: 14px;
   padding: 1rem;
   z-index: 10;
+}
+
+.confirm-dialog {
+  width: min(92vw, 560px);
+}
+
+.dialog-summary-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.dialog-summary-list li + li {
+  margin-top: 0.35rem;
 }
 
 .auth-buttons {

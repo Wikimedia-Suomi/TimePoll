@@ -1,5 +1,6 @@
 function registerUnitTests(harness) {
   const {
+    autoGrowScheduleForm,
     buildPollUrlState,
     calendarTimezonePreferenceStorageKeyForSession,
     collectDayOptionIdsFromRows,
@@ -113,6 +114,70 @@ function registerUnitTests(harness) {
   test("toggleWeekdaySelection sorts and de-duplicates weekday values", () => {
     assertDeepEqual(toggleWeekdaySelection([4, 2, 2], 1), [1, 2, 4]);
     assertDeepEqual(toggleWeekdaySelection([1, 2, 4], 2), [1, 4]);
+  });
+
+  test("autoGrowScheduleForm expands days, hours and weekdays to keep votes in range", () => {
+    const result = autoGrowScheduleForm(
+      {
+        start_date: "2026-05-04",
+        end_date: "2026-05-04",
+        daily_start_hour: 9,
+        daily_end_hour: 17,
+        allowed_weekdays: [0]
+      },
+      {
+        earliestDay: "2026-05-03",
+        latestDay: "2026-05-05",
+        earliestHour: 8,
+        minEndHour: 19,
+        lockedWeekdays: [6, 0, 2],
+        hasVotes: true
+      }
+    );
+
+    assertDeepEqual(result.nextForm, {
+      start_date: "2026-05-03",
+      end_date: "2026-05-05",
+      daily_start_hour: 8,
+      daily_end_hour: 19,
+      allowed_weekdays: [0, 2, 6]
+    });
+    assertDeepEqual(result.changedFields, [
+      "start_date",
+      "end_date",
+      "daily_start_hour",
+      "daily_end_hour",
+      "allowed_weekdays"
+    ]);
+  });
+
+  test("autoGrowScheduleForm never shrinks an already wide enough schedule", () => {
+    const result = autoGrowScheduleForm(
+      {
+        start_date: "2026-05-01",
+        end_date: "2026-05-08",
+        daily_start_hour: 6,
+        daily_end_hour: 22,
+        allowed_weekdays: [0, 1, 2, 3, 4, 5, 6]
+      },
+      {
+        earliestDay: "2026-05-03",
+        latestDay: "2026-05-05",
+        earliestHour: 8,
+        minEndHour: 19,
+        lockedWeekdays: [0, 2],
+        hasVotes: true
+      }
+    );
+
+    assertDeepEqual(result.nextForm, {
+      start_date: "2026-05-01",
+      end_date: "2026-05-08",
+      daily_start_hour: 6,
+      daily_end_hour: 22,
+      allowed_weekdays: [0, 1, 2, 3, 4, 5, 6]
+    });
+    assertDeepEqual(result.changedFields, []);
   });
 
   test("calendarTimezonePreferenceStorageKeyForSession uses authenticated identity id", () => {
