@@ -1696,6 +1696,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Kirjaudu").wait_for()
         self.assertEqual(language_select.input_value(), "fi")
         self.assertEqual(page.locator("label[for='language-select']").inner_text().strip(), "Kieli")
+        self.assertEqual(page.evaluate("() => document.documentElement.lang"), "fi")
         self.assertEqual(
             page.evaluate("() => window.localStorage.getItem('timepoll-language')"),
             "fi",
@@ -2039,6 +2040,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Kirjaudu ulos").wait_for()
 
         self.assertEqual(page.locator("#language-select").input_value(), "fi")
+        self.assertEqual(page.evaluate("() => document.documentElement.lang"), "fi")
         self.assertEqual(
             page.evaluate("() => window.localStorage.getItem('timepoll-language')"),
             "fi",
@@ -2410,6 +2412,119 @@ class PollBrowserTests(StaticLiveServerTestCase):
         first_yes_button.click()
         page.get_by_role("dialog").wait_for()
 
+    def test_browser_create_success_feedback_remains_visible_after_opening_created_poll(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="create-success-feedback-owner")
+        self.create_poll(
+            title="Create success feedback poll",
+            description="Used for create success feedback coverage.",
+            identifier="create_success_feedback_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-22",
+            end_date="2026-04-22",
+        )
+
+        page.get_by_role("status").filter(has_text="Poll created successfully.").wait_for()
+        page.locator(".details-title").filter(has_text="Create success feedback poll").wait_for()
+
+    def test_browser_login_success_feedback_remains_visible_after_refreshing_selected_poll(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="login-success-feedback-owner")
+        self.create_poll(
+            title="Login success feedback poll",
+            description="Used for login success feedback coverage.",
+            identifier="login_success_feedback_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-23",
+            end_date="2026-04-23",
+        )
+
+        page.get_by_role("button", name="Logout", exact=True).click()
+        page.get_by_role("button", name="Login").wait_for()
+        page.get_by_role("button", name="Login").click()
+        self.submit_auth_dialog(name="login-success-feedback-owner")
+
+        page.get_by_role("status").filter(has_text="Logged in.").wait_for()
+        page.locator(".details-title").filter(has_text="Login success feedback poll").wait_for()
+
+    def test_browser_logout_success_feedback_remains_visible_after_refreshing_selected_poll(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="logout-success-feedback-owner")
+        self.create_poll(
+            title="Logout success feedback poll",
+            description="Used for logout success feedback coverage.",
+            identifier="logout_success_feedback_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-24",
+            end_date="2026-04-24",
+        )
+
+        page.get_by_role("button", name="Logout", exact=True).click()
+        page.get_by_role("button", name="Login").wait_for()
+        page.get_by_role("status").filter(has_text="Logged out.").wait_for()
+        page.locator(".details-title").filter(has_text="Logout success feedback poll").wait_for()
+
+    def test_browser_login_from_create_view_does_not_reopen_stale_selected_poll(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="stale-selected-login-owner")
+        self.create_poll(
+            title="Stale selected login poll",
+            description="Used for stale selected poll login coverage.",
+            identifier="stale_selected_login_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-20",
+            end_date="2026-04-20",
+        )
+
+        page.get_by_role("button", name="Logout", exact=True).click()
+        page.get_by_role("button", name="Login").wait_for()
+        page.locator(".title-home").click()
+        page.get_by_role("heading", name="Polls").wait_for()
+        page.get_by_role("button", name="Create new poll").click()
+        page.locator("#section-panel-create").wait_for()
+        self.assertNotIn("id=", page.url)
+
+        page.get_by_role("button", name="Login").click()
+        self.submit_auth_dialog(name="stale-selected-login-user")
+        page.get_by_role("button", name="Logout", exact=True).wait_for()
+
+        page.locator("#section-panel-create").wait_for()
+        self.assertFalse(page.locator(".details-title").is_visible())
+        self.assertNotIn("id=", page.url)
+
+    def test_browser_logout_from_profile_view_does_not_reopen_stale_selected_poll(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="stale-selected-logout-owner")
+        self.create_poll(
+            title="Stale selected logout poll",
+            description="Used for stale selected poll logout coverage.",
+            identifier="stale_selected_logout_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-21",
+            end_date="2026-04-21",
+        )
+
+        page.locator(".auth-name-link").click()
+        page.get_by_role("heading", name="My data").wait_for()
+        self.assertNotIn("id=", page.url)
+
+        page.get_by_role("button", name="Logout", exact=True).click()
+        page.get_by_role("button", name="Login").wait_for()
+
+        page.get_by_role("heading", name="My data").wait_for()
+        self.assertFalse(page.locator(".details-title").is_visible())
+        self.assertNotIn("id=", page.url)
+
     def test_browser_partial_delete_own_data_shows_remaining_poll_summary(self) -> None:
         page = self.require_page()
         keep_identifier = "profile_keep_poll"
@@ -2553,6 +2668,38 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("dialog").wait_for(state="hidden")
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
         self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+
+    def test_browser_cancelled_auth_dialog_discards_pending_vote_action(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="pending-vote-cancel-creator")
+        self.create_poll(
+            title="Pending vote cancel poll",
+            description="Used for cancelled pending vote coverage.",
+            identifier="pending_vote_cancel_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-24",
+            end_date="2026-04-24",
+        )
+
+        page.get_by_role("button", name="Logout", exact=True).click()
+        page.get_by_role("button", name="Login").wait_for()
+
+        first_yes_button = page.locator(".vote-switch-option-yes").first
+        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+
+        first_yes_button.click()
+        page.get_by_role("dialog").wait_for()
+        page.keyboard.press("Escape")
+        page.get_by_role("dialog").wait_for(state="hidden")
+
+        page.get_by_role("button", name="Login").click()
+        self.submit_auth_dialog(name="pending-vote-cancel-user")
+        page.get_by_role("button", name="Logout", exact=True).wait_for()
+        page.wait_for_load_state("networkidle")
+
+        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
 
     def test_browser_pending_create_action_resumes_after_login(self) -> None:
         page = self.require_page()

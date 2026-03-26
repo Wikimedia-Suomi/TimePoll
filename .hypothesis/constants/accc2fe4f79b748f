@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/timepoll/urls.py
+# hypothesis_version: 6.151.9
+
+['admin/', 'polls.urls']

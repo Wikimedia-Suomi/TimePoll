@@ -43,6 +43,9 @@ jobs:
       - name: Playwright browser tests
         run: sh tools/test-browser.sh
 
+      - name: Playwright storyboard browser tests
+        run: sh tools/test-browser-storyboard.sh
+
       - name: Upload coverage XML
         uses: actions/upload-artifact@v4
         with:

@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/polls/migrations/0002_poll_schedule_and_vote_status.py
+# hypothesis_version: 6.151.9
+
+['0001_initial', 'Maybe', 'No', 'PollVote', 'Yes', 'available', 'maybe', 'no', 'poll', 'polls', 'pollvote', 'slot_minutes', 'status', 'window_ends_at', 'window_starts_at', 'yes']

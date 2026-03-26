@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/polls/urls.py
+# hypothesis_version: 6.151.9
+
+['api/auth/login/', 'api/auth/logout/', 'api/auth/me/', 'api/auth/register/', 'api/auth/session/', 'api/i18n/language/', 'api/polls/', 'auth_me_data', 'auth_session', 'index', 'login_identity', 'logout_identity', 'poll_close', 'poll_detail', 'poll_reopen', 'poll_vote_delete', 'poll_votes_upsert', 'polls', 'polls_collection', 'register_identity', 'set_language']

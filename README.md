@@ -55,6 +55,7 @@ Browser and full quality workflow:
 ```bash
 sh tools/install-browser.sh
 sh tools/test-browser.sh
+sh tools/test-browser-storyboard.sh
 sh tools/quality-full.sh
 ```
 
@@ -105,6 +106,7 @@ Browser and full quality:
 ```bash
 sh tools/install-browser.sh
 sh tools/test-browser.sh
+sh tools/test-browser-storyboard.sh
 sh tools/quality-full.sh
 ```
 
@@ -125,9 +127,12 @@ This repository includes GitHub Actions checks in `.github/workflows/ci.yml`:
 - `sh tools/quality-core.sh`
 - `sh tools/install-browser.sh`
 - `sh tools/test-browser.sh`
+- `sh tools/test-browser-storyboard.sh`
 
 Note: the `pip-audit` target currently ignores advisory `GHSA-5239-wwwm-4pmq`
 for `pygments`, because no fixed upstream release is available yet.
+
+The coverage gate currently requires at least `92%` total Python coverage.
 
 To enforce these checks as merge gates in GitHub:
 

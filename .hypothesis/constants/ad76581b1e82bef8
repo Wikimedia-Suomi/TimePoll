@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/polls/migrations/0001_initial.py
+# hypothesis_version: 6.151.9
+
+[120, 128, 160, '-created_at', 'ID', 'Identity', 'Poll', 'PollOption', 'PollVote', 'available', 'closed_at', 'created_at', 'created_polls', 'creator', 'description', 'ends_at', 'id', 'is_closed', 'label', 'name', 'options', 'ordering', 'pin_hash', 'poll', 'poll_option', 'polls.identity', 'polls.poll', 'polls.polloption', 'pollvote', 'starts_at', 'title', 'updated_at', 'voter', 'votes']

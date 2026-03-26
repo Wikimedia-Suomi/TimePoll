@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/polls/migrations/0006_remove_identity_preferred_timezone.py
+# hypothesis_version: 6.151.9
+
+['identity', 'polls', 'preferred_timezone']

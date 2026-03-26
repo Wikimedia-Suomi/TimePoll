@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/polls/admin.py
+# hypothesis_version: 6.151.9
+
+['allowed_weekdays', 'closed_at', 'created_at', 'creator', 'creator__name', 'daily_end_hour', 'daily_start_hour', 'id', 'identifier', 'is_closed', 'name', 'poll_option', 'slot_minutes', 'status', 'timezone_name', 'title', 'updated_at', 'voter', 'voter__name', 'window_ends_at', 'window_starts_at']

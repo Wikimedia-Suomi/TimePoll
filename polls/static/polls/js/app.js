@@ -1532,7 +1532,11 @@ const translations = {
         },
         closeAuthDialog(options = {}) {
           const restoreFocus = options.restoreFocus !== false;
+          const clearPendingAction = options.clearPendingAction !== false;
           const returnFocusTarget = restoreFocus ? this._authDialogReturnFocus : null;
+          if (clearPendingAction) {
+            this.pendingAction = null;
+          }
           this.showAuthDialog = false;
           this._authDialogReturnFocus = null;
           this.$nextTick(() => {
@@ -2884,6 +2888,7 @@ const translations = {
         },
         async changeLanguage() {
           safeLocalStorageSetItem("timepoll-language", this.language);
+          document.documentElement.lang = this.language;
           try {
             await apiFetch("/api/i18n/language/", {
               method: "POST",
@@ -3061,8 +3066,8 @@ const translations = {
             this.setSuccess(data.created ? this.t("createdLoginSuccess") : this.t("loginSuccess"));
 
             await this.fetchPolls();
-            if (this.selectedPoll) {
-              await this.openPoll(this.selectedPoll.id);
+            if (this.activeSection === "selected" && this.selectedPoll) {
+              await this.openPoll(this.selectedPoll.id, { preserveFeedback: true });
             }
 
             if (this.pendingAction) {
@@ -3086,8 +3091,8 @@ const translations = {
             this.profileDeleteSummary = null;
             this.setSuccess(this.t("logoutSuccess"));
             await this.fetchPolls();
-            if (this.selectedPoll) {
-              await this.openPoll(this.selectedPoll.id);
+            if (this.activeSection === "selected" && this.selectedPoll) {
+              await this.openPoll(this.selectedPoll.id, { preserveFeedback: true });
             }
           } catch (error) {
             this.setError(this.resolveError(error.payload, "Logout failed."));
@@ -3148,7 +3153,9 @@ const translations = {
           if (!normalizedPollId) {
             return;
           }
-          this.clearFeedback();
+          if (options.preserveFeedback !== true) {
+            this.clearFeedback();
+          }
           try {
             const data = await apiFetch(`/api/polls/${encodeURIComponent(normalizedPollId)}/`);
             this.selectedPoll = data.poll;
@@ -3206,7 +3213,7 @@ const translations = {
 
               this.setSuccess(this.t("createdSuccess"));
               await this.fetchPolls();
-              await this.openPoll(data.poll.id);
+              await this.openPoll(data.poll.id, { preserveFeedback: true });
             } catch (error) {
               this.applyBackendFormError("create", error.payload);
               this.setError(this.resolveError(error.payload, "Could not create poll."));

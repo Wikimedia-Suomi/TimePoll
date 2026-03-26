@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/polls/migrations/0003_poll_allowed_weekdays_poll_daily_end_hour_and_more.py
+# hypothesis_version: 6.151.9
+
+['allowed_weekdays', 'daily_end_hour', 'daily_start_hour', 'poll', 'polls']

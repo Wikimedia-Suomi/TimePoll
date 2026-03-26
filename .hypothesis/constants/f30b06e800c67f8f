@@ -1,0 +1,4 @@
+# file: /Users/kimmovirtanen_1/TimePoll/TimePoll2/timepoll/settings.py
+# hypothesis_version: 6.151.9
+
+[',', '/static/', '0', '1', 'APP_DIRS', 'BACKEND', 'DIRS', 'ENGINE', 'English', 'Estonian', 'Finnish', 'Lax', 'NAME', 'Norwegian', 'OPTIONS', 'Swedish', 'TIMEPOLL_DEBUG', 'TIMEPOLL_SECRET_KEY', 'UTC', 'context_processors', 'db.sqlite3', 'default', 'django.contrib.admin', 'django.contrib.auth', 'en', 'et', 'false', 'fi', 'locale', 'no', 'off', 'on', 'polls', 'staticfiles', 'sv', 'timepoll.urls', 'true', 'yes']
