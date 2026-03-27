@@ -1054,63 +1054,63 @@
                               class="vote-cell"
                               :class="voteCellClass(row.cells[day.key])"
                             >
-                              <div class="vote-menu-wrapper" @click.stop>
-                                <div
-                                  class="vote-switch"
-                                  role="radiogroup"
-                                  :aria-label="voteGroupAccessibleLabel(day, row)"
-                                  :class="`state-${voteSwitchState(row.cells[day.key])}`"
+                              <div
+                                class="vote-switch"
+                                role="radiogroup"
+                                :aria-label="voteGroupAccessibleLabel(day, row)"
+                                @click.stop
+                              >
+                                <button
+                                  type="button"
+                                  role="radio"
+                                  :aria-label="voteOptionAccessibleLabel(row.cells[day.key], 'yes')"
+                                  :aria-checked="isSelectedVoteValue(row.cells[day.key], 'yes') ? 'true' : 'false'"
+                                  :tabindex="voteButtonTabIndex(row.cells[day.key], 'yes')"
+                                  :data-vote-option-id="row.cells[day.key].id"
+                                  :data-label="voteStatusLabel('yes')"
+                                  data-vote-status="yes"
+                                  class="vote-switch-option vote-switch-option-yes"
+                                  :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }"
+                                  :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                  @click="setVoteStatus(row.cells[day.key], 'yes')"
+                                  @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'yes')"
                                 >
-                                  <span class="vote-switch-thumb" aria-hidden="true"></span>
-                                  <button
-                                    type="button"
-                                    role="radio"
-                                    :aria-checked="isSelectedVoteValue(row.cells[day.key], 'yes') ? 'true' : 'false'"
-                                    :tabindex="voteButtonTabIndex(row.cells[day.key], 'yes')"
-                                    :data-vote-option-id="row.cells[day.key].id"
-                                    data-vote-status="yes"
-                                    class="vote-switch-option vote-switch-option-yes"
-                                    :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }"
-                                    :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
-                                    @click="setVoteStatus(row.cells[day.key], 'yes')"
-                                    @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'yes')"
-                                  >
-                                    <span class="vote-switch-label">[[ t('voteYes') ]]</span>
-                                    <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'yes') ]]</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="radio"
-                                    :aria-checked="isSelectedVoteValue(row.cells[day.key], 'maybe') ? 'true' : 'false'"
-                                    :tabindex="voteButtonTabIndex(row.cells[day.key], 'maybe')"
-                                    :data-vote-option-id="row.cells[day.key].id"
-                                    data-vote-status="maybe"
-                                    class="vote-switch-option vote-switch-option-maybe"
-                                    :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }"
-                                    :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
-                                    @click="setVoteStatus(row.cells[day.key], 'maybe')"
-                                    @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'maybe')"
-                                  >
-                                    <span class="vote-switch-label">[[ t('voteMaybe') ]]</span>
-                                    <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'maybe') ]]</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="radio"
-                                    :aria-checked="isSelectedVoteValue(row.cells[day.key], 'no') ? 'true' : 'false'"
-                                    :tabindex="voteButtonTabIndex(row.cells[day.key], 'no')"
-                                    :data-vote-option-id="row.cells[day.key].id"
-                                    data-vote-status="no"
-                                    class="vote-switch-option vote-switch-option-no"
-                                    :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'no') }"
-                                    :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
-                                    @click="setVoteStatus(row.cells[day.key], 'no')"
-                                    @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'no')"
-                                  >
-                                    <span class="vote-switch-label">[[ t('voteNo') ]]</span>
-                                    <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'no') ]]</span>
-                                  </button>
-                                </div>
+                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'yes') ]]</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  role="radio"
+                                  :aria-label="voteOptionAccessibleLabel(row.cells[day.key], 'maybe')"
+                                  :aria-checked="isSelectedVoteValue(row.cells[day.key], 'maybe') ? 'true' : 'false'"
+                                  :tabindex="voteButtonTabIndex(row.cells[day.key], 'maybe')"
+                                  :data-vote-option-id="row.cells[day.key].id"
+                                  :data-label="voteStatusLabel('maybe')"
+                                  data-vote-status="maybe"
+                                  class="vote-switch-option vote-switch-option-maybe"
+                                  :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }"
+                                  :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                  @click="setVoteStatus(row.cells[day.key], 'maybe')"
+                                  @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'maybe')"
+                                >
+                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'maybe') ]]</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  role="radio"
+                                  :aria-label="voteOptionAccessibleLabel(row.cells[day.key], 'no')"
+                                  :aria-checked="isSelectedVoteValue(row.cells[day.key], 'no') ? 'true' : 'false'"
+                                  :tabindex="voteButtonTabIndex(row.cells[day.key], 'no')"
+                                  :data-vote-option-id="row.cells[day.key].id"
+                                  :data-label="voteStatusLabel('no')"
+                                  data-vote-status="no"
+                                  class="vote-switch-option vote-switch-option-no"
+                                  :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'no') }"
+                                  :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                  @click="setVoteStatus(row.cells[day.key], 'no')"
+                                  @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'no')"
+                                >
+                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'no') ]]</span>
+                                </button>
                               </div>
                             </div>
                             <div v-else class="vote-cell vote-unavailable">-</div>

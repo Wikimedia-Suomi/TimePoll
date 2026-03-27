@@ -3178,6 +3178,11 @@ const translations = {
         optionCount(option, status) {
           return readOptionCount(option, status);
         },
+        voteOptionAccessibleLabel(option, status) {
+          const label = this.voteStatusLabel(status);
+          const count = this.optionCount(option, status);
+          return Number.isFinite(count) ? `${label} ${count}` : label;
+        },
         voteStatusLabel(status) {
           if (status === "yes") {
             return this.t("voteYes");
@@ -3195,13 +3200,6 @@ const translations = {
         },
         isVoteSaving(optionId) {
           return Boolean(this.savingVoteOptionIds[optionId]);
-        },
-        voteSwitchState(option) {
-          const selected = this.voteValueForOption(option);
-          if (selected === "yes" || selected === "maybe" || selected === "no") {
-            return selected;
-          }
-          return "none";
         },
         closeVoteMenus(options = {}) {
           const activeMenu = this.bulkMenu;
