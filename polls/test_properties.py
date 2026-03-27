@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import string
 from datetime import date, timedelta
+from typing import NoReturn
 from zoneinfo import ZoneInfo
 
 from django.test import SimpleTestCase
@@ -21,6 +22,10 @@ from .views import (
 PROPERTY_TEST_SETTINGS = hypothesis_settings(deadline=None, max_examples=60)
 IDENTIFIER_ALPHABET = string.ascii_letters + string.digits + "_"
 WHITESPACE_ALPHABET = " \t\n\r"
+
+
+def fail_type_expectation(name: str, value: object, expected: str) -> NoReturn:
+    raise AssertionError(f"{name} should be {expected}, got {type(value).__name__}")
 
 
 @st.composite
@@ -119,11 +124,16 @@ class PollPropertyTests(SimpleTestCase):
         daily_end_hour = schedule["daily_end_hour"]
         allowed_weekdays = schedule["allowed_weekdays"]
 
-        assert isinstance(start_date, date)
-        assert isinstance(end_date, date)
-        assert isinstance(daily_start_hour, int)
-        assert isinstance(daily_end_hour, int)
-        assert isinstance(allowed_weekdays, list)
+        if not isinstance(start_date, date):
+            fail_type_expectation("start_date", start_date, "date")
+        if not isinstance(end_date, date):
+            fail_type_expectation("end_date", end_date, "date")
+        if not isinstance(daily_start_hour, int):
+            fail_type_expectation("daily_start_hour", daily_start_hour, "int")
+        if not isinstance(daily_end_hour, int):
+            fail_type_expectation("daily_end_hour", daily_end_hour, "int")
+        if not isinstance(allowed_weekdays, list):
+            fail_type_expectation("allowed_weekdays", allowed_weekdays, "list")
 
         matching_days = sum(
             1

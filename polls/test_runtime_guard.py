@@ -3,12 +3,14 @@ from __future__ import annotations
 import os
 import socket
 import sqlite3
-import subprocess
+import subprocess  # nosec B404
 import sys
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 from ipaddress import ip_address
 from pathlib import Path
+from tempfile import gettempdir
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
@@ -26,7 +28,6 @@ from timepoll.runtime_guard import (
     SQLiteConnectionBlocked,
     install_runtime_audit_guard,
 )
-
 
 _AUDIT_EVENT_SINKS: list[list[tuple[str, tuple[object, ...]]]] = []
 
@@ -48,7 +49,7 @@ sys.addaudithook(_capture_runtime_audit_event)
 
 
 @contextmanager
-def capture_runtime_audit_events() -> list[tuple[str, tuple[object, ...]]]:
+def capture_runtime_audit_events() -> Iterator[list[tuple[str, tuple[object, ...]]]]:
     sink: list[tuple[str, tuple[object, ...]]] = []
     _AUDIT_EVENT_SINKS.append(sink)
     try:
@@ -261,7 +262,7 @@ class RuntimeAuditGuardTests(SimpleTestCase):
         )
 
     def test_actual_file_write_audit_payload_drives_write_guard(self) -> None:
-        output_path = Path(os.getenv("TMPDIR") or "/tmp") / "runtime-guard-write-payload.txt"
+        output_path = Path(os.getenv("TMPDIR") or gettempdir()) / "runtime-guard-write-payload.txt"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -269,12 +270,15 @@ class RuntimeAuditGuardTests(SimpleTestCase):
                 with open(output_path, "w", encoding="utf-8") as handle:
                     handle.write("payload")
 
-            open_events = [
-                args
-                for event, args in events
-                if event == "open"
-                and Path(os.fspath(args[0])) == output_path
-            ]
+            open_events = []
+            for event, args in events:
+                if event != "open":
+                    continue
+                raw_path = args[0]
+                if not isinstance(raw_path, str):
+                    continue
+                if Path(raw_path) == output_path:
+                    open_events.append(args)
             self.assertTrue(open_events)
 
             actual_write_event = open_events[-1]
@@ -391,7 +395,8 @@ class RuntimeAuditGuardTests(SimpleTestCase):
             self.skipTest("Process guard blocks real subprocess payload capture in guard profiles.")
 
         with capture_runtime_audit_events() as events:
-            completed = subprocess.run(
+            # Bandit B603 is intentional here: the test uses a fixed interpreter command.
+            completed = subprocess.run(  # nosec B603
                 [sys.executable, "-c", "pass"],
                 check=False,
             )

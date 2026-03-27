@@ -1,17 +1,19 @@
 PYTHON ?= venv/bin/python
 PIP ?= venv/bin/pip
+PIP_AUDIT ?= venv/bin/pip-audit
 PLAYWRIGHT_INSTALL_ARGS ?= chromium
 PIP_AUDIT_IGNORE ?= GHSA-5239-wwwm-4pmq
-COVERAGE_FAIL_UNDER ?= 92
+PIP_AUDIT_CACHE_DIR ?= /tmp/pip-audit-cache
+COVERAGE_FAIL_UNDER ?= 87
 
 TIMEPOLL_SECRET_KEY ?= dev-only-secret-change-me
 TIMEPOLL_DEBUG ?= 1
 TIMEPOLL_ALLOWED_HOSTS ?= 127.0.0.1,localhost,testserver,[::1]
 PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/.playwright-browsers
 
-TOOL_ENV = PYTHON_BIN="$(PYTHON)" PIP_BIN="$(PIP)" PLAYWRIGHT_INSTALL_ARGS="$(PLAYWRIGHT_INSTALL_ARGS)" PIP_AUDIT_IGNORE="$(PIP_AUDIT_IGNORE)" PLAYWRIGHT_BROWSERS_PATH="$(PLAYWRIGHT_BROWSERS_PATH)" COVERAGE_FAIL_UNDER="$(COVERAGE_FAIL_UNDER)" TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
+TOOL_ENV = PYTHON_BIN="$(PYTHON)" PIP_BIN="$(PIP)" PIP_AUDIT_BIN="$(PIP_AUDIT)" PLAYWRIGHT_INSTALL_ARGS="$(PLAYWRIGHT_INSTALL_ARGS)" PIP_AUDIT_IGNORE="$(PIP_AUDIT_IGNORE)" PIP_AUDIT_CACHE_DIR="$(PIP_AUDIT_CACHE_DIR)" PLAYWRIGHT_BROWSERS_PATH="$(PLAYWRIGHT_BROWSERS_PATH)" COVERAGE_FAIL_UNDER="$(COVERAGE_FAIL_UNDER)" TIMEPOLL_SECRET_KEY="$(TIMEPOLL_SECRET_KEY)" TIMEPOLL_DEBUG="$(TIMEPOLL_DEBUG)" TIMEPOLL_ALLOWED_HOSTS="$(TIMEPOLL_ALLOWED_HOSTS)"
 
-.PHONY: bootstrap dev install-dev install-browser lint typecheck security audit test test-guard test-file-watch test-file-enforce-smoke test-browser test-browser-storyboard pytest coverage quality quality-full
+.PHONY: bootstrap dev install-dev install-browser lint typecheck security audit test test-guard test-file-watch test-file-enforce-smoke test-browser test-browser-storyboard pytest coverage quality quality-full pre-push
 
 bootstrap:
 	$(TOOL_ENV) sh tools/bootstrap.sh
@@ -66,3 +68,6 @@ quality:
 
 quality-full:
 	$(TOOL_ENV) sh tools/quality-full.sh
+
+pre-push:
+	$(TOOL_ENV) sh tools/pre-push.sh

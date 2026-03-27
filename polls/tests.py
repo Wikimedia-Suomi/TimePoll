@@ -501,7 +501,7 @@ class PollApiTests(TestCase):
         self.assertNotIn("identity_id", self.client.session)
 
     def test_set_language_rejects_invalid_language_code(self):
-        cases = [
+        cases: list[tuple[str, object]] = [
             ("unsupported-string", "de"),
             ("null", None),
             ("numeric", 123),
@@ -921,7 +921,7 @@ class PollApiTests(TestCase):
     def test_create_poll_rejects_invalid_title_and_description_payloads(self):
         self.login(self.client, "alice")
 
-        cases = [
+        cases: list[tuple[str, dict[str, object], str]] = [
             ("title-not-string", {"title": 1234}, "invalid_title"),
             ("title-empty", {"title": "   "}, "invalid_title"),
             ("title-too-long", {"title": "a" * 161}, "invalid_title"),
@@ -931,7 +931,7 @@ class PollApiTests(TestCase):
 
         for label, overrides, expected_error in cases:
             with self.subTest(case=label):
-                payload = {
+                payload: dict[str, object] = {
                     "title": "Valid title",
                     "description": "Valid description",
                     "start_date": "2026-03-10",
@@ -1066,7 +1066,7 @@ class PollApiTests(TestCase):
         create = self.create_poll(self.client)
         poll_id = create.json()["poll"]["id"]
 
-        cases = [
+        cases: list[tuple[str, Client, str, str, list[str], str]] = [
             ("register", self.client, "POST", "polls:register_identity", [], "{"),
             ("login", self.client, "POST", "polls:login_identity", [], "{"),
             ("language", self.client, "POST", "polls:set_language", [], "{"),
@@ -1082,7 +1082,7 @@ class PollApiTests(TestCase):
                 self.assertEqual(response.json()["error"], "invalid_json")
 
     def test_login_and_register_reject_invalid_name_and_pin_payloads(self):
-        cases = [
+        cases: list[tuple[str, dict[str, object], str]] = [
             ("name-not-string", {"name": 1234, "pin": "1234"}, "invalid_name"),
             ("name-too-short", {"name": "a", "pin": "1234"}, "invalid_name"),
             ("name-too-long", {"name": "a" * 81, "pin": "1234"}, "invalid_name"),
@@ -1354,7 +1354,7 @@ class PollApiTests(TestCase):
         self.assertEqual(create.status_code, 201)
         poll_id = create.json()["poll"]["id"]
 
-        cases = [
+        cases: list[tuple[str, dict[str, object], str]] = [
             ("title-not-string", {"title": 1234}, "invalid_title"),
             ("title-empty", {"title": "   "}, "invalid_title"),
             ("title-too-long", {"title": "a" * 161}, "invalid_title"),
@@ -1364,7 +1364,7 @@ class PollApiTests(TestCase):
 
         for label, overrides, expected_error in cases:
             with self.subTest(case=label):
-                payload = {
+                payload: dict[str, object] = {
                     "title": "Updated title",
                     "description": "Updated description",
                     "start_date": "2026-03-10",

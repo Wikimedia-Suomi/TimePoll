@@ -298,7 +298,7 @@ class PollStoryboardBrowserTests(StaticLiveServerTestCase):
             if text or element_id or option_id or status:
                 return snapshot
             page.keyboard.press("Tab")
-        self.fail(
+        raise AssertionError(
             "Did not reach the requested focus target with keyboard navigation. "
             f"text={text!r} element_id={element_id!r} option_id={option_id!r} status={status!r}"
         )

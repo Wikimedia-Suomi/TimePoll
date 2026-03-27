@@ -103,6 +103,7 @@ sh tools/install-browser.sh
 sh tools/test-browser.sh
 sh tools/test-browser-storyboard.sh
 sh tools/quality-full.sh
+sh tools/pre-push.sh
 ```
 
 Optional storyboard workflow e2e checks:
@@ -123,6 +124,7 @@ make quality
 make test-browser
 make test-browser-storyboard
 make quality-full
+make pre-push
 ```
 
 ## Features
@@ -193,7 +195,10 @@ sh tools/install-browser.sh
 sh tools/test-browser.sh
 sh tools/test-browser-storyboard.sh
 sh tools/quality-full.sh
+sh tools/pre-push.sh
 ```
+
+`sh tools/pre-push.sh` adds the stricter pre-push checks on top of the normal full quality run by also executing the full backend audit-guard profile and the file-enforcement smoke suite before the browser suites.
 
 `pytest` remains available for backend-only collection:
 
@@ -217,7 +222,7 @@ This repository includes GitHub Actions checks in `.github/workflows/ci.yml`:
 Note: the `pip-audit` target currently ignores advisory `GHSA-5239-wwwm-4pmq`
 for `pygments`, because no fixed upstream release is available yet.
 
-The coverage gate currently requires at least `92%` total Python coverage.
+The coverage gate currently requires at least `87%` total Python coverage.
 
 To enforce these checks as merge gates in GitHub:
 

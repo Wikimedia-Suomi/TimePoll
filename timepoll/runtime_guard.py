@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, urlsplit
 
-
 VALID_GUARD_MODES = {"off", "log", "enforce"}
 
 
@@ -155,6 +154,8 @@ def _coerce_port(
             continue
         seen.add(protocol_name)
         try:
+            if protocol_name is None:
+                return socket.getservbyname(stripped)
             return socket.getservbyname(stripped, protocol_name)
         except OSError:
             continue
