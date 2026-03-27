@@ -474,6 +474,20 @@ class PollBrowserTests(StaticLiveServerTestCase):
             """
         )
 
+    def normalized_aria_snapshot(self, locator: Any) -> str:
+        snapshot = locator.aria_snapshot()
+        return "\n".join(line.rstrip() for line in snapshot.strip().splitlines())
+
+    def assert_aria_snapshot_contains(
+        self,
+        locator: Any,
+        *expected_fragments: str,
+    ) -> str:
+        snapshot = self.normalized_aria_snapshot(locator)
+        for fragment in expected_fragments:
+            self.assertIn(fragment, snapshot, snapshot)
+        return snapshot
+
     def active_element_has_visible_focus(self, page: Optional["Page"] = None) -> bool:
         page = page or self.require_page()
         return bool(
@@ -923,6 +937,101 @@ class PollBrowserTests(StaticLiveServerTestCase):
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="custom calendar timezone applied state")
 
+    def test_calendar_timezone_combobox_exposes_named_combobox_contract(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="calendar-timezone-contract-owner")
+        self.create_poll(
+            title="Calendar timezone contract poll",
+            description="Used for calendar timezone ARIA contract coverage.",
+            identifier="calendar_timezone_contract_poll",
+            timezone="UTC",
+            start_date="2026-05-15",
+            end_date="2026-05-15",
+            daily_start_hour=23,
+            daily_end_hour=24,
+        )
+
+        page.locator(".calendar-timezone-mode-item-custom").click()
+        timezone_input = page.locator("#calendar-timezone")
+        timezone_input.fill("pacific/hon")
+        page.locator("#calendar-timezone-suggestions").wait_for()
+
+        self.assertEqual(timezone_input.get_attribute("aria-label"), "Calendar timezone")
+        self.assertEqual(timezone_input.get_attribute("role"), "combobox")
+        self.assertEqual(timezone_input.get_attribute("aria-expanded"), "true")
+        self.assert_aria_snapshot_contains(
+            timezone_input,
+            'combobox "Calendar timezone"',
+        )
+        self.assert_aria_snapshot_contains(
+            page.locator("#calendar-timezone-suggestions"),
+            'listbox "Timezone suggestions"',
+            'option "Pacific/Honolulu',
+        )
+
+    def test_calendar_day_bulk_menu_exposes_menu_contract(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="calendar-bulk-contract-owner")
+        self.create_poll(
+            title="Calendar bulk contract poll",
+            description="Used for calendar bulk menu ARIA contract coverage.",
+            identifier="calendar_bulk_contract_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-11",
+            end_date="2026-06-12",
+            daily_start_hour=9,
+            daily_end_hour=11,
+        )
+
+        first_day_trigger = page.locator(".bulk-day-trigger").first
+        first_day_trigger.click()
+        day_menu = page.locator(".bulk-menu").first
+        day_menu.wait_for()
+
+        self.assert_aria_snapshot_contains(
+            day_menu,
+            "- menu",
+            'menuitem "No vote"',
+            'menuitem "Yes"',
+            'menuitem "No"',
+            'menuitem "Maybe"',
+        )
+
+    def test_calendar_vote_switch_exposes_radiogroup_contract(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="calendar-radiogroup-contract-owner")
+        self.create_poll(
+            title="Calendar radiogroup contract poll",
+            description="Used for vote switch ARIA contract coverage.",
+            identifier="calendar_radiogroup_contract_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-15",
+            end_date="2026-06-15",
+        )
+
+        first_yes_button = page.locator(".vote-switch-option-yes").first
+        first_yes_button.click()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
+
+        vote_group = page.locator(".vote-switch").first
+        group_label = vote_group.get_attribute("aria-label") or ""
+        self.assertIn("Mon", group_label)
+        self.assertIn("09:00", group_label)
+        self.assert_aria_snapshot_contains(
+            vote_group,
+            "- radiogroup",
+            'radio "Yes 1" [checked]',
+            'radio "Maybe 0"',
+            'radio "No 0"',
+        )
+        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+
     def test_mobile_paginated_calendar_state_has_no_accessibility_violations(self) -> None:
         page = self.require_page()
         page.set_viewport_size({"width": 480, "height": 900})
@@ -946,7 +1055,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         first_block = self.week_block_locator(block_index=0, page=page)
         scroll_before = float(page.evaluate("() => window.scrollY"))
-        first_block.get_by_role("button", name="Next days").click()
+        first_block.locator('[data-nav-direction="next"]').click()
         page.wait_for_function("(previousY) => window.scrollY > previousY + 5", arg=scroll_before)
         page.wait_for_function(
             """
@@ -2020,7 +2129,8 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertGreater(visible_days, 0)
         self.assertLess(visible_days, 7)
 
-        next_button = first_block.get_by_role("button", name="Next days")
+        next_button = first_block.locator('[data-nav-direction="next"]')
+        self.assertEqual(next_button.get_attribute("aria-label"), f"Next days, Days 1-{visible_days}/7")
         next_button.focus()
         self.assertTrue(next_button.evaluate("element => document.activeElement === element"))
 
@@ -2036,7 +2146,11 @@ class PollBrowserTests(StaticLiveServerTestCase):
             f"Days {visible_days + 1}-{visible_days + second_visible_days}/7",
         )
 
-        previous_button = second_block.get_by_role("button", name="Previous days")
+        previous_button = second_block.locator('[data-nav-direction="prev"]')
+        self.assertEqual(
+            previous_button.get_attribute("aria-label"),
+            f"Previous days, Days {visible_days + 1}-{visible_days + second_visible_days}/7",
+        )
         previous_button.focus()
         self.assertTrue(previous_button.evaluate("element => document.activeElement === element"))
 
@@ -2087,7 +2201,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertTrue(last_block_range.startswith("Days "), last_block_range)
         self.assertTrue(last_block_range.endswith("/7"), last_block_range)
 
-        next_button = last_block_first_week.get_by_role("button", name="Next days")
+        next_button = last_block_first_week.locator('[data-nav-direction="next"]')
         self.assertTrue(next_button.is_enabled())
         next_button.click()
 
@@ -2106,7 +2220,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         second_week_range.wait_for()
         self.assertEqual(second_week_range.inner_text().strip(), "Days 1-2/2")
 
-        previous_button = first_block_second_week.get_by_role("button", name="Previous days")
+        previous_button = first_block_second_week.locator('[data-nav-direction="prev"]')
         self.assertTrue(previous_button.is_enabled())
         previous_button.click()
 
@@ -2760,7 +2874,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         second_block = self.week_block_locator(block_index=1, page=page)
         second_visible_days = second_block.locator(".calendar-day-col").count()
         scroll_before = float(page.evaluate("() => window.scrollY"))
-        first_block.get_by_role("button", name="Next days").click()
+        first_block.locator('[data-nav-direction="next"]').click()
         page.wait_for_function("(previousY) => window.scrollY > previousY + 5", arg=scroll_before)
         page.wait_for_function(
             """
@@ -2787,7 +2901,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             arg=second_visible_days,
         )
 
-        second_block.get_by_role("button", name="Previous days").click()
+        second_block.locator('[data-nav-direction="prev"]').click()
         page.wait_for_function(
             """
             (blockIndex) => {
@@ -2854,7 +2968,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         first_block = self.week_block_locator(block_index=0, page=page)
         first_block.locator(".vote-switch").first.wait_for()
-        first_block.get_by_role("button", name="Next days").click()
+        first_block.locator('[data-nav-direction="next"]').click()
 
         page.wait_for_function(
             """
@@ -2937,6 +3051,81 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(calendar_state["rowLabels"], ["03:00", "03:00", "04:00"], calendar_state)
         self.assertEqual(len(calendar_state["optionIds"]), 3, calendar_state)
         self.assertEqual(len(set(calendar_state["optionIds"])), 3, calendar_state)
+
+    def test_browser_calendar_pagination_buttons_expose_range_in_accessible_name(self) -> None:
+        page = self.require_page()
+        page.set_viewport_size({"width": 480, "height": 900})
+
+        self.open_home_page()
+        self.login(name="pagination-contract-owner")
+        self.create_poll(
+            title="Pagination contract poll",
+            description="Used for pagination ARIA contract coverage.",
+            identifier="pagination_contract_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-22",
+            end_date="2026-06-28",
+            daily_start_hour=9,
+            daily_end_hour=10,
+            allowed_weekdays=[0, 1, 2, 3, 4, 5, 6],
+        )
+
+        first_block = self.week_block_locator(block_index=0, page=page)
+        nav_range = first_block.locator(".calendar-nav-range")
+        nav_range.wait_for()
+        current_range = nav_range.inner_text().strip()
+        next_button = first_block.locator('[data-nav-direction="next"]')
+
+        self.assertEqual(next_button.get_attribute("aria-label"), f"Next days, {current_range}")
+        self.assertEqual(next_button.get_attribute("aria-describedby"), nav_range.get_attribute("id"))
+        self.assert_aria_snapshot_contains(
+            next_button,
+            f'button "Next days, {current_range}"',
+        )
+
+    def test_browser_duplicate_dst_rows_expose_distinct_accessible_labels(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="calendar-dst-contract-owner")
+        self.create_poll(
+            title="Calendar DST accessibility contract poll",
+            description="Used for duplicate DST hour accessibility contract coverage.",
+            identifier="calendar_dst_accessibility_contract_poll",
+            timezone="UTC",
+            start_date="2026-10-25",
+            end_date="2026-10-25",
+            daily_start_hour=0,
+            daily_end_hour=3,
+            allowed_weekdays=[6],
+        )
+
+        page.locator(".calendar-timezone-mode-item-custom").click()
+        page.locator("#calendar-timezone").fill("Europe/Helsinki")
+        page.locator("#calendar-timezone").blur()
+        page.wait_for_function(
+            """
+            () => document.querySelectorAll('.bulk-time-trigger').length === 3
+            """
+        )
+
+        first_row_trigger = page.locator(".bulk-time-trigger").nth(0)
+        second_row_trigger = page.locator(".bulk-time-trigger").nth(1)
+        self.assertEqual(first_row_trigger.inner_text().strip(), "03:00")
+        self.assertEqual(second_row_trigger.inner_text().strip(), "03:00")
+        self.assertEqual(first_row_trigger.get_attribute("aria-label"), "03:00 [1/2]")
+        self.assertEqual(second_row_trigger.get_attribute("aria-label"), "03:00 [2/2]")
+        self.assertNotEqual(
+            first_row_trigger.get_attribute("aria-label"),
+            second_row_trigger.get_attribute("aria-label"),
+        )
+
+        first_group = page.locator(".vote-switch").nth(0)
+        second_group = page.locator(".vote-switch").nth(1)
+        self.assertIn("[1/2]", first_group.get_attribute("aria-label") or "")
+        self.assertIn("[2/2]", second_group.get_attribute("aria-label") or "")
+        self.assert_aria_snapshot_contains(first_row_trigger, 'button "03:00 [1/2]"')
+        self.assert_aria_snapshot_contains(second_row_trigger, 'button "03:00 [2/2]"')
 
     def test_browser_calendar_gap_indicator_marks_missing_days_between_columns(self) -> None:
         page = self.require_page()

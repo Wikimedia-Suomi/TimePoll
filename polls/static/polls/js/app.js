@@ -1847,11 +1847,12 @@ const translations = {
                     cells[day.key] = option;
                   }
                 }
-                if (Object.keys(cells).length > 0) {
+            if (Object.keys(cells).length > 0) {
                   rows.push({
                     key: `${week.key}-${timeKey}-${occurrenceIndex}`,
                     timeKey,
                     occurrenceIndex,
+                    occurrenceCount: maxBucketLength,
                     cells
                   });
                 }
@@ -3338,6 +3339,17 @@ const translations = {
           const end = Math.min(week.days.length, block.startIndex + block.days.length);
           return `${this.t("daysRange")} ${start}-${end}/${week.days.length}`;
         },
+        weekBlockRangeId(week, block) {
+          if (!week || !block) {
+            return "";
+          }
+          return `calendar-week-block-range-${this.bulkMenuIdPart(week.key)}-${this.bulkMenuIdPart(block.key)}`;
+        },
+        weekBlockNavigationLabel(week, block, direction) {
+          const base = direction < 0 ? this.t("prevDays") : this.t("nextDays");
+          const range = this.weekBlockRangeLabel(week, block);
+          return range ? `${base}, ${range}` : base;
+        },
         weekBlockId(week, block) {
           if (!week || !block) {
             return "";
@@ -3404,11 +3416,34 @@ const translations = {
           }
           this.scrollToWeekBlock(targetEntry.week, targetEntry.block, direction);
         },
+        rowAccessibleTimeLabel(row) {
+          if (!row) {
+            return "";
+          }
+          const timeKey = typeof row.timeKey === "string" ? row.timeKey : "";
+          const occurrenceCount = Number(row.occurrenceCount) || 0;
+          const occurrenceIndex = Number(row.occurrenceIndex) || 0;
+          if (occurrenceCount > 1) {
+            return `${timeKey} [${occurrenceIndex + 1}/${occurrenceCount}]`;
+          }
+          return timeKey;
+        },
+        voteGroupAccessibleLabel(day, row) {
+          const parts = [];
+          if (day && typeof day.longLabel === "string" && day.longLabel) {
+            parts.push(day.longLabel);
+          }
+          const timeLabel = this.rowAccessibleTimeLabel(row);
+          if (timeLabel) {
+            parts.push(timeLabel);
+          }
+          return parts.join(" ");
+        },
         blockRowMenuKey(block, row) {
           if (!block || !row) {
             return "";
           }
-          return `${block.key}-${row.timeKey}`;
+          return `${block.key}-${row.timeKey}-${Number(row.occurrenceIndex) || 0}`;
         },
         isBulkMenuOpen(type, scopeKey, key) {
           return Boolean(

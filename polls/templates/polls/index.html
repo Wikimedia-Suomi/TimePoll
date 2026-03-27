@@ -782,6 +782,7 @@
                 aria-autocomplete="list"
                 aria-haspopup="listbox"
                 aria-controls="calendar-timezone-suggestions"
+                :aria-label="t('calendarTimezone')"
                 :aria-expanded="showCalendarTimezoneSuggestions && filteredCalendarTimezoneOptions.length ? 'true' : 'false'"
                 :aria-activedescendant="activeCalendarTimezoneSuggestionId || null"
               >
@@ -876,18 +877,20 @@
                         data-nav-direction="prev"
                         @click="jumpWeekBlocks(week, block, -1)"
                         :disabled="!canScrollWeekBlock(week, block, -1)"
-                        :aria-label="t('prevDays')"
+                        :aria-label="weekBlockNavigationLabel(week, block, -1)"
+                        :aria-describedby="weekBlockRangeId(week, block)"
                       >
                         ‹
                       </button>
-                      <span class="calendar-nav-range">[[ weekBlockRangeLabel(week, block) ]]</span>
+                      <span class="calendar-nav-range" :id="weekBlockRangeId(week, block)">[[ weekBlockRangeLabel(week, block) ]]</span>
                       <button
                         type="button"
                         class="calendar-nav-btn secondary"
                         data-nav-direction="next"
                         @click="jumpWeekBlocks(week, block, 1)"
                         :disabled="!canScrollWeekBlock(week, block, 1)"
-                        :aria-label="t('nextDays')"
+                        :aria-label="weekBlockNavigationLabel(week, block, 1)"
+                        :aria-describedby="weekBlockRangeId(week, block)"
                       >
                         ›
                       </button>
@@ -994,6 +997,7 @@
                                 @click="toggleBulkMenu('row', block.key, blockRowMenuKey(block, row))"
                                 @keydown="handleBulkTriggerKeydown($event, 'row', block.key, blockRowMenuKey(block, row))"
                                 aria-haspopup="menu"
+                                :aria-label="rowAccessibleTimeLabel(row)"
                                 :aria-expanded="isBulkMenuOpen('row', block.key, blockRowMenuKey(block, row)) ? 'true' : 'false'"
                                 :aria-controls="isBulkMenuOpen('row', block.key, blockRowMenuKey(block, row)) ? bulkMenuId('row', block.key, blockRowMenuKey(block, row)) : null"
                               >
@@ -1005,7 +1009,7 @@
                                 class="bulk-menu"
                                 :id="bulkMenuId('row', block.key, blockRowMenuKey(block, row))"
                                 role="menu"
-                                :aria-label="`${t('timeColumn')} ${row.timeKey}`"
+                                :aria-label="`${t('timeColumn')} ${rowAccessibleTimeLabel(row)}`"
                                 @keydown="handleBulkMenuKeydown($event, 'row', block.key, blockRowMenuKey(block, row))"
                               >
                                 <button
@@ -1054,7 +1058,7 @@
                                 <div
                                   class="vote-switch"
                                   role="radiogroup"
-                                  :aria-label="`${day.longLabel} ${row.timeKey}`"
+                                  :aria-label="voteGroupAccessibleLabel(day, row)"
                                   :class="`state-${voteSwitchState(row.cells[day.key])}`"
                                 >
                                   <span class="vote-switch-thumb" aria-hidden="true"></span>
