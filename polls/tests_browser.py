@@ -2709,6 +2709,85 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(second_yes_button.get_attribute("aria-checked"), "true")
         self.assertEqual(page.locator(".feedback.error").count(), 0)
 
+    def test_browser_vote_request_recovers_from_csrf_retry(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="csrf-retry-owner")
+        self.create_poll(
+            title="CSRF retry vote poll",
+            description="Used to verify automatic CSRF recovery for vote writes.",
+            identifier="csrf_retry_vote_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-13",
+            end_date="2026-04-13",
+        )
+
+        page.evaluate(
+            """
+            () => {
+              if (window.__timepollCsrfRetryStats) {
+                return;
+              }
+              const originalFetch = window.fetch.bind(window);
+              const voteUrlPattern = /\\/api\\/polls\\/[^/]+\\/votes\\/$/;
+              const sessionUrlPattern = /\\/api\\/auth\\/session\\/$/;
+              window.__timepollCsrfRetryStats = {
+                sessionRefreshCount: 0,
+                voteStatuses: [],
+                voteAttemptCount: 0
+              };
+              window.fetch = async (input, init = {}) => {
+                const requestUrl = typeof input === 'string' ? input : input.url;
+                const requestMethod = String(
+                  (init && init.method)
+                  || (typeof input === 'object' && input && input.method)
+                  || 'GET'
+                ).toUpperCase();
+                if (requestMethod === 'GET' && sessionUrlPattern.test(requestUrl)) {
+                  window.__timepollCsrfRetryStats.sessionRefreshCount += 1;
+                  return originalFetch(input, init);
+                }
+                if (requestMethod === 'PUT' && voteUrlPattern.test(requestUrl)) {
+                  const stats = window.__timepollCsrfRetryStats;
+                  stats.voteAttemptCount += 1;
+                  const nextInit = { ...init, headers: new Headers(init.headers || {}) };
+                  if (stats.voteAttemptCount === 1) {
+                    nextInit.headers.set('X-CSRFToken', 'x'.repeat(32));
+                  }
+                  const response = await originalFetch(input, nextInit);
+                  stats.voteStatuses.push(response.status);
+                  return response;
+                }
+                return originalFetch(input, init);
+              };
+            }
+            """
+        )
+
+        first_yes_button = page.locator(".vote-switch-option-yes").first
+        first_yes_button.click()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
+        page.wait_for_function(
+            """
+            () => {
+              const stats = window.__timepollCsrfRetryStats;
+              return Boolean(stats)
+                && Array.isArray(stats.voteStatuses)
+                && stats.voteStatuses.length >= 2
+                && stats.voteStatuses[0] === 403
+                && stats.voteStatuses[1] === 200
+                && stats.sessionRefreshCount >= 1;
+            }
+            """
+        )
+
+        stats = page.evaluate("() => window.__timepollCsrfRetryStats")
+        self.assertEqual(stats["voteStatuses"][:2], [403, 200], stats)
+        self.assertGreaterEqual(stats["sessionRefreshCount"], 1, stats)
+        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(page.locator(".feedback.error").count(), 0)
+
     def test_browser_bulk_vote_by_day_and_time_row(self) -> None:
         page = self.require_page()
 

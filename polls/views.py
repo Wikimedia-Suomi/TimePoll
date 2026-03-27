@@ -12,6 +12,7 @@ from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import rotate_token
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone, translation
+from django.views.csrf import csrf_failure as default_csrf_failure
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -42,6 +43,18 @@ class APIError(Exception):
 
 def api_error_response(exc: APIError) -> JsonResponse:
     return JsonResponse({"error": exc.code, "detail": exc.detail}, status=exc.status)
+
+
+def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
+    if request.path.startswith("/api/"):
+        return JsonResponse(
+            {
+                "error": "csrf_failed",
+                "detail": "CSRF verification failed. Request aborted.",
+            },
+            status=403,
+        )
+    return default_csrf_failure(request, reason=reason)
 
 
 def parse_json_body(request: HttpRequest) -> Dict[str, Any]:

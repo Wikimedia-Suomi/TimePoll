@@ -64,6 +64,8 @@
 
   const successFeedbackAutoCloseMs = 3500;
   const voteSyncDebounceMs = 0;
+  const csrfRefreshPath = "/api/auth/session/";
+  let csrfRefreshPromise = null;
 
 const translations = {
     en: {
@@ -850,6 +852,13 @@ const translations = {
       no: "Feil navn eller PIN-kode.",
       et: "Vale nimi või PIN-kood."
     },
+    csrf_failed: {
+      en: "Your session security token expired. Please try again.",
+      fi: "Istunnon suojaustunniste vanheni. Yritä uudelleen.",
+      sv: "Sessionens säkerhetstoken gick ut. Försök igen.",
+      no: "Sikkerhetstokenet for økten utløp. Prøv igjen.",
+      et: "Seansi turvatunnus aegus. Proovi uuesti."
+    },
     authentication_required: {
       en: "Login is required for this action.",
       fi: "Tämä toiminto vaatii kirjautumisen.",
@@ -1136,37 +1145,90 @@ const translations = {
     return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : "";
   }
 
-  async function apiFetch(url, options = {}) {
+  function parseResponsePayload(rawText) {
+    if (!rawText) {
+      return {};
+    }
+    try {
+      return JSON.parse(rawText);
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function isCsrfFailureResponse(response, payload, rawText) {
+    if (!response || response.status !== 403) {
+      return false;
+    }
+    if (payload && payload.error === "csrf_failed") {
+      return true;
+    }
+    const candidates = [];
+    if (payload && typeof payload.detail === "string" && payload.detail) {
+      candidates.push(payload.detail);
+    }
+    if (typeof rawText === "string" && rawText) {
+      candidates.push(rawText);
+    }
+    return candidates.some((text) => /csrf/i.test(text) && /verification/i.test(text));
+  }
+
+  async function refreshCsrfCookie(force = false) {
+    const currentToken = getCookie("csrftoken");
+    if (!force && currentToken) {
+      return currentToken;
+    }
+    if (!csrfRefreshPromise) {
+      csrfRefreshPromise = fetch(csrfRefreshPath, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        credentials: "same-origin"
+      })
+        .catch(() => null)
+        .finally(() => {
+          csrfRefreshPromise = null;
+        });
+    }
+    await csrfRefreshPromise;
+    return getCookie("csrftoken");
+  }
+
+  async function apiFetch(url, options = {}, retryState = {}) {
     const config = {
-      method: options.method || "GET",
+      method: String(options.method || "GET").toUpperCase(),
       headers: {
         Accept: "application/json",
         ...(options.headers || {})
       },
       credentials: "same-origin"
     };
+    const unsafeMethod = config.method !== "GET" && config.method !== "HEAD";
+    const allowCsrfRetry = retryState.allowCsrfRetry !== false;
 
     if (options.body !== undefined) {
       config.headers["Content-Type"] = "application/json";
       config.body = JSON.stringify(options.body);
     }
 
-    if (config.method !== "GET" && config.method !== "HEAD") {
-      const token = getCookie("csrftoken");
+    if (unsafeMethod) {
+      let token = getCookie("csrftoken");
+      if (!token) {
+        token = await refreshCsrfCookie(true);
+      }
       if (token) {
         config.headers["X-CSRFToken"] = token;
       }
     }
 
     const response = await fetch(url, config);
-    let data = {};
-    try {
-      data = await response.json();
-    } catch (_error) {
-      data = {};
-    }
+    const responseText = await response.text();
+    const data = parseResponsePayload(responseText);
 
     if (!response.ok) {
+      if (unsafeMethod && allowCsrfRetry && isCsrfFailureResponse(response, data, responseText)) {
+        await refreshCsrfCookie(true);
+        return apiFetch(url, options, { allowCsrfRetry: false });
+      }
       const err = new Error(data.detail || `HTTP ${response.status}`);
       err.status = response.status;
       err.payload = data;

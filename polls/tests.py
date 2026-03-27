@@ -319,6 +319,29 @@ class PollApiTests(TestCase):
         self.assertTrue(logout_token)
         self.assertNotEqual(logout_token, login_token)
 
+    def test_api_csrf_failure_returns_json_error_payload(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+
+        session_response = csrf_client.get(reverse("polls:auth_session"))
+        self.assertEqual(session_response.status_code, 200)
+
+        response = csrf_client.post(
+            reverse("polls:login_identity"),
+            data=json.dumps({"name": "csrf-user", "pin": "1234"}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN="x" * 32,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.headers["Content-Type"].split(";")[0], "application/json")
+        self.assertEqual(
+            response.json(),
+            {
+                "error": "csrf_failed",
+                "detail": "CSRF verification failed. Request aborted.",
+            },
+        )
+
     def test_login_matches_existing_identity_case_insensitively(self):
         create_response = self.login(self.client, "Alice", "1234")
         self.assertEqual(create_response.status_code, 201)
