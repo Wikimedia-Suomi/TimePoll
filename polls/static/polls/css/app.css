@@ -1124,6 +1124,7 @@ td {
   right: 0.95rem;
   width: min(92vw, 34rem);
   z-index: 1200;
+  pointer-events: none;
 }
 
 .feedback {
@@ -1136,6 +1137,7 @@ td {
   justify-content: space-between;
   gap: 0.65rem;
   box-shadow: 0 10px 24px rgba(10, 20, 18, 0.2);
+  pointer-events: none;
 }
 
 .feedback.error {
@@ -1161,6 +1163,7 @@ td {
   font-size: 1rem;
   font-weight: 700;
   align-self: center;
+  pointer-events: auto;
 }
 
 .feedback-close:hover,

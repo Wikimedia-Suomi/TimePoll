@@ -63,7 +63,7 @@
   }
 
   const successFeedbackAutoCloseMs = 3500;
-  const voteSyncDebounceMs = 150;
+  const voteSyncDebounceMs = 0;
 
 const translations = {
     en: {
@@ -2529,7 +2529,11 @@ const translations = {
           this.formTouched[scope] = next;
         },
         pollOptionHasVotes(option) {
-          return optionHasVotes(option);
+          return (
+            this.optionCount(option, "yes") > 0
+            || this.optionCount(option, "no") > 0
+            || this.optionCount(option, "maybe") > 0
+          );
         },
         editVoteAutoGrowBounds() {
           const dateBounds = this.editVotedDateBounds || {};
@@ -3656,6 +3660,7 @@ const translations = {
           }
           this._voteSyncQueuedWhileSaving = false;
           this._voteSyncGeneration = Number(this._voteSyncGeneration || 0) + 1;
+          this._voteSyncPromise = null;
         },
         hasPendingVoteSyncChanges() {
           return this.voteSyncPayloadForSelectedPoll().length > 0;
@@ -3726,6 +3731,30 @@ const translations = {
           }
           this.voteDraft = nextDraft;
         },
+        async waitForPendingVoteSync() {
+          if (!this.selectedPoll || this.selectedPoll.is_closed) {
+            return;
+          }
+          while (true) {
+            if (this._voteSyncTimer) {
+              window.clearTimeout(this._voteSyncTimer);
+              this._voteSyncTimer = null;
+            }
+            if (this._voteSyncInFlight) {
+              try {
+                await (this._voteSyncPromise || Promise.resolve());
+              } catch (_error) {
+                // keep the current UI state and exit once the in-flight request settles
+              }
+              continue;
+            }
+            if (this.hasPendingVoteSyncChanges()) {
+              await this.flushVoteSync();
+              continue;
+            }
+            return;
+          }
+        },
         async flushVoteSync() {
           if (this._voteSyncInFlight || !this.selectedPoll || this.selectedPoll.is_closed) {
             return;
@@ -3744,11 +3773,16 @@ const translations = {
 
           this._voteSyncInFlight = true;
           this._voteSyncQueuedWhileSaving = false;
-          try {
+          const syncPromise = (async () => {
             const data = await apiFetch(`/api/polls/${pollId}/votes/`, {
               method: "PUT",
               body: { votes }
             });
+            return data;
+          })();
+          this._voteSyncPromise = syncPromise;
+          try {
+            const data = await syncPromise;
             if (
               generation === Number(this._voteSyncGeneration || 0)
               && this.selectedPoll
@@ -3769,6 +3803,9 @@ const translations = {
             this.setError(this.resolveError(error.payload, "Could not save vote."));
           } finally {
             this._voteSyncInFlight = false;
+            if (this._voteSyncPromise === syncPromise) {
+              this._voteSyncPromise = null;
+            }
             if (generation !== Number(this._voteSyncGeneration || 0)) {
               const shouldResumeCurrentSync = this._voteSyncQueuedWhileSaving || this.hasPendingVoteSyncChanges();
               this._voteSyncQueuedWhileSaving = false;
@@ -4176,6 +4213,7 @@ const translations = {
             this.profileData = null;
             return;
           }
+          await this.waitForPendingVoteSync();
           this.profileLoading = true;
           try {
             const data = await apiFetch("/api/auth/me/");

@@ -232,6 +232,31 @@ class PollBrowserTests(StaticLiveServerTestCase):
         dialog.get_by_role("button", name="Login").click()
         page.get_by_role("button", name="Logout", exact=True).wait_for()
 
+    def open_profile_panel(self, *, page: Optional["Page"] = None) -> None:
+        page = page or self.require_page()
+        page.wait_for_load_state("networkidle")
+        page.locator(".auth-name-link").click()
+        page.get_by_role("heading", name="My data").wait_for()
+
+    def open_edit_timezone_confirmation_dialog(
+        self,
+        *,
+        timezone: str = "Pacific/Honolulu",
+        page: Optional["Page"] = None,
+    ) -> Any:
+        page = page or self.require_page()
+        timezone_input = page.locator("#edit-timezone")
+        timezone_input.fill(timezone)
+        timezone_input.press("Tab")
+        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
+        try:
+            dialog.wait_for(timeout=2000)
+        except Exception:
+            timezone_input.focus()
+            timezone_input.blur()
+            dialog.wait_for()
+        return dialog
+
     def format_axe_violation(self, violation: dict[str, Any]) -> str:
         targets: list[str] = []
         for node in violation.get("nodes", [])[:3]:
@@ -612,8 +637,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         )
         page.locator(".vote-switch-option-yes").first.click()
         page.locator(".vote-switch-option-yes.is-selected").first.wait_for()
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="profile page")
@@ -1139,8 +1163,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         guest_page.locator(".vote-switch-option-no").first.click()
         self.wait_for_first_vote_state(".vote-switch-option-no", True, page=guest_page)
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_text("Vote count: 2").wait_for()
         page.on("dialog", lambda dialog: dialog.accept())
         page.get_by_role("button", name="Delete own data").click()
@@ -1167,8 +1190,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             end_date="2026-05-21",
         )
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.on("dialog", lambda dialog: dialog.accept())
         page.get_by_role("button", name="Delete own data").click()
         page.get_by_role("status").filter(
@@ -1261,8 +1283,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         page.locator(".vote-switch-option-yes").first.click()
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_role("button", name="Delete vote").click()
         page.get_by_role("status").filter(has_text="Vote deleted.").wait_for()
         page.get_by_text("No votes.").wait_for()
@@ -1513,8 +1534,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         page.locator(".vote-switch-option-yes").first.click()
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_role("button", name="Delete vote").click()
         page.get_by_role("status").filter(has_text="Vote deleted.").wait_for()
         page.get_by_text("No votes.").wait_for()
@@ -1710,8 +1730,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         self.open_home_page()
         self.login(name="profile-empty-a11y-user")
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_text("No created polls.").wait_for()
         page.get_by_text("No votes.").wait_for()
 
@@ -2317,8 +2336,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".vote-switch-option-yes").first.click()
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
 
         download_button = page.get_by_role("button", name="Download JSON")
         download_button.focus()
@@ -2458,8 +2476,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         first_yes_button.click()
         page.locator(".vote-switch-option-yes.is-selected").first.wait_for()
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_text("Vote count: 1").wait_for()
         page.get_by_text("Created polls: 1").wait_for()
         page.get_by_role("button", name="Profile poll").wait_for()
@@ -2670,21 +2687,24 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertTrue(all(item["csrfToken"] for item in stats["requests"]), stats)
         first_request = json.loads(stats["requests"][0]["bodyText"])
         second_request = json.loads(stats["requests"][1]["bodyText"])
-        self.assertEqual(
-            sorted((item["option_id"], item["status"]) for item in first_request["votes"]),
-            sorted(
-                [
-                    (int(first_option_id), "yes"),
-                    (int(second_option_id), "yes"),
-                ]
-            ),
-            stats,
+        first_request_votes = sorted((item["option_id"], item["status"]) for item in first_request["votes"])
+        second_request_votes = sorted((item["option_id"], item["status"]) for item in second_request["votes"])
+        expected_first_only = [(int(first_option_id), "yes")]
+        expected_batched_first = sorted(
+            [
+                (int(first_option_id), "yes"),
+                (int(second_option_id), "yes"),
+            ]
         )
-        self.assertEqual(
-            second_request["votes"],
-            [{"option_id": int(first_option_id), "status": "maybe"}],
-            stats,
+        expected_follow_up_only = [(int(first_option_id), "maybe")]
+        expected_follow_up_with_second = sorted(
+            [
+                (int(first_option_id), "maybe"),
+                (int(second_option_id), "yes"),
+            ]
         )
+        self.assertIn(first_request_votes, [expected_first_only, expected_batched_first], stats)
+        self.assertIn(second_request_votes, [expected_follow_up_only, expected_follow_up_with_second], stats)
         self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "true")
         self.assertEqual(second_yes_button.get_attribute("aria-checked"), "true")
         self.assertEqual(page.locator(".feedback.error").count(), 0)
@@ -2906,8 +2926,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         first_yes_button.click()
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_text("My vote: Yes").wait_for()
         page.get_by_role("button", name="Delete vote").click()
         page.get_by_role("status").filter(has_text="Vote deleted.").wait_for()
@@ -3441,8 +3460,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             end_date="2026-04-21",
         )
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         self.assertNotIn("id=", page.url)
 
         page.get_by_role("button", name="Logout", exact=True).click()
@@ -3501,8 +3519,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         guest_page.locator(".vote-switch-option-no").first.click()
         self.wait_for_first_vote_state(".vote-switch-option-no", True, page=guest_page)
 
-        page.locator(".auth-name-link").click()
-        page.get_by_role("heading", name="My data").wait_for()
+        self.open_profile_panel(page=page)
         page.get_by_text("Vote count: 2").wait_for()
 
         page.on("dialog", lambda dialog: dialog.accept())
@@ -4233,10 +4250,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(page.locator("#edit-start-date").get_attribute("max"), "2026-05-04")
         self.assertEqual(page.locator("#edit-end-date").get_attribute("min"), "2026-05-04")
 
-        page.locator("#edit-timezone").fill("Pacific/Honolulu")
-        page.locator("#edit-timezone").blur()
-        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
-        dialog.wait_for()
+        dialog = self.open_edit_timezone_confirmation_dialog(page=page)
         dialog.get_by_role("button", name="Apply timezone change").click()
         page.wait_for_function(
             """
@@ -4332,9 +4346,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertFalse(end_options["14"])
         self.assertFalse(end_options["15"])
 
-        page.locator("#edit-timezone").fill("Pacific/Honolulu")
-        page.locator("#edit-timezone").blur()
-        page.get_by_role("dialog").filter(has_text="Confirm timezone change").get_by_role(
+        self.open_edit_timezone_confirmation_dialog(page=page).get_by_role(
             "button",
             name="Apply timezone change",
         ).click()
@@ -4451,9 +4463,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertTrue(sunday_checkbox.is_checked())
         self.assertFalse(sunday_checkbox.is_disabled())
 
-        page.locator("#edit-timezone").fill("Pacific/Honolulu")
-        page.locator("#edit-timezone").blur()
-        page.get_by_role("dialog").filter(has_text="Confirm timezone change").get_by_role(
+        self.open_edit_timezone_confirmation_dialog(page=page).get_by_role(
             "button",
             name="Apply timezone change",
         ).click()
@@ -4491,10 +4501,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0],
         )
 
-        page.locator("#edit-timezone").fill("Pacific/Honolulu")
-        page.locator("#edit-timezone").blur()
-        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
-        dialog.wait_for()
+        dialog = self.open_edit_timezone_confirmation_dialog(page=page)
         description_text = dialog.locator("#edit-timezone-confirm-description").text_content() or ""
         self.assertIn("UTC", description_text)
         self.assertIn("Pacific/Honolulu", description_text)
@@ -4583,10 +4590,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0],
         )
 
-        page.locator("#edit-timezone").fill("Pacific/Honolulu")
-        page.locator("#edit-timezone").blur()
-        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
-        dialog.wait_for()
+        dialog = self.open_edit_timezone_confirmation_dialog(page=page)
         dialog.get_by_role("button", name="Cancel").click()
         dialog.wait_for(state="hidden")
 
@@ -4615,10 +4619,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         )
 
         timezone_input = page.locator("#edit-timezone")
-        timezone_input.fill("Pacific/Honolulu")
-        timezone_input.blur()
-        dialog = page.get_by_role("dialog").filter(has_text="Confirm timezone change")
-        dialog.wait_for()
+        dialog = self.open_edit_timezone_confirmation_dialog(page=page)
 
         self.assertEqual(self.active_element_snapshot(page)["text"], "Apply timezone change")
 
@@ -4648,9 +4649,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             allowed_weekdays=[0],
         )
 
-        page.locator("#edit-timezone").fill("Pacific/Honolulu")
-        page.locator("#edit-timezone").blur()
-        page.get_by_role("dialog").filter(has_text="Confirm timezone change").wait_for()
+        self.open_edit_timezone_confirmation_dialog(page=page)
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="edit timezone confirmation dialog")
