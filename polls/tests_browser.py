@@ -2788,6 +2788,79 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
         self.assertEqual(page.locator(".feedback.error").count(), 0)
 
+    def test_browser_vote_sync_updates_local_poll_summary_and_defers_poll_list_refresh_until_home(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="poll-list-refresh-owner")
+        self.create_poll(
+            title="Poll list refresh vote poll",
+            description="Used to verify vote sync avoids eager poll list refetches.",
+            identifier="poll_list_refresh_vote_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-13",
+            end_date="2026-04-13",
+        )
+
+        page.evaluate(
+            """
+            () => {
+              const originalFetch = window.fetch.bind(window);
+              const voteUrlPattern = /\\/api\\/polls\\/[^/]+\\/votes\\/$/;
+              const pollsListUrlPattern = /\\/api\\/polls\\/$/;
+              window.__timepollPollListRefreshStats = {
+                listFetchCount: 0,
+                votePutCount: 0
+              };
+              window.fetch = async (input, init = {}) => {
+                const requestUrl = typeof input === 'string' ? input : input.url;
+                const requestMethod = String(
+                  (init && init.method)
+                  || (typeof input === 'object' && input && input.method)
+                  || 'GET'
+                ).toUpperCase();
+                if (requestMethod === 'PUT' && voteUrlPattern.test(requestUrl)) {
+                  window.__timepollPollListRefreshStats.votePutCount += 1;
+                }
+                if (requestMethod === 'GET' && pollsListUrlPattern.test(requestUrl)) {
+                  window.__timepollPollListRefreshStats.listFetchCount += 1;
+                }
+                return originalFetch(input, init);
+              };
+            }
+            """
+        )
+
+        first_yes_button = page.locator(".vote-switch-option-yes").first
+        first_yes_button.click()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
+        page.wait_for_function(
+            """
+            () => {
+              const stats = window.__timepollPollListRefreshStats;
+              return Boolean(stats) && stats.votePutCount >= 1;
+            }
+            """
+        )
+        page.wait_for_timeout(300)
+
+        stats_before_home = page.evaluate("() => window.__timepollPollListRefreshStats")
+        self.assertEqual(stats_before_home["listFetchCount"], 0, stats_before_home)
+
+        page.locator(".title-home").click()
+        page.get_by_role("heading", name="Polls").wait_for()
+        page.wait_for_function(
+            """
+            () => {
+              const stats = window.__timepollPollListRefreshStats;
+              return Boolean(stats) && stats.listFetchCount >= 1;
+            }
+            """
+        )
+
+        stats_after_home = page.evaluate("() => window.__timepollPollListRefreshStats")
+        self.assertGreaterEqual(stats_after_home["listFetchCount"], 1, stats_after_home)
+
     def test_browser_bulk_vote_by_day_and_time_row(self) -> None:
         page = self.require_page()
 

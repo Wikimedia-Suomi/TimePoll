@@ -1389,6 +1389,7 @@ const translations = {
           },
           showAuthDialog: false,
           pendingAction: null,
+          pollListNeedsRefresh: false,
           errorMessage: "",
           successMessage: "",
           successFeedbackTimerId: null,
@@ -2577,6 +2578,9 @@ const translations = {
               this.focusPollFormInitialField("create");
             }
           });
+          if (section === "list") {
+            void this.refreshPollListOnReturnIfNeeded();
+          }
         },
         resetFormValidation(scope = "create") {
           this.formErrors[scope] = {};
@@ -3793,6 +3797,65 @@ const translations = {
           }
           this.voteDraft = nextDraft;
         },
+        pollSummaryFromDetail(poll) {
+          if (!poll || typeof poll !== "object") {
+            return null;
+          }
+          const options = Array.isArray(poll.options) ? poll.options : [];
+          let myVoteCount = 0;
+          for (const option of options) {
+            if (this.normalizeVoteValue(option && option.my_vote)) {
+              myVoteCount += 1;
+            }
+          }
+          return {
+            id: poll.id,
+            identifier: typeof poll.identifier === "string" ? poll.identifier : "",
+            title: typeof poll.title === "string" ? poll.title : "",
+            description: typeof poll.description === "string" ? poll.description : "",
+            window_starts_at: poll.window_starts_at || "",
+            window_ends_at: poll.window_ends_at || "",
+            start_date: typeof poll.start_date === "string" ? poll.start_date : "",
+            end_date: typeof poll.end_date === "string" ? poll.end_date : "",
+            slot_minutes: Number.isInteger(poll.slot_minutes) ? poll.slot_minutes : 60,
+            daily_start_hour: Number.isInteger(poll.daily_start_hour) ? poll.daily_start_hour : 0,
+            daily_end_hour: Number.isInteger(poll.daily_end_hour) ? poll.daily_end_hour : 24,
+            allowed_weekdays: Array.isArray(poll.allowed_weekdays) ? [...poll.allowed_weekdays] : [],
+            timezone: typeof poll.timezone === "string" ? poll.timezone : "",
+            is_closed: Boolean(poll.is_closed),
+            created_at: poll.created_at || "",
+            closed_at: poll.closed_at || null,
+            creator: poll.creator || null,
+            option_count: options.length,
+            participant_count: Number.isInteger(poll.participant_count) ? poll.participant_count : 0,
+            my_vote_count: myVoteCount,
+            can_close: Boolean(poll.can_close),
+            can_reopen: Boolean(poll.can_reopen),
+            can_delete: Boolean(poll.can_delete),
+            can_edit: Boolean(poll.can_edit)
+          };
+        },
+        patchPollSummaryFromDetail(poll) {
+          const summary = this.pollSummaryFromDetail(poll);
+          if (!summary) {
+            return;
+          }
+          const pollId = String(summary.id || "");
+          const existingIndex = this.polls.findIndex((item) => String(item && item.id || "") === pollId);
+          if (existingIndex >= 0) {
+            const nextPolls = [...this.polls];
+            nextPolls.splice(existingIndex, 1, summary);
+            this.polls = nextPolls;
+            return;
+          }
+          this.polls = [...this.polls, summary];
+        },
+        async refreshPollListOnReturnIfNeeded() {
+          if (this.activeSection !== "list" || !this.pollListNeedsRefresh) {
+            return;
+          }
+          await this.fetchPolls();
+        },
         async waitForPendingVoteSync() {
           if (!this.selectedPoll || this.selectedPoll.is_closed) {
             return;
@@ -3853,7 +3916,8 @@ const translations = {
               this.selectedPoll = data.poll;
               this.applyVoteDraft({ preserveLocalChanges: true });
             }
-            await this.fetchPolls();
+            this.patchPollSummaryFromDetail(data.poll);
+            this.pollListNeedsRefresh = true;
           } catch (error) {
             if (
               generation === Number(this._voteSyncGeneration || 0)
@@ -4506,6 +4570,7 @@ const translations = {
           try {
             const data = await apiFetch("/api/polls/");
             this.polls = data.polls || [];
+            this.pollListNeedsRefresh = false;
           } catch (error) {
             this.setError(this.resolveError(error.payload, "Could not load polls."));
           }
