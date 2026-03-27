@@ -1071,7 +1071,7 @@
                                   data-vote-status="yes"
                                   class="vote-switch-option vote-switch-option-yes"
                                   :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }"
-                                  :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                  :disabled="!canVoteInPoll"
                                   @click="setVoteStatus(row.cells[day.key], 'yes')"
                                   @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'yes')"
                                 >
@@ -1088,7 +1088,7 @@
                                   data-vote-status="maybe"
                                   class="vote-switch-option vote-switch-option-maybe"
                                   :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }"
-                                  :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                  :disabled="!canVoteInPoll"
                                   @click="setVoteStatus(row.cells[day.key], 'maybe')"
                                   @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'maybe')"
                                 >
@@ -1105,7 +1105,7 @@
                                   data-vote-status="no"
                                   class="vote-switch-option vote-switch-option-no"
                                   :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'no') }"
-                                  :disabled="!canVoteInPoll || isVoteSaving(row.cells[day.key].id)"
+                                  :disabled="!canVoteInPoll"
                                   @click="setVoteStatus(row.cells[day.key], 'no')"
                                   @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'no')"
                                 >

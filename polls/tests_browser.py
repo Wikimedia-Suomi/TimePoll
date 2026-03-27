@@ -2539,6 +2539,156 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "false")
         self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
 
+    def test_browser_rapid_vote_clicks_coalesce_pending_changes_and_queue_follow_up_sync(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="rapid-vote-owner")
+        self.create_poll(
+            title="Rapid vote serialization poll",
+            description="Used for rapid vote request serialization coverage.",
+            identifier="rapid_vote_serialization_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-04-07",
+            end_date="2026-04-07",
+            daily_start_hour=9,
+            daily_end_hour=11,
+        )
+
+        page.wait_for_function(
+            """
+            () => document.querySelectorAll('.vote-switch-option-yes').length >= 2
+            """
+        )
+        page.evaluate(
+            """
+            () => {
+              if (window.__timepollVoteRequestStats) {
+                return;
+              }
+              const originalFetch = window.fetch.bind(window);
+              const voteUrlPattern = /\\/api\\/polls\\/[^/]+\\/votes\\/$/;
+              window.__timepollVoteRequestStats = {
+                active: 0,
+                maxActive: 0,
+                requestCount: 0,
+                requests: [],
+                responses: []
+              };
+              window.fetch = async (input, init = {}) => {
+                const requestUrl = typeof input === 'string' ? input : input.url;
+                const requestMethod = String(
+                  (init && init.method)
+                  || (typeof input === 'object' && input && input.method)
+                  || 'GET'
+                ).toUpperCase();
+                if (requestMethod === 'PUT' && voteUrlPattern.test(requestUrl)) {
+                  const stats = window.__timepollVoteRequestStats;
+                  const headers = new Headers(init.headers || {});
+                  const requestIndex = stats.requestCount + 1;
+                  stats.requestCount = requestIndex;
+                  stats.active += 1;
+                  stats.maxActive = Math.max(stats.maxActive, stats.active);
+                  stats.requests.push({
+                    index: requestIndex,
+                    csrfToken: headers.get('X-CSRFToken') || '',
+                    bodyText: typeof init.body === 'string' ? init.body : ''
+                  });
+                  try {
+                    if (requestIndex === 1) {
+                      await new Promise((resolve) => window.setTimeout(resolve, 250));
+                    }
+                    const response = await originalFetch(input, init);
+                    stats.responses.push({
+                      index: requestIndex,
+                      status: response.status
+                    });
+                    return response;
+                  } finally {
+                    stats.active -= 1;
+                  }
+                }
+                return originalFetch(input, init);
+              };
+            }
+            """
+        )
+
+        yes_buttons = page.locator(".vote-switch-option-yes")
+        first_yes_button = yes_buttons.nth(0)
+        second_yes_button = yes_buttons.nth(1)
+        first_maybe_button = page.locator(".vote-switch-option-maybe").nth(0)
+        first_option_id = first_yes_button.get_attribute("data-vote-option-id")
+        second_option_id = second_yes_button.get_attribute("data-vote-option-id")
+        if first_option_id is None or second_option_id is None:
+            raise AssertionError("Vote buttons should expose option ids for request inspection.")
+
+        first_yes_button.click()
+        second_yes_button.click()
+
+        page.wait_for_function(
+            """
+            () => {
+              const selectedYesCount = document.querySelectorAll(
+                '.vote-switch-option-yes[aria-checked="true"]'
+              ).length;
+              return selectedYesCount >= 2;
+            }
+            """
+        )
+        page.wait_for_function(
+            """
+            () => {
+              const stats = window.__timepollVoteRequestStats;
+              return Boolean(stats) && stats.requestCount === 1 && stats.active === 1;
+            }
+            """
+        )
+
+        self.assertFalse(first_maybe_button.is_disabled())
+        first_maybe_button.click()
+        self.wait_for_first_vote_state(".vote-switch-option-maybe", True, page=page)
+        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "true")
+
+        page.wait_for_function(
+            """
+            () => {
+              const stats = window.__timepollVoteRequestStats;
+              return Boolean(stats)
+                && Array.isArray(stats.responses)
+                && stats.responses.length >= 2
+                && stats.requestCount === 2
+                && stats.active === 0;
+            }
+            """
+        )
+
+        stats = page.evaluate("() => window.__timepollVoteRequestStats")
+        self.assertEqual(stats["requestCount"], 2, stats)
+        self.assertEqual(stats["maxActive"], 1, stats)
+        self.assertEqual([item["status"] for item in stats["responses"]], [200, 200], stats)
+        self.assertTrue(all(item["csrfToken"] for item in stats["requests"]), stats)
+        first_request = json.loads(stats["requests"][0]["bodyText"])
+        second_request = json.loads(stats["requests"][1]["bodyText"])
+        self.assertEqual(
+            sorted((item["option_id"], item["status"]) for item in first_request["votes"]),
+            sorted(
+                [
+                    (int(first_option_id), "yes"),
+                    (int(second_option_id), "yes"),
+                ]
+            ),
+            stats,
+        )
+        self.assertEqual(
+            second_request["votes"],
+            [{"option_id": int(first_option_id), "status": "maybe"}],
+            stats,
+        )
+        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(second_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(page.locator(".feedback.error").count(), 0)
+
     def test_browser_bulk_vote_by_day_and_time_row(self) -> None:
         page = self.require_page()
 

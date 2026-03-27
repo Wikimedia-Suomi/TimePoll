@@ -63,6 +63,7 @@
   }
 
   const successFeedbackAutoCloseMs = 3500;
+  const voteSyncDebounceMs = 150;
 
 const translations = {
     en: {
@@ -1332,8 +1333,7 @@ const translations = {
           bulkMenu: null,
           calendarWrapWidth: typeof window !== "undefined" ? window.innerWidth : 0,
           visibleDayCount: detectInitialVisibleDayCount(),
-          minYesVotesFilter: 0,
-          savingVoteOptionIds: {}
+          minYesVotesFilter: 0
         };
       },
       computed: {
@@ -3138,11 +3138,33 @@ const translations = {
           }).format(utcDate);
           return `${this.t("weekOf")} ${formatted}`;
         },
+        normalizeVoteValue(value, fallback = "") {
+          if (value === "yes" || value === "no" || value === "maybe") {
+            return value;
+          }
+          if (value === "" || value === null) {
+            return "";
+          }
+          if (fallback === "yes" || fallback === "no" || fallback === "maybe") {
+            return fallback;
+          }
+          return "";
+        },
+        confirmedVoteValueForOption(option) {
+          if (!option || typeof option !== "object") {
+            return "";
+          }
+          return this.normalizeVoteValue(option.my_vote);
+        },
         voteValueForOption(option) {
           if (!option) {
             return "";
           }
-          return this.voteDraft[option.id] || "";
+          const confirmedValue = this.confirmedVoteValueForOption(option);
+          if (!Object.prototype.hasOwnProperty.call(this.voteDraft, option.id)) {
+            return confirmedValue;
+          }
+          return this.normalizeVoteValue(this.voteDraft[option.id], confirmedValue);
         },
         voteCellClass(option) {
           if (!option || typeof option !== "object") {
@@ -3176,7 +3198,22 @@ const translations = {
           return this.voteValueForOption(option) === status;
         },
         optionCount(option, status) {
-          return readOptionCount(option, status);
+          const baseCount = readOptionCount(option, status);
+          if (!option || !this.isVoteStatus(status)) {
+            return baseCount;
+          }
+          const confirmedValue = this.confirmedVoteValueForOption(option);
+          const desiredValue = this.voteValueForOption(option);
+          let adjustedCount = baseCount;
+          if (confirmedValue !== desiredValue) {
+            if (confirmedValue === status && adjustedCount > 0) {
+              adjustedCount -= 1;
+            }
+            if (desiredValue === status) {
+              adjustedCount += 1;
+            }
+          }
+          return adjustedCount;
         },
         voteOptionAccessibleLabel(option, status) {
           const label = this.voteStatusLabel(status);
@@ -3197,9 +3234,6 @@ const translations = {
         },
         isVoteStatus(status) {
           return isVoteStatusValue(status);
-        },
-        isVoteSaving(optionId) {
-          return Boolean(this.savingVoteOptionIds[optionId]);
         },
         closeVoteMenus(options = {}) {
           const activeMenu = this.bulkMenu;
@@ -3577,7 +3611,6 @@ const translations = {
             !option
             || !Number.isInteger(option.id)
             || !this.canVoteInPoll
-            || this.isVoteSaving(option.id)
           ) {
             return;
           }
@@ -3608,13 +3641,148 @@ const translations = {
           if (!this.isVoteStatus(status)) {
             return;
           }
-          if (!this.canVoteInPoll || this.isVoteSaving(option.id)) {
+          if (!this.canVoteInPoll) {
             return;
           }
           const currentStatus = this.voteValueForOption(option);
           const nextStatus = nextVoteStatus(currentStatus, status);
           this.closeVoteMenus();
           await this.applyVotes([option.id], nextStatus);
+        },
+        resetVoteSyncState() {
+          if (this._voteSyncTimer) {
+            window.clearTimeout(this._voteSyncTimer);
+            this._voteSyncTimer = null;
+          }
+          this._voteSyncQueuedWhileSaving = false;
+          this._voteSyncGeneration = Number(this._voteSyncGeneration || 0) + 1;
+        },
+        hasPendingVoteSyncChanges() {
+          return this.voteSyncPayloadForSelectedPoll().length > 0;
+        },
+        voteSyncPayloadForSelectedPoll() {
+          if (!this.selectedPoll || this.selectedPoll.is_closed || !Array.isArray(this.selectedPoll.options)) {
+            return [];
+          }
+          const votes = [];
+          for (const option of this.selectedPoll.options) {
+            if (!option || !Number.isInteger(option.id)) {
+              continue;
+            }
+            const confirmedValue = this.confirmedVoteValueForOption(option);
+            const desiredValue = this.voteValueForOption(option);
+            if (desiredValue === confirmedValue) {
+              continue;
+            }
+            votes.push({
+              option_id: option.id,
+              status: desiredValue || null
+            });
+          }
+          return votes;
+        },
+        scheduleVoteSync(delay = voteSyncDebounceMs) {
+          if (!this.selectedPoll || this.selectedPoll.is_closed) {
+            return;
+          }
+          if (this._voteSyncInFlight) {
+            this._voteSyncQueuedWhileSaving = true;
+            return;
+          }
+          if (this._voteSyncTimer) {
+            window.clearTimeout(this._voteSyncTimer);
+          }
+          const generation = Number(this._voteSyncGeneration || 0);
+          const pollId = String(this.selectedPoll.id || "");
+          const waitMs = Math.max(0, Number(delay) || 0);
+          this._voteSyncTimer = window.setTimeout(() => {
+            this._voteSyncTimer = null;
+            if (generation !== Number(this._voteSyncGeneration || 0)) {
+              return;
+            }
+            if (!this.selectedPoll || this.selectedPoll.is_closed || String(this.selectedPoll.id || "") !== pollId) {
+              return;
+            }
+            void this.flushVoteSync();
+          }, waitMs);
+        },
+        rollbackFailedVoteSync(snapshotByOptionId) {
+          if (!this.selectedPoll || !snapshotByOptionId || typeof snapshotByOptionId !== "object") {
+            return;
+          }
+          const nextDraft = { ...this.voteDraft };
+          for (const option of this.selectedPoll.options) {
+            if (!option || !Number.isInteger(option.id)) {
+              continue;
+            }
+            if (!Object.prototype.hasOwnProperty.call(snapshotByOptionId, option.id)) {
+              continue;
+            }
+            const snapshotValue = this.normalizeVoteValue(snapshotByOptionId[option.id]);
+            if (this.voteValueForOption(option) !== snapshotValue) {
+              continue;
+            }
+            nextDraft[option.id] = this.confirmedVoteValueForOption(option);
+          }
+          this.voteDraft = nextDraft;
+        },
+        async flushVoteSync() {
+          if (this._voteSyncInFlight || !this.selectedPoll || this.selectedPoll.is_closed) {
+            return;
+          }
+          const votes = this.voteSyncPayloadForSelectedPoll();
+          if (!votes.length) {
+            return;
+          }
+
+          const pollId = String(this.selectedPoll.id || "");
+          const generation = Number(this._voteSyncGeneration || 0);
+          const snapshotByOptionId = {};
+          for (const vote of votes) {
+            snapshotByOptionId[vote.option_id] = this.normalizeVoteValue(vote.status);
+          }
+
+          this._voteSyncInFlight = true;
+          this._voteSyncQueuedWhileSaving = false;
+          try {
+            const data = await apiFetch(`/api/polls/${pollId}/votes/`, {
+              method: "PUT",
+              body: { votes }
+            });
+            if (
+              generation === Number(this._voteSyncGeneration || 0)
+              && this.selectedPoll
+              && String(this.selectedPoll.id || "") === pollId
+            ) {
+              this.selectedPoll = data.poll;
+              this.applyVoteDraft({ preserveLocalChanges: true });
+            }
+            await this.fetchPolls();
+          } catch (error) {
+            if (
+              generation === Number(this._voteSyncGeneration || 0)
+              && this.selectedPoll
+              && String(this.selectedPoll.id || "") === pollId
+            ) {
+              this.rollbackFailedVoteSync(snapshotByOptionId);
+            }
+            this.setError(this.resolveError(error.payload, "Could not save vote."));
+          } finally {
+            this._voteSyncInFlight = false;
+            if (generation !== Number(this._voteSyncGeneration || 0)) {
+              const shouldResumeCurrentSync = this._voteSyncQueuedWhileSaving || this.hasPendingVoteSyncChanges();
+              this._voteSyncQueuedWhileSaving = false;
+              if (shouldResumeCurrentSync) {
+                this.scheduleVoteSync(0);
+              }
+              return;
+            }
+            const shouldSyncAgain = this._voteSyncQueuedWhileSaving || this.hasPendingVoteSyncChanges();
+            this._voteSyncQueuedWhileSaving = false;
+            if (shouldSyncAgain) {
+              this.scheduleVoteSync(0);
+            }
+          }
         },
         async applyVotes(optionIds, status) {
           if (!this.selectedPoll || this.selectedPoll.is_closed) {
@@ -3638,93 +3806,29 @@ const translations = {
               return;
             }
 
-            if (uniqueOptionIds.some((optionId) => this.isVoteSaving(optionId))) {
-              return;
-            }
-
             const idSet = new Set(uniqueOptionIds);
             const targetOptions = this.selectedPoll.options.filter((item) => idSet.has(item.id));
             if (!targetOptions.length) {
               return;
             }
 
-            const changedOptions = [];
+            const nextDraft = { ...this.voteDraft };
+            let changed = false;
             for (const option of targetOptions) {
-              const previousStatus = this.voteDraft[option.id] || "";
+              const previousStatus = this.voteValueForOption(option);
               if (previousStatus === normalizedStatus) {
                 continue;
               }
-
-              const previousCounts = {
-                yes: Number((option.counts && option.counts.yes) || 0),
-                no: Number((option.counts && option.counts.no) || 0),
-                maybe: Number((option.counts && option.counts.maybe) || 0)
-              };
-              const previousMyVote = option.my_vote || null;
-
-              if (!option.counts) {
-                option.counts = { yes: 0, no: 0, maybe: 0 };
-              }
-
-              if (this.isVoteStatus(previousStatus) && option.counts[previousStatus] > 0) {
-                option.counts[previousStatus] -= 1;
-              }
-              if (this.isVoteStatus(normalizedStatus)) {
-                option.counts[normalizedStatus] = Number(option.counts[normalizedStatus] || 0) + 1;
-                option.my_vote = normalizedStatus;
-              } else {
-                option.my_vote = null;
-              }
-
-              this.voteDraft[option.id] = normalizedStatus;
-              changedOptions.push({
-                optionId: option.id,
-                previousStatus,
-                previousCounts,
-                previousMyVote
-              });
+              nextDraft[option.id] = normalizedStatus;
+              changed = true;
             }
 
-            if (!changedOptions.length) {
+            if (!changed) {
               return;
             }
 
-            for (const change of changedOptions) {
-              this.savingVoteOptionIds[change.optionId] = true;
-            }
-
-            try {
-              const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/votes/`, {
-                method: "PUT",
-                body: {
-                  votes: changedOptions.map((change) => ({
-                    option_id: change.optionId,
-                    status: normalizedStatus || null
-                  }))
-                }
-              });
-              this.selectedPoll = data.poll;
-              this.applyVoteDraft();
-              await this.fetchPolls();
-            } catch (error) {
-              for (const change of changedOptions) {
-                const option = this.selectedPoll.options.find((item) => item.id === change.optionId);
-                if (option) {
-                  option.counts = {
-                    yes: change.previousCounts.yes,
-                    no: change.previousCounts.no,
-                    maybe: change.previousCounts.maybe
-                  };
-                  option.my_vote = change.previousMyVote;
-                }
-                this.voteDraft[change.optionId] = change.previousStatus;
-              }
-              this.setError(this.resolveError(error.payload, "Could not save vote."));
-            } finally {
-              for (const change of changedOptions) {
-                delete this.savingVoteOptionIds[change.optionId];
-              }
-            }
+            this.voteDraft = nextDraft;
+            this.scheduleVoteSync();
           });
         },
         hourLabel(hour) {
@@ -4105,6 +4209,7 @@ const translations = {
           }
           try {
             const data = await apiFetch(`/api/polls/${encodeURIComponent(String(pollId))}/`);
+            this.resetVoteSyncState();
             this.selectedPoll = data.poll;
             this.applyVoteDraft();
           } catch (_error) {
@@ -4183,6 +4288,7 @@ const translations = {
             this.profileDeleteSummary = result;
             this.isEditingPoll = false;
             this.editForm = null;
+            this.resetVoteSyncState();
             this.selectedPoll = null;
             this.voteDraft = {};
             await this.fetchPolls();
@@ -4257,6 +4363,7 @@ const translations = {
             await apiFetch("/api/auth/logout/", { method: "POST" });
             this.session.authenticated = false;
             this.session.identity = null;
+            this.resetVoteSyncState();
             this.voteDraft = {};
             this.profileData = null;
             this.profileVoteDeletingOptionIds = {};
@@ -4303,19 +4410,20 @@ const translations = {
             this.setError(this.resolveError(error.payload, "Could not load polls."));
           }
         },
-        applyVoteDraft() {
+        applyVoteDraft(options = {}) {
           const draft = {};
+          const preserveLocalChanges = options.preserveLocalChanges === true;
+          const previousDraft = preserveLocalChanges ? { ...this.voteDraft } : {};
           if (!this.selectedPoll) {
             this.voteDraft = draft;
             this.closeVoteMenus();
             return;
           }
           for (const option of this.selectedPoll.options) {
-            if (option.my_vote === "yes" || option.my_vote === "no" || option.my_vote === "maybe") {
-              draft[option.id] = option.my_vote;
-            } else {
-              draft[option.id] = "";
-            }
+            const confirmedValue = this.confirmedVoteValueForOption(option);
+            draft[option.id] = preserveLocalChanges && Object.prototype.hasOwnProperty.call(previousDraft, option.id)
+              ? this.normalizeVoteValue(previousDraft[option.id], confirmedValue)
+              : confirmedValue;
           }
           this.voteDraft = draft;
           this.closeVoteMenus();
@@ -4330,6 +4438,7 @@ const translations = {
           }
           try {
             const data = await apiFetch(`/api/polls/${encodeURIComponent(normalizedPollId)}/`);
+            this.resetVoteSyncState();
             this.selectedPoll = data.poll;
             const preference = this.loadPreferredCalendarTimezonePreference();
             const preferredTimezone = this.normalizeKnownTimeZone(preference.timezone);
@@ -4358,6 +4467,7 @@ const translations = {
           } catch (error) {
             this.setError(this.resolveError(error.payload, "Could not open poll."));
             if (options.fromUrl) {
+              this.resetVoteSyncState();
               this.selectedPoll = null;
               this.voteDraft = {};
               this.setActiveSection("list", { skipUrlSync: true });
@@ -4420,6 +4530,7 @@ const translations = {
                 method: "PUT",
                 body: this.pollPayloadFromForm(this.editForm)
               });
+              this.resetVoteSyncState();
               this.selectedPoll = data.poll;
               this.applyVoteDraft();
               this.isEditingPoll = false;
@@ -4447,6 +4558,7 @@ const translations = {
               const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/close/`, {
                 method: "POST"
               });
+              this.resetVoteSyncState();
               this.selectedPoll = data.poll;
               this.isEditingPoll = false;
               this.editForm = null;
@@ -4469,6 +4581,7 @@ const translations = {
               const data = await apiFetch(`/api/polls/${this.selectedPoll.id}/reopen/`, {
                 method: "POST"
               });
+              this.resetVoteSyncState();
               this.selectedPoll = data.poll;
               this.isEditingPoll = false;
               this.editForm = null;
@@ -4492,6 +4605,7 @@ const translations = {
             this.clearFeedback();
             try {
               await apiFetch(`/api/polls/${this.selectedPoll.id}/`, { method: "DELETE" });
+              this.resetVoteSyncState();
               this.selectedPoll = null;
               this.isEditingPoll = false;
               this.editForm = null;
@@ -4524,6 +4638,7 @@ const translations = {
       },
       beforeUnmount() {
         this.clearSuccessFeedbackTimer();
+        this.resetVoteSyncState();
         if (this._onWindowResize) {
           window.removeEventListener("resize", this._onWindowResize);
           this._onWindowResize = null;

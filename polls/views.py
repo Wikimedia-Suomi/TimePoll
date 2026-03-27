@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
+from django.middleware.csrf import rotate_token
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone, translation
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -522,6 +523,7 @@ def index(request: HttpRequest) -> HttpResponse:
     )
 
 
+@ensure_csrf_cookie
 @require_GET
 def auth_session(request: HttpRequest) -> JsonResponse:
     identity = get_current_identity(request)
@@ -535,6 +537,7 @@ def auth_session(request: HttpRequest) -> JsonResponse:
     )
 
 
+@ensure_csrf_cookie
 @require_http_methods(["POST"])
 def register_identity(request: HttpRequest) -> JsonResponse:
     try:
@@ -555,12 +558,14 @@ def register_identity(request: HttpRequest) -> JsonResponse:
 
         request.session[SESSION_IDENTITY_KEY] = identity.id
         request._cached_identity = identity
+        rotate_token(request)
 
         return JsonResponse({"authenticated": True, "identity": serialize_identity(identity)}, status=201)
     except APIError as exc:
         return api_error_response(exc)
 
 
+@ensure_csrf_cookie
 @require_http_methods(["POST"])
 def login_identity(request: HttpRequest) -> JsonResponse:
     try:
@@ -588,6 +593,7 @@ def login_identity(request: HttpRequest) -> JsonResponse:
 
         request.session[SESSION_IDENTITY_KEY] = identity.id
         request._cached_identity = identity
+        rotate_token(request)
 
         return JsonResponse(
             {"authenticated": True, "identity": serialize_identity(identity), "created": created},
@@ -597,10 +603,12 @@ def login_identity(request: HttpRequest) -> JsonResponse:
         return api_error_response(exc)
 
 
+@ensure_csrf_cookie
 @require_http_methods(["POST"])
 def logout_identity(request: HttpRequest) -> JsonResponse:
     request.session.flush()
     request._cached_identity = None
+    rotate_token(request)
     return JsonResponse({"authenticated": False})
 
 

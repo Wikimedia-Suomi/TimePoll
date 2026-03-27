@@ -280,6 +280,45 @@ class PollApiTests(TestCase):
         self.assertEqual(auth_session_response.status_code, 200)
         self.assertFalse(auth_session_response.json()["authenticated"])
 
+    def test_auth_session_sets_csrf_cookie(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+
+        response = csrf_client.get(reverse("polls:auth_session"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("csrftoken", response.cookies)
+        self.assertTrue(response.cookies["csrftoken"].value)
+
+    def test_login_and_logout_rotate_csrf_cookie(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+
+        session_response = csrf_client.get(reverse("polls:auth_session"))
+        self.assertEqual(session_response.status_code, 200)
+        initial_token = csrf_client.cookies["csrftoken"].value
+        self.assertTrue(initial_token)
+
+        login_response = csrf_client.post(
+            reverse("polls:login_identity"),
+            data=json.dumps({"name": "csrf-user", "pin": "1234"}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=initial_token,
+        )
+        self.assertEqual(login_response.status_code, 201)
+        self.assertIn("csrftoken", login_response.cookies)
+        login_token = login_response.cookies["csrftoken"].value
+        self.assertTrue(login_token)
+        self.assertNotEqual(login_token, initial_token)
+
+        logout_response = csrf_client.post(
+            reverse("polls:logout_identity"),
+            HTTP_X_CSRFTOKEN=login_token,
+        )
+        self.assertEqual(logout_response.status_code, 200)
+        self.assertIn("csrftoken", logout_response.cookies)
+        logout_token = logout_response.cookies["csrftoken"].value
+        self.assertTrue(logout_token)
+        self.assertNotEqual(logout_token, login_token)
+
     def test_login_matches_existing_identity_case_insensitively(self):
         create_response = self.login(self.client, "Alice", "1234")
         self.assertEqual(create_response.status_code, 201)
