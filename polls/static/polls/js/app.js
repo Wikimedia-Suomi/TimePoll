@@ -3259,15 +3259,25 @@ const translations = {
             return [];
           }
           const count = this.visibleDayCountForWeek(week);
+          const totalDays = week.days.length;
+          const blockCount = Math.max(1, Math.ceil(totalDays / count));
+          const baseSize = Math.floor(totalDays / blockCount);
+          let remainder = totalDays % blockCount;
           const blocks = [];
-          for (let startIndex = 0, blockIndex = 0; startIndex < week.days.length; startIndex += count, blockIndex += 1) {
-            const days = week.days.slice(startIndex, startIndex + count);
+          let startIndex = 0;
+          for (let blockIndex = 0; blockIndex < blockCount; blockIndex += 1) {
+            const blockSize = baseSize + (remainder > 0 ? 1 : 0);
+            if (remainder > 0) {
+              remainder -= 1;
+            }
+            const days = week.days.slice(startIndex, startIndex + blockSize);
             blocks.push({
               key: `${week.key}-block-${blockIndex}`,
               index: blockIndex,
               startIndex,
               days
             });
+            startIndex += blockSize;
           }
           return blocks;
         },
