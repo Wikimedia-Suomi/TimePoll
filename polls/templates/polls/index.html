@@ -24,7 +24,7 @@
     <header class="topbar">
       <div class="topbar-brand">
         <h1>
-          <a href="#" class="title-home" @click.prevent="setActiveSection('list')">[[ t('appTitle') ]]</a>
+          <a href="#" class="title-home" @click.prevent="goHomeFromCurrentSection">[[ t('appTitle') ]]</a>
         </h1>
         <p class="subtitle">[[ t('appSubtitle') ]]</p>
       </div>
@@ -84,7 +84,12 @@
       >
         <header class="panel-head">
           <h2 id="poll-list-heading" tabindex="-1">[[ t('polls') ]]</h2>
-          <button type="button" class="secondary create-poll-btn" @click="setActiveSection('create')">
+          <button
+            id="open-create-poll"
+            type="button"
+            class="secondary create-poll-btn"
+            @click="openCreateSection({ returnFocusId: 'open-create-poll' })"
+          >
             [[ t('createPoll') ]]
           </button>
         </header>
@@ -94,9 +99,10 @@
             type="button"
             class="poll-item"
             :class="{ active: selectedPoll && selectedPoll.id === poll.id }"
+            :id="pollListItemId(poll.id)"
             v-for="poll in polls"
             :key="poll.id"
-            @click="openPoll(poll.id)"
+            @click="openPoll(poll.id, { returnSection: 'list', returnFocusId: pollListItemId(poll.id) })"
           >
             <span class="poll-item-title">[[ poll.title ]]</span>
             <span class="poll-item-meta">
@@ -117,6 +123,14 @@
         <header class="panel-head">
           <h2 id="profile-heading" tabindex="-1">[[ t('profileTitle') ]]</h2>
           <div class="profile-actions">
+            <button
+              id="profile-back-button"
+              type="button"
+              class="secondary"
+              @click="returnFromProfileSection"
+            >
+              [[ profileSectionBackLabel ]]
+            </button>
             <button
               type="button"
               class="secondary"
@@ -187,7 +201,12 @@
             <ul class="profile-list" v-if="profileCreatedPolls.length">
               <li class="profile-item" v-for="poll in profileCreatedPolls" :key="`profile-created-${poll.id}`">
                 <div class="profile-item-head">
-                  <button type="button" class="secondary profile-open-poll-btn" @click="openPoll(poll.id)">
+                  <button
+                    type="button"
+                    class="secondary profile-open-poll-btn"
+                    :id="profileCreatedPollButtonId(poll.id)"
+                    @click="openPoll(poll.id, { returnSection: 'profile', returnFocusId: profileCreatedPollButtonId(poll.id) })"
+                  >
                     [[ poll.title ]]
                   </button>
                   <span class="state-pill state-pill-inline" :class="poll.is_closed ? 'closed' : 'open'">
@@ -216,7 +235,12 @@
                 <p class="muted profile-item-meta">[[ t('profileVoteTime') ]]: [[ profileVoteDateRangeLabel(vote) ]]</p>
                 <p class="muted profile-item-meta">[[ t('myVote') ]]: [[ voteStatusLabel(vote.status) ]]</p>
                 <div class="profile-vote-actions">
-                  <button type="button" class="secondary profile-open-poll-btn" @click="openPoll(vote.poll_id)">
+                  <button
+                    type="button"
+                    class="secondary profile-open-poll-btn"
+                    :id="profileVoteOpenPollButtonId(vote)"
+                    @click="openPoll(vote.poll_id, { returnSection: 'profile', returnFocusId: profileVoteOpenPollButtonId(vote) })"
+                  >
                     [[ t('profileOpenPoll') ]]
                   </button>
                   <button
@@ -241,7 +265,12 @@
         id="section-panel-create"
         aria-labelledby="create-poll-heading"
       >
-        <h2 id="create-poll-heading" tabindex="-1">[[ t('createPoll') ]]</h2>
+        <header class="panel-head">
+          <h2 id="create-poll-heading" tabindex="-1">[[ t('createPoll') ]]</h2>
+          <button id="create-back-to-list" type="button" class="secondary" @click="cancelCreate">
+            [[ t('backToPollList') ]]
+          </button>
+        </header>
         <p class="muted">[[ t('createHelp') ]]</p>
 
         <form @submit.prevent="submitPoll" novalidate>
@@ -425,7 +454,12 @@
           </fieldset>
           <p :id="fieldErrorId('create', 'allowed_weekdays')" class="field-error" v-if="fieldError('create', 'allowed_weekdays')">[[ fieldError('create', 'allowed_weekdays') ]]</p>
 
-          <button type="submit">[[ t('createPoll') ]]</button>
+          <div class="form-actions">
+            <button type="submit">[[ t('createPoll') ]]</button>
+            <button id="create-cancel" type="button" class="secondary" @click="cancelCreate">
+              [[ t('cancel') ]]
+            </button>
+          </div>
         </form>
       </article>
 
@@ -451,6 +485,14 @@
               <p class="muted">[[ t('createdBy') ]]: [[ selectedPoll.creator.name ]]</p>
             </div>
             <div class="details-actions">
+              <button
+                id="selected-back-button"
+                type="button"
+                class="secondary"
+                @click="returnFromSelectedSection"
+              >
+                [[ selectedSectionBackLabel ]]
+              </button>
               <button
                 type="button"
                 class="secondary"

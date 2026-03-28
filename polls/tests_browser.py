@@ -12,7 +12,7 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.test import override_settings, tag
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Browser, BrowserContext, Page, Playwright
+    from playwright.sync_api import Browser, BrowserContext, Dialog, Page, Playwright
 
 sync_playwright_fn: Any = None
 axe_runner_factory: Any = None
@@ -1903,6 +1903,35 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.active_element_snapshot(page)["id"], "poll-list-heading")
         self.assertTrue(self.active_element_has_visible_focus(page))
 
+    def test_browser_selected_back_button_returns_focus_to_poll_list_item(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="selected-back-list-owner")
+        self.create_poll(
+            title="Selected back list poll",
+            description="Used for selected-to-list return coverage.",
+            identifier="selected_back_list_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-16",
+            end_date="2026-06-16",
+        )
+
+        page.locator(".title-home").click()
+        page.locator("#section-panel-list").wait_for()
+
+        poll_button = page.locator(".poll-item").filter(has_text="Selected back list poll")
+        poll_button.click()
+        page.locator("#section-panel-selected").wait_for()
+
+        back_button = page.locator("#selected-back-button")
+        self.assertEqual(back_button.inner_text().strip(), "Back to poll list")
+        back_button.click()
+        page.locator("#section-panel-list").wait_for()
+
+        self.assertTrue(poll_button.evaluate("element => document.activeElement === element"))
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
     def test_browser_edit_poll_button_moves_focus_to_edit_form(self) -> None:
         page = self.require_page()
 
@@ -2410,6 +2439,130 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         self.assertEqual(self.active_element_snapshot(page)["id"], "profile-heading")
         self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_profile_back_button_returns_to_selected_poll(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="profile-back-selected-owner")
+        self.create_poll(
+            title="Profile back selected poll",
+            description="Used for profile return to selected poll coverage.",
+            identifier="profile_back_selected_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-18",
+            end_date="2026-06-18",
+        )
+
+        page.locator(".auth-name-link").click()
+        page.locator("#section-panel-profile").wait_for()
+
+        back_button = page.locator("#profile-back-button")
+        self.assertEqual(back_button.inner_text().strip(), "Back to poll")
+        back_button.click()
+
+        page.locator("#section-panel-selected").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'details-heading'")
+        self.assertEqual(self.active_element_snapshot(page)["id"], "details-heading")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_profile_back_button_returns_to_create_form_and_preserves_draft(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="profile-back-create-owner")
+        page.locator("#open-create-poll").click()
+        page.locator("#section-panel-create").wait_for()
+        page.locator("#poll-title").fill("Profile return draft")
+
+        page.locator(".auth-name-link").click()
+        page.locator("#section-panel-profile").wait_for()
+
+        back_button = page.locator("#profile-back-button")
+        self.assertEqual(back_button.inner_text().strip(), "Back to create poll")
+        back_button.click()
+
+        page.locator("#section-panel-create").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'poll-title'")
+        self.assertEqual(page.locator("#poll-title").input_value(), "Profile return draft")
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-title")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_selected_back_button_returns_focus_to_profile_open_control(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="selected-back-profile-owner")
+        self.create_poll(
+            title="Selected back profile poll",
+            description="Used for selected-to-profile return coverage.",
+            identifier="selected_back_profile_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-17",
+            end_date="2026-06-17",
+        )
+
+        page.locator(".auth-name-link").click()
+        page.locator("#section-panel-profile").wait_for()
+
+        profile_open_button = page.locator("#section-panel-profile .profile-open-poll-btn").filter(
+            has_text="Selected back profile poll"
+        )
+        profile_open_button.click()
+        page.locator("#section-panel-selected").wait_for()
+
+        back_button = page.locator("#selected-back-button")
+        self.assertEqual(back_button.inner_text().strip(), "Back to my data")
+        back_button.click()
+        page.locator("#section-panel-profile").wait_for()
+
+        self.assertTrue(profile_open_button.evaluate("element => document.activeElement === element"))
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_create_cancel_accepts_discard_and_returns_focus_to_create_button(self) -> None:
+        page = self.require_page()
+        dialog_messages: list[str] = []
+
+        self.open_home_page()
+        self.login(name="create-cancel-accept-owner")
+
+        create_button = page.locator("#open-create-poll")
+        create_button.click()
+        page.locator("#section-panel-create").wait_for()
+        page.locator("#poll-title").fill("Draft to discard")
+
+        def handle_accept_dialog(dialog: "Dialog") -> None:
+            dialog_messages.append(dialog.message)
+            dialog.accept()
+
+        page.on("dialog", handle_accept_dialog)
+        page.locator("#create-cancel").click()
+
+        page.locator("#section-panel-list").wait_for()
+        self.assertEqual(dialog_messages, ["Discard this draft and return to the poll list?"])
+        self.assertTrue(create_button.evaluate("element => document.activeElement === element"))
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_create_cancel_dismiss_keeps_dirty_draft_open(self) -> None:
+        page = self.require_page()
+        dialog_messages: list[str] = []
+
+        self.open_home_page()
+        self.login(name="create-cancel-dismiss-owner")
+        page.locator("#open-create-poll").click()
+        page.locator("#section-panel-create").wait_for()
+        page.locator("#poll-title").fill("Draft to keep")
+
+        def handle_dismiss_dialog(dialog: "Dialog") -> None:
+            dialog_messages.append(dialog.message)
+            dialog.dismiss()
+
+        page.on("dialog", handle_dismiss_dialog)
+        page.locator("#create-cancel").click()
+
+        page.locator("#section-panel-create").wait_for()
+        self.assertEqual(dialog_messages, ["Discard this draft and return to the poll list?"])
+        self.assertEqual(page.locator("#poll-title").input_value(), "Draft to keep")
 
     def test_js_unit_runner_passes_in_browser(self) -> None:
         page = self.require_page()

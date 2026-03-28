@@ -159,8 +159,17 @@ select:focus-visible {
   outline-offset: 1px;
 }
 
+.programmatic-focus-visible {
+  outline: 3px solid rgba(11, 114, 133, 0.25);
+  outline-offset: 1px;
+}
+
 h2[tabindex="-1"]:focus {
   outline: 3px solid rgba(11, 114, 133, 0.25);
+  outline-offset: 2px;
+}
+
+h2.programmatic-focus-visible {
   outline-offset: 2px;
 }
 
@@ -515,6 +524,13 @@ fieldset {
 }
 
 .poll-edit-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.form-actions {
   margin-top: 0.8rem;
   display: flex;
   gap: 0.55rem;
@@ -1262,6 +1278,7 @@ td {
   .panel-head,
   .details-header,
   .details-footer,
+  .form-actions,
   .poll-edit-actions,
   .auth-buttons,
   .profile-item-head {

@@ -189,6 +189,11 @@ const translations = {
       createdLoginSuccess: "New user created and logged in.",
       registerSuccess: "Registered and logged in.",
       logoutSuccess: "Logged out.",
+      backToPollList: "Back to poll list",
+      backToProfile: "Back to my data",
+      backToSelectedPoll: "Back to poll",
+      backToCreatePoll: "Back to create poll",
+      discardCreateConfirm: "Discard this draft and return to the poll list?",
       confirmDeletePoll: "Delete this poll permanently?",
       dismissFeedback: "Dismiss notification",
       profileTitle: "My data",
@@ -339,6 +344,11 @@ const translations = {
       createdLoginSuccess: "Uusi käyttäjä luotiin ja kirjautuminen onnistui.",
       registerSuccess: "Rekisteröityminen onnistui.",
       logoutSuccess: "Uloskirjautuminen onnistui.",
+      backToPollList: "Takaisin kyselylistaan",
+      backToProfile: "Takaisin omiin tietoihin",
+      backToSelectedPoll: "Takaisin kyselyyn",
+      backToCreatePoll: "Takaisin kyselyn luontiin",
+      discardCreateConfirm: "Hylätäänkö luonnos ja palataan kyselylistaan?",
       confirmDeletePoll: "Poistetaanko kysely pysyvästi?",
       dismissFeedback: "Sulje ilmoitus",
       profileTitle: "Omat tiedot",
@@ -480,6 +490,11 @@ const translations = {
       createdLoginSuccess: "Ny användare skapad och inloggad.",
       registerSuccess: "Registrerad och inloggad.",
       logoutSuccess: "Utloggad.",
+      backToPollList: "Tillbaka till omröstningslistan",
+      backToProfile: "Tillbaka till mina uppgifter",
+      backToSelectedPoll: "Tillbaka till omröstningen",
+      backToCreatePoll: "Tillbaka till att skapa omröstning",
+      discardCreateConfirm: "Kassera utkastet och återgå till omröstningslistan?",
       confirmDeletePoll: "Ta bort denna omröstning permanent?",
       dismissFeedback: "Stäng meddelande",
       profileTitle: "Mina uppgifter",
@@ -621,6 +636,11 @@ const translations = {
       createdLoginSuccess: "Ny bruker opprettet og innlogget.",
       registerSuccess: "Registrert og innlogget.",
       logoutSuccess: "Utlogget.",
+      backToPollList: "Tilbake til avstemningslisten",
+      backToProfile: "Tilbake til mine data",
+      backToSelectedPoll: "Tilbake til avstemningen",
+      backToCreatePoll: "Tilbake til opprett av avstemning",
+      discardCreateConfirm: "Forkaste utkastet og gå tilbake til avstemningslisten?",
       confirmDeletePoll: "Slette denne avstemningen permanent?",
       dismissFeedback: "Lukk varsel",
       profileTitle: "Mine data",
@@ -762,6 +782,11 @@ const translations = {
       createdLoginSuccess: "Loodi uus kasutaja ja logiti sisse.",
       registerSuccess: "Registreerimine õnnestus.",
       logoutSuccess: "Väljalogimine õnnestus.",
+      backToPollList: "Tagasi küsitluste nimekirja",
+      backToProfile: "Tagasi minu andmete juurde",
+      backToSelectedPoll: "Tagasi küsitluse juurde",
+      backToCreatePoll: "Tagasi küsitluse loomise juurde",
+      discardCreateConfirm: "Kas loobuda mustandist ja minna tagasi küsitluste nimekirja?",
       confirmDeletePoll: "Kas kustutada see küsitlus jäädavalt?",
       dismissFeedback: "Sulge teavitus",
       profileTitle: "Minu andmed",
@@ -1343,9 +1368,18 @@ const translations = {
           },
           polls: [],
           selectedPoll: null,
+          profileSectionReturn: {
+            section: "list",
+            focusId: ""
+          },
+          selectedSectionReturn: {
+            section: "list",
+            focusId: ""
+          },
           activeSection: "list",
           voteDraft: {},
           createForm: defaultCreateForm(),
+          createSectionReturnFocusId: "open-create-poll",
           editForm: null,
           formErrors: {
             create: {},
@@ -1414,6 +1448,38 @@ const translations = {
             return [];
           }
           return this.profileData.votes;
+        },
+        profileSectionReturnSection() {
+          const section = this.profileSectionReturn && typeof this.profileSectionReturn.section === "string"
+            ? this.profileSectionReturn.section
+            : "list";
+          if (section === "selected") {
+            return this.selectedPoll ? "selected" : "list";
+          }
+          if (section === "create") {
+            return "create";
+          }
+          return "list";
+        },
+        profileSectionBackLabel() {
+          if (this.profileSectionReturnSection === "selected") {
+            return this.t("backToSelectedPoll");
+          }
+          if (this.profileSectionReturnSection === "create") {
+            return this.t("backToCreatePoll");
+          }
+          return this.t("backToPollList");
+        },
+        selectedSectionReturnSection() {
+          if (this.selectedSectionReturn && this.selectedSectionReturn.section === "profile" && this.session.authenticated) {
+            return "profile";
+          }
+          return "list";
+        },
+        selectedSectionBackLabel() {
+          return this.selectedSectionReturnSection === "profile"
+            ? this.t("backToProfile")
+            : this.t("backToPollList");
         },
         maxYesVotesInPoll() {
           if (!this.selectedPoll || !Array.isArray(this.selectedPoll.options)) {
@@ -2091,7 +2157,18 @@ const translations = {
             && typeof element.focus === "function"
             && document.contains(element)
           ) {
-            element.focus();
+            try {
+              element.focus({ preventScroll: true });
+            } catch (_error) {
+              element.focus();
+            }
+            if (element.classList && typeof element.classList.add === "function") {
+              element.classList.add("programmatic-focus-visible");
+              const clearProgrammaticFocus = () => {
+                element.classList.remove("programmatic-focus-visible");
+              };
+              element.addEventListener("blur", clearProgrammaticFocus, { once: true });
+            }
             return true;
           }
           return false;
@@ -2101,6 +2178,23 @@ const translations = {
             return false;
           }
           return this.focusElementIfPossible(document.getElementById(id));
+        },
+        focusSectionReturnTarget(section, focusId = "") {
+          this.$nextTick(() => {
+            if (!(focusId && this.focusElementById(focusId))) {
+              this.focusSectionHeading(section);
+            }
+          });
+        },
+        pollListItemId(pollId) {
+          return `poll-list-item-${this.bulkMenuIdPart(pollId)}`;
+        },
+        profileCreatedPollButtonId(pollId) {
+          return `profile-created-open-poll-${this.bulkMenuIdPart(pollId)}`;
+        },
+        profileVoteOpenPollButtonId(vote) {
+          const rawId = vote && (vote.id ?? vote.poll_option_id ?? vote.poll_id);
+          return `profile-vote-open-poll-${this.bulkMenuIdPart(rawId)}`;
         },
         fieldErrorId(scope, field) {
           return `${scope}-${String(field || "").replaceAll("_", "-")}-error`;
@@ -2166,6 +2260,124 @@ const translations = {
         },
         focusSectionHeading(section = this.activeSection) {
           return this.focusElementById(this.sectionHeadingId(section));
+        },
+        resetCreateFormState() {
+          this.closeTimezoneSuggestions("create");
+          this.createForm = defaultCreateForm();
+          this.resetFormValidation("create");
+        },
+        createFormHasUnsavedChanges() {
+          const form = this.createForm || defaultCreateForm();
+          const baseline = defaultCreateForm();
+          const normalizeWeekdays = (values) => (Array.isArray(values) ? values : [])
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+            .sort((left, right) => left - right)
+            .join(",");
+          return (
+            String(form.identifier || "") !== String(baseline.identifier || "")
+            || String(form.title || "") !== String(baseline.title || "")
+            || String(form.description || "") !== String(baseline.description || "")
+            || String(form.start_date || "") !== String(baseline.start_date || "")
+            || String(form.end_date || "") !== String(baseline.end_date || "")
+            || Number(form.daily_start_hour) !== Number(baseline.daily_start_hour)
+            || Number(form.daily_end_hour) !== Number(baseline.daily_end_hour)
+            || normalizeWeekdays(form.allowed_weekdays) !== normalizeWeekdays(baseline.allowed_weekdays)
+            || String(form.timezone || "").trim() !== String(baseline.timezone || "").trim()
+          );
+        },
+        discardCreateDraftConfirmed() {
+          if (!this.createFormHasUnsavedChanges()) {
+            return true;
+          }
+          return window.confirm(this.t("discardCreateConfirm"));
+        },
+        openCreateSection(options = {}) {
+          const requestedFocusId = typeof options.returnFocusId === "string" ? options.returnFocusId : "";
+          const activeElementId = document.activeElement && typeof document.activeElement.id === "string"
+            ? document.activeElement.id
+            : "";
+          this.createSectionReturnFocusId = requestedFocusId || activeElementId || "open-create-poll";
+          this.setActiveSection("create", { forceFocus: true });
+        },
+        cancelCreate(options = {}) {
+          if (!this.discardCreateDraftConfirmed()) {
+            return false;
+          }
+          const requestedFocusId = typeof options.returnFocusId === "string" ? options.returnFocusId : null;
+          const returnFocusId = requestedFocusId !== null
+            ? requestedFocusId
+            : this.createSectionReturnFocusId;
+          this.clearFeedback();
+          this.resetCreateFormState();
+          this.setActiveSection("list", { skipFocus: true, forceFocus: true });
+          this.focusSectionReturnTarget("list", returnFocusId);
+          return true;
+        },
+        goHomeFromCurrentSection() {
+          if (this.activeSection === "create") {
+            this.cancelCreate({ returnFocusId: "" });
+            return;
+          }
+          this.setActiveSection("list", { forceFocus: true });
+        },
+        rememberProfileSectionReturn(options = {}) {
+          const currentTarget = this.profileSectionReturn || {};
+          const currentSection = this.activeSection === "profile"
+            ? currentTarget.section
+            : this.activeSection;
+          const section = options.returnSection === "list" || options.returnSection === "create" || options.returnSection === "selected"
+            ? options.returnSection
+            : currentSection === "create" || currentSection === "selected"
+              ? currentSection
+              : "list";
+          const focusId = typeof options.returnFocusId === "string"
+            ? options.returnFocusId
+            : section === "create"
+              ? "poll-title"
+              : section === "selected"
+                ? "details-heading"
+                : "poll-list-heading";
+          this.profileSectionReturn = { section, focusId };
+        },
+        returnFromProfileSection() {
+          const targetSection = this.profileSectionReturnSection;
+          const focusId = this.profileSectionReturn && typeof this.profileSectionReturn.focusId === "string"
+            ? this.profileSectionReturn.focusId
+            : "";
+          const shouldRestoreCreateFocus = targetSection === "create" && Boolean(focusId);
+          this.setActiveSection(targetSection, {
+            skipFocus: targetSection !== "create",
+            forceFocus: true
+          });
+          if (targetSection !== "create" || shouldRestoreCreateFocus) {
+            this.focusSectionReturnTarget(targetSection, focusId);
+          }
+        },
+        rememberSelectedSectionReturn(options = {}) {
+          const hasExplicitSection = options.returnSection === "list" || options.returnSection === "profile";
+          const currentTarget = this.selectedSectionReturn || {};
+          const section = hasExplicitSection
+            ? options.returnSection
+            : this.activeSection === "selected"
+              ? (currentTarget.section === "profile" ? "profile" : "list")
+              : this.activeSection === "profile"
+                ? "profile"
+                : "list";
+          const focusId = typeof options.returnFocusId === "string"
+            ? options.returnFocusId
+            : this.activeSection === "selected"
+              ? (typeof currentTarget.focusId === "string" ? currentTarget.focusId : "")
+              : "";
+          this.selectedSectionReturn = { section, focusId };
+        },
+        returnFromSelectedSection() {
+          const targetSection = this.selectedSectionReturnSection;
+          const focusId = this.selectedSectionReturn && typeof this.selectedSectionReturn.focusId === "string"
+            ? this.selectedSectionReturn.focusId
+            : "";
+          this.setActiveSection(targetSection, { skipFocus: true, forceFocus: true });
+          this.focusSectionReturnTarget(targetSection, focusId);
         },
         focusAuthSuccessTarget(returnFocusTarget, options = {}) {
           this.$nextTick(() => {
@@ -4424,6 +4636,7 @@ const translations = {
             this.openAuthDialog();
             return;
           }
+          this.rememberProfileSectionReturn();
           this.setActiveSection("profile", { forceFocus: true });
           await this.fetchMyData();
         },
@@ -4631,6 +4844,7 @@ const translations = {
             this.calendarTimezoneMode = nextMode;
             this.showCalendarTimezoneSuggestions = false;
             this.minYesVotesFilter = 0;
+            this.rememberSelectedSectionReturn(options);
             this.setActiveSection("selected", { skipUrlSync: true, forceFocus: true });
             this.applyVoteDraft();
             if (options.syncUrl !== false) {
@@ -4670,7 +4884,11 @@ const translations = {
 
               this.setSuccess(this.t("createdSuccess"));
               await this.fetchPolls();
-              await this.openPoll(data.poll.id, { preserveFeedback: true });
+              await this.openPoll(data.poll.id, {
+                preserveFeedback: true,
+                returnSection: "list",
+                returnFocusId: this.pollListItemId(data.poll.id)
+              });
             } catch (error) {
               const mappedToField = this.applyBackendFormError("create", error.payload);
               this.setError(this.resolveError(error.payload, "Could not create poll."));
