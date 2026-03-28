@@ -1858,6 +1858,51 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.active_element_snapshot(page)["id"], "poll-title")
         self.assertTrue(self.active_element_has_visible_focus(page))
 
+    def test_browser_open_poll_moves_focus_to_details_heading(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="open-poll-focus-owner")
+        self.create_poll(
+            title="Open poll focus target",
+            description="Used for selected section focus coverage.",
+            identifier="open_poll_focus_target",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-12",
+            end_date="2026-06-12",
+        )
+
+        page.locator(".title-home").click()
+        page.locator("#section-panel-list").wait_for()
+
+        page.locator(".poll-item").filter(has_text="Open poll focus target").click()
+        page.locator("#section-panel-selected").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'details-heading'")
+
+        self.assertEqual(self.active_element_snapshot(page)["id"], "details-heading")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_home_link_moves_focus_to_poll_list_heading(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="list-focus-owner")
+        self.create_poll(
+            title="List focus target poll",
+            description="Used for list section focus coverage.",
+            identifier="list_focus_target_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-15",
+            end_date="2026-06-15",
+        )
+
+        page.locator(".title-home").click()
+        page.locator("#section-panel-list").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'poll-list-heading'")
+
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-list-heading")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
     def test_browser_edit_poll_button_moves_focus_to_edit_form(self) -> None:
         page = self.require_page()
 
@@ -2353,6 +2398,18 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".details-title").filter(
             has_text="Profile controls keyboard accessibility poll"
         ).wait_for()
+
+    def test_browser_profile_button_moves_focus_to_profile_heading(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="profile-focus-owner")
+        page.locator(".auth-name-link").click()
+        page.locator("#section-panel-profile").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'profile-heading'")
+
+        self.assertEqual(self.active_element_snapshot(page)["id"], "profile-heading")
+        self.assertTrue(self.active_element_has_visible_focus(page))
 
     def test_js_unit_runner_passes_in_browser(self) -> None:
         page = self.require_page()

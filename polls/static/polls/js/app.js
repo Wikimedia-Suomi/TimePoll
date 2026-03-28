@@ -2155,34 +2155,37 @@ const translations = {
             }
           });
         },
+        sectionHeadingId(section = this.activeSection) {
+          const sectionHeadingById = {
+            list: "poll-list-heading",
+            create: "create-poll-heading",
+            selected: "details-heading",
+            profile: "profile-heading"
+          };
+          return sectionHeadingById[section] || "poll-list-heading";
+        },
+        focusSectionHeading(section = this.activeSection) {
+          return this.focusElementById(this.sectionHeadingId(section));
+        },
         focusAuthSuccessTarget(returnFocusTarget, options = {}) {
           this.$nextTick(() => {
             if (this.focusElementIfPossible(returnFocusTarget)) {
               return;
             }
-            const sectionHeadingById = {
-              list: "poll-list-heading",
-              create: "create-poll-heading",
-              selected: "details-heading",
-              profile: "profile-heading"
-            };
-            const focusSectionHeading = () => this.focusElementById(
-              sectionHeadingById[this.activeSection] || "poll-list-heading"
-            );
             const focusTopbarTarget = () => {
               const topbarTarget = document.querySelector(".auth-actions .auth-name-link, .auth-actions .secondary");
               return this.focusElementIfPossible(topbarTarget);
             };
 
             if (options.preferSectionTarget) {
-              if (!focusSectionHeading()) {
+              if (!this.focusSectionHeading()) {
                 focusTopbarTarget();
               }
               return;
             }
 
             if (!focusTopbarTarget()) {
-              focusSectionHeading();
+              this.focusSectionHeading();
             }
           });
         },
@@ -2557,6 +2560,7 @@ const translations = {
           if (section !== "list" && section !== "create" && section !== "selected" && section !== "profile") {
             return;
           }
+          const sectionChanged = this.activeSection !== section;
           this.activeSection = section;
           this.closeVoteMenus();
           if (section !== "selected") {
@@ -2574,9 +2578,14 @@ const translations = {
           }
           this.$nextTick(() => {
             this.updateVisibleDayCount();
-            if (section === "create" && !options.skipFocus) {
-              this.focusPollFormInitialField("create");
+            if (options.skipFocus || (!sectionChanged && options.forceFocus !== true)) {
+              return;
             }
+            if (section === "create") {
+              this.focusPollFormInitialField("create");
+              return;
+            }
+            this.focusSectionHeading(section);
           });
           if (section === "list") {
             void this.refreshPollListOnReturnIfNeeded();
@@ -4415,7 +4424,7 @@ const translations = {
             this.openAuthDialog();
             return;
           }
-          this.setActiveSection("profile");
+          this.setActiveSection("profile", { forceFocus: true });
           await this.fetchMyData();
         },
         downloadMyDataJson() {
@@ -4622,7 +4631,7 @@ const translations = {
             this.calendarTimezoneMode = nextMode;
             this.showCalendarTimezoneSuggestions = false;
             this.minYesVotesFilter = 0;
-            this.setActiveSection("selected", { skipUrlSync: true });
+            this.setActiveSection("selected", { skipUrlSync: true, forceFocus: true });
             this.applyVoteDraft();
             if (options.syncUrl !== false) {
               this.setPollIdInCurrentUrl(this.selectedPoll.id, {

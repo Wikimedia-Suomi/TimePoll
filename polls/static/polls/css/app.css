@@ -159,6 +159,11 @@ select:focus-visible {
   outline-offset: 1px;
 }
 
+h2[tabindex="-1"]:focus {
+  outline: 3px solid rgba(11, 114, 133, 0.25);
+  outline-offset: 2px;
+}
+
 .input-invalid {
   border-color: #d64d3b !important;
   background: #fff5f3 !important;
