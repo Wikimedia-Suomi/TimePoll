@@ -110,7 +110,7 @@
             v-for="poll in polls"
             :key="poll.id"
             @click="openPoll(poll.id, { returnSection: 'list', returnFocusId: pollListItemId(poll.id) })"
-            @keydown="handlePollListItemKeydown($event, poll.id)"
+            @keydown="handlePollListItemKeydown($event)"
           >
             <span class="poll-item-title">[[ poll.title ]]</span>
             <span class="poll-item-meta">

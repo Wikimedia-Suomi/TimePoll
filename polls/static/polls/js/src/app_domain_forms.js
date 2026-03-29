@@ -31,11 +31,8 @@
       fieldErrorId(scope, field) {
         return `${scope}-${String(field || "").replaceAll("_", "-")}-error`;
       },
-      fieldHasValidationError(scope, field) {
-        return Boolean((this.formErrors[scope] || {})[field]);
-      },
       fieldAriaInvalid(scope, field) {
-        return this.fieldHasValidationError(scope, field) ? "true" : null;
+        return (this.formErrors[scope] || {})[field] ? "true" : null;
       },
       fieldDescribedBy(scope, field, describedByIds = []) {
         const ids = Array.isArray(describedByIds)
@@ -599,23 +596,17 @@
         }
         return false;
       },
-      buildPollFormErrors(form, scope = "create") {
-        return pollFormValidator.buildErrors(this, form, { scope });
-      },
       validateFormScope(scope = "create") {
         const form = this.formForScope(scope);
-        const errors = this.buildPollFormErrors(form, scope);
+        const errors = pollFormValidator.buildErrors(this, form, { scope });
         this.formErrors[scope] = errors;
         return errors;
-      },
-      backendErrorFields(errorCode) {
-        return pollFormValidator.backendErrorFields(errorCode);
       },
       applyBackendFormError(scope, payload) {
         if (!payload || typeof payload !== "object" || typeof payload.error !== "string") {
           return false;
         }
-        const fields = this.backendErrorFields(payload.error);
+        const fields = pollFormValidator.backendErrorFields(payload.error);
         if (!fields.length) {
           return false;
         }

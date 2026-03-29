@@ -100,8 +100,7 @@
           this.focusPollListButtonByIndex(buttons.length - 1);
         }
       },
-      handlePollListItemKeydown(event, pollId) {
-        void pollId;
+      handlePollListItemKeydown(event) {
         if (this.activeSection !== "list" || event.altKey || event.ctrlKey || event.metaKey) {
           return;
         }
