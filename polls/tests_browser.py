@@ -166,8 +166,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page = page or self.require_page()
         for attempt in range(2):
             try:
-                page.goto(path, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_load_state("networkidle", timeout=30000)
+                page.goto(path, wait_until="commit", timeout=30000)
                 break
             except playwright_timeout_error_cls:
                 if attempt == 1:
@@ -177,8 +176,9 @@ class PollBrowserTests(StaticLiveServerTestCase):
                 except playwright_timeout_error_cls:
                     pass
                 page.wait_for_timeout(250)
-        page.locator("#app").wait_for(state="visible")
-        page.get_by_role("heading", name="TimePoll").wait_for()
+        page.locator("#app").wait_for(state="attached", timeout=30000)
+        page.wait_for_function("window.__timePollAppMounted === true", timeout=30000)
+        page.get_by_role("heading", name="TimePoll").wait_for(timeout=30000)
 
     def test_home_page_loads_without_csp_violations(self):
         page = self.require_page()
