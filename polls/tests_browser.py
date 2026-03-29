@@ -293,7 +293,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             """
             ([voteSelector, expectedState]) => {
               const element = document.querySelector(voteSelector);
-              return Boolean(element) && element.getAttribute("aria-checked") === expectedState;
+              return Boolean(element) && element.getAttribute("data-selected") === expectedState;
             }
             """,
             arg=[selector, expected],
@@ -460,16 +460,30 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.wait_for_function(
             """
             async (pollIdentifier) => {
-              const response = await fetch(`/api/polls/${pollIdentifier}/`, { credentials: 'same-origin' });
-              const poll = await response.json();
-              const firstOption = Array.isArray(poll.options) ? poll.options[0] : null;
-              const counts = firstOption && typeof firstOption.counts === 'object' ? firstOption.counts : null;
-              return Boolean(
-                firstOption
-                && firstOption.starts_at === '2026-05-04T00:00:00+00:00'
-                && counts
-                && counts.yes === 1
-              );
+              try {
+                const response = await fetch(`/api/polls/${pollIdentifier}/`, {
+                  credentials: 'same-origin',
+                  headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) {
+                  return false;
+                }
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                  return false;
+                }
+                const poll = await response.json();
+                const firstOption = Array.isArray(poll.options) ? poll.options[0] : null;
+                const counts = firstOption && typeof firstOption.counts === 'object' ? firstOption.counts : null;
+                return Boolean(
+                  firstOption
+                  && firstOption.starts_at === '2026-05-04T00:00:00+00:00'
+                  && counts
+                  && counts.yes === 1
+                );
+              } catch (error) {
+                return false;
+              }
             }
             """,
             arg=poll_identifier,
@@ -790,7 +804,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         voter_page.reload(wait_until="domcontentloaded")
         voter_page.wait_for_load_state("networkidle")
         voter_page.get_by_text("Poll is closed").first.wait_for()
-        self.assertTrue(voter_page.locator(".vote-switch-option-yes").first.is_disabled())
+        self.assertTrue(voter_page.locator(".vote-switch").first.is_disabled())
 
         results = self.run_accessibility_audit(page=voter_page)
         self.assert_no_axe_violations(results, page_name="closed poll details state")
@@ -844,6 +858,41 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="bulk vote menu state")
+
+    def test_vote_cell_menu_open_state_has_no_accessibility_violations(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="vote-cell-menu-a11y-owner")
+        self.create_poll(
+            title="Vote cell menu accessibility poll",
+            description="Used for vote cell menu accessibility coverage.",
+            identifier="vote_cell_menu_accessibility_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-15",
+            end_date="2026-06-15",
+        )
+
+        first_vote_cell = page.locator(".vote-switch").first
+        first_vote_cell.focus()
+        page.keyboard.press("Enter")
+        vote_menu = page.locator(".vote-cell-menu").first
+        vote_menu.wait_for()
+        page.keyboard.press("ArrowRight")
+        page.wait_for_function(
+            """
+            () => {
+              const active = document.activeElement;
+              return Boolean(active)
+                && active.getAttribute('role') === 'menuitemradio'
+                && active.textContent.trim() === 'Yes'
+                && active.getAttribute('aria-checked') === 'true';
+            }
+            """
+        )
+
+        results = self.run_accessibility_audit(page=page)
+        self.assert_no_axe_violations(results, page_name="vote cell menu state")
 
     def test_timezone_suggestion_listbox_state_has_no_accessibility_violations(self) -> None:
         page = self.require_page()
@@ -1021,19 +1070,19 @@ class PollBrowserTests(StaticLiveServerTestCase):
             "- menu",
             'menuitem "No vote"',
             'menuitem "Yes"',
-            'menuitem "No"',
             'menuitem "Maybe"',
+            'menuitem "No"',
         )
 
-    def test_calendar_vote_switch_exposes_radiogroup_contract(self) -> None:
+    def test_calendar_vote_switch_exposes_button_and_menu_contract(self) -> None:
         page = self.require_page()
 
         self.open_home_page()
-        self.login(name="calendar-radiogroup-contract-owner")
+        self.login(name="calendar-vote-menu-contract-owner")
         self.create_poll(
-            title="Calendar radiogroup contract poll",
+            title="Calendar vote menu contract poll",
             description="Used for vote switch ARIA contract coverage.",
-            identifier="calendar_radiogroup_contract_poll",
+            identifier="calendar_vote_menu_contract_poll",
             timezone="Europe/Helsinki",
             start_date="2026-06-15",
             end_date="2026-06-15",
@@ -1049,12 +1098,26 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertIn("09:00", group_label)
         self.assert_aria_snapshot_contains(
             vote_group,
-            "- radiogroup",
-            'radio "Yes 1" [checked]',
-            'radio "Maybe 0"',
-            'radio "No 0"',
+            'button "',
+            "My vote: Yes",
+            "Yes votes: 1",
+            "Maybe votes: 0",
+            "No votes: 0",
         )
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "true")
+
+        vote_group.focus()
+        vote_group.press("Enter")
+        vote_menu = page.locator(".vote-cell-menu").first
+        vote_menu.wait_for()
+        self.assert_aria_snapshot_contains(
+            vote_menu,
+            "- menu",
+            'menuitemradio "No vote"',
+            'menuitemradio "Yes" [checked]',
+            'menuitemradio "Maybe"',
+            'menuitemradio "No"',
+        )
 
     def test_mobile_paginated_calendar_state_has_no_accessibility_violations(self) -> None:
         page = self.require_page()
@@ -1543,7 +1606,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".details-title").filter(
             has_text="Profile vote delete details accessibility poll"
         ).wait_for()
-        self.assertEqual(page.locator(".vote-switch-option-yes").first.get_attribute("aria-checked"), "false")
+        self.assertEqual(page.locator(".vote-switch-option-yes").first.get_attribute("data-selected"), "false")
 
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="profile vote deleted details state")
@@ -1903,6 +1966,82 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.active_element_snapshot(page)["id"], "poll-list-heading")
         self.assertTrue(self.active_element_has_visible_focus(page))
 
+    def test_browser_home_page_initial_focus_moves_to_poll_list_heading(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        page.wait_for_function("() => document.activeElement?.id === 'poll-list-heading'")
+
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-list-heading")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_poll_list_supports_arrow_key_navigation(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="poll-list-keyboard-owner")
+        self.create_poll(
+            title="Poll list keyboard first poll",
+            description="Used for poll list keyboard coverage.",
+            identifier="poll_list_keyboard_first_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-17",
+            end_date="2026-06-17",
+        )
+        page.locator(".title-home").click()
+        page.locator("#section-panel-list").wait_for()
+        self.create_poll(
+            title="Poll list keyboard second poll",
+            description="Used for poll list keyboard coverage.",
+            identifier="poll_list_keyboard_second_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-18",
+            end_date="2026-06-18",
+        )
+
+        page.locator(".title-home").click()
+        page.locator("#section-panel-list").wait_for()
+        page.wait_for_function("() => document.activeElement?.id === 'poll-list-heading'")
+        poll_buttons = page.locator("#section-panel-list .poll-item")
+        first_button_id = poll_buttons.nth(0).get_attribute("id")
+        second_button_id = poll_buttons.nth(1).get_attribute("id")
+        self.assertIsNotNone(first_button_id)
+        self.assertIsNotNone(second_button_id)
+
+        page.keyboard.press("ArrowDown")
+        self.assertEqual(
+            self.active_element_snapshot(page)["id"],
+            first_button_id,
+        )
+
+        page.keyboard.press("ArrowDown")
+        self.assertEqual(
+            self.active_element_snapshot(page)["id"],
+            second_button_id,
+        )
+
+        page.keyboard.press("ArrowUp")
+        self.assertEqual(
+            self.active_element_snapshot(page)["id"],
+            first_button_id,
+        )
+
+        page.keyboard.press("ArrowUp")
+        self.assertEqual(self.active_element_snapshot(page)["id"], "poll-list-heading")
+
+        page.keyboard.press("End")
+        self.assertEqual(
+            self.active_element_snapshot(page)["id"],
+            second_button_id,
+        )
+
+        page.keyboard.press("Home")
+        self.assertEqual(
+            self.active_element_snapshot(page)["id"],
+            first_button_id,
+        )
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
     def test_browser_selected_back_button_returns_focus_to_poll_list_item(self) -> None:
         page = self.require_page()
 
@@ -2099,81 +2238,276 @@ class PollBrowserTests(StaticLiveServerTestCase):
               return rows.every((row) => {
                 const cell = row.children[columnIndex];
                 const button = cell && cell.querySelector('.vote-switch-option-yes');
-                return Boolean(button) && button.getAttribute('aria-checked') === 'true';
+                return Boolean(button) && button.getAttribute('data-selected') === 'true';
               });
             }
             """
         )
 
-    def test_browser_vote_radiogroup_supports_arrow_keys_and_visible_focus(self) -> None:
+    def test_browser_vote_cell_keyboard_navigation_and_menu_selection_work(self) -> None:
         page = self.require_page()
 
         self.open_home_page()
-        self.login(name="vote-radiogroup-keyboard-a11y-owner")
+        self.login(name="vote-menu-keyboard-a11y-owner")
         self.create_poll(
-            title="Vote radiogroup keyboard accessibility poll",
-            description="Used for vote radiogroup keyboard coverage.",
-            identifier="vote_radiogroup_keyboard_a11y_poll",
+            title="Vote menu keyboard accessibility poll",
+            description="Used for vote menu keyboard coverage.",
+            identifier="vote_menu_keyboard_a11y_poll",
             timezone="Europe/Helsinki",
             start_date="2026-06-15",
-            end_date="2026-06-15",
+            end_date="2026-06-16",
         )
 
-        yes_button = page.locator(".vote-switch-option-yes").first
-        yes_button.focus()
-
-        page.keyboard.press("ArrowRight")
-        page.wait_for_function(
-            """
-            () => {
-              const button = document.querySelector('.vote-switch-option-maybe');
-              return Boolean(button)
-                && button.getAttribute('aria-checked') === 'true'
-                && document.activeElement === button;
-            }
-            """
-        )
-        self.assertEqual(self.active_element_snapshot(page)["status"], "maybe")
+        first_vote_cell = page.locator(".vote-switch").first
+        first_vote_cell.focus()
+        self.assertEqual(self.active_element_snapshot(page)["optionId"], first_vote_cell.get_attribute("data-vote-option-id"))
         self.assertTrue(self.active_element_has_visible_focus(page))
 
         page.keyboard.press("ArrowRight")
         page.wait_for_function(
             """
             () => {
-              const button = document.querySelector('.vote-switch-option-no');
-              return Boolean(button)
-                && button.getAttribute('aria-checked') === 'true'
-                && document.activeElement === button;
+              const active = document.activeElement;
+              const firstCell = document.querySelector('.vote-switch');
+              const nextCell = document.querySelectorAll('.vote-switch')[1];
+              return Boolean(active)
+                && Boolean(firstCell)
+                && Boolean(nextCell)
+                && active === nextCell
+                && active !== firstCell;
             }
             """
         )
-        self.assertEqual(self.active_element_snapshot(page)["status"], "no")
+        self.assertEqual(self.active_element_snapshot(page)["status"], "")
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+        page.keyboard.press("Enter")
+        menu = page.locator(".vote-cell-menu").first
+        menu.wait_for()
+        self.assertEqual(self.active_element_snapshot(page)["text"], "No vote")
+
+        page.keyboard.press("ArrowRight")
+        page.wait_for_function(
+            """
+            () => {
+              const button = document.activeElement;
+              const trigger = document.querySelectorAll('.vote-switch')[1];
+              const yesSegment = trigger
+                ? trigger.querySelector('.vote-switch-option-yes')
+                : null;
+              return Boolean(button)
+                && Boolean(trigger)
+                && Boolean(yesSegment)
+                && button.getAttribute('role') === 'menuitemradio'
+                && button.textContent.trim() === 'Yes'
+                && button.getAttribute('aria-checked') === 'true'
+                && trigger.getAttribute('data-vote-status') === 'yes'
+                && yesSegment.getAttribute('data-selected') === 'true';
+            }
+            """
+        )
+        self.assertEqual(self.active_element_snapshot(page)["text"], "Yes")
+
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            """
+            () => {
+              const active = document.activeElement;
+              const optionId = active?.getAttribute?.('data-vote-option-id') || '';
+              const yesSegment = optionId
+                ? document.querySelector(`.vote-switch-option-yes[data-vote-option-id="${optionId}"]`)
+                : null;
+              return Boolean(active)
+                && Boolean(yesSegment)
+                && active.classList.contains('vote-switch')
+                && active.getAttribute('data-vote-status') === 'yes'
+                && yesSegment.getAttribute('data-selected') === 'true'
+                && document.querySelectorAll('.vote-cell-menu').length === 0;
+            }
+            """
+        )
+        self.assertEqual(self.active_element_snapshot(page)["status"], "yes")
+        page.wait_for_function(
+            """
+            () => {
+              const statusRegion = document.querySelector('p.sr-only[role="status"][aria-live="polite"]');
+              return Boolean(statusRegion) && statusRegion.textContent.trim() === 'Vote saved: Yes.';
+            }
+            """
+        )
 
         page.keyboard.press("Home")
         page.wait_for_function(
             """
             () => {
-              const button = document.querySelector('.vote-switch-option-yes');
-              return Boolean(button)
-                && button.getAttribute('aria-checked') === 'true'
-                && document.activeElement === button;
+              const active = document.activeElement;
+              const firstButton = document.querySelector('.vote-switch');
+              return Boolean(active)
+                && Boolean(firstButton)
+                && active === firstButton;
             }
             """
         )
-        self.assertEqual(self.active_element_snapshot(page)["status"], "yes")
 
-        page.keyboard.press("End")
+        page.keyboard.press(" ")
+        page.locator(".vote-cell-menu").first.wait_for()
+        page.keyboard.press("ArrowRight")
         page.wait_for_function(
             """
             () => {
-              const button = document.querySelector('.vote-switch-option-no');
+              const button = document.activeElement;
+              const firstButton = document.querySelector('.vote-switch');
+              const yesSegment = firstButton
+                ? firstButton.querySelector('.vote-switch-option-yes')
+                : null;
               return Boolean(button)
-                && button.getAttribute('aria-checked') === 'true'
-                && document.activeElement === button;
+                && Boolean(firstButton)
+                && Boolean(yesSegment)
+                && button.getAttribute('role') === 'menuitemradio'
+                && button.textContent.trim() === 'Yes'
+                && firstButton.getAttribute('data-vote-status') === 'yes'
+                && yesSegment.getAttribute('data-selected') === 'true';
             }
             """
         )
-        self.assertEqual(self.active_element_snapshot(page)["status"], "no")
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            """
+            () => {
+              const active = document.activeElement;
+              const firstButton = document.querySelector('.vote-switch');
+              const yesSegment = firstButton
+                ? firstButton.querySelector('.vote-switch-option-yes')
+                : null;
+              return Boolean(active)
+                && Boolean(firstButton)
+                && Boolean(yesSegment)
+                && active === firstButton
+                && firstButton.getAttribute('data-vote-status') === ''
+                && yesSegment.getAttribute('data-selected') === 'false'
+                && document.querySelectorAll('.vote-cell-menu').length === 0;
+            }
+            """
+        )
+        self.assertTrue(self.active_element_has_visible_focus(page))
+
+    def test_browser_vote_cell_hover_only_highlights_hovered_segment(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="vote-hover-owner")
+        self.create_poll(
+            title="Vote hover poll",
+            description="Used to verify hovered vote segments highlight independently.",
+            identifier="vote_hover_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-15",
+            end_date="2026-06-15",
+        )
+
+        page.locator(".vote-switch-option-yes").first.hover()
+        styles = page.evaluate(
+            """
+            () => {
+              const readBackground = (selector) => {
+                const element = document.querySelector(selector);
+                return element ? window.getComputedStyle(element).backgroundColor : '';
+              };
+              return {
+                yes: readBackground('.vote-switch-option-yes'),
+                maybe: readBackground('.vote-switch-option-maybe'),
+                no: readBackground('.vote-switch-option-no'),
+              };
+            }
+            """
+        )
+
+        self.assertNotEqual(styles["yes"], styles["maybe"])
+        self.assertEqual(styles["maybe"], styles["no"])
+
+    def test_browser_vote_cell_keyboard_synthetic_click_does_not_close_menu(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="vote-keyboard-click-owner")
+        self.create_poll(
+            title="Vote keyboard click poll",
+            description="Used to verify synthetic keyboard clicks do not close vote menus.",
+            identifier="vote_keyboard_click_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-15",
+            end_date="2026-06-15",
+        )
+
+        first_vote_cell = page.locator(".vote-switch").first
+        first_vote_cell.focus()
+
+        page.evaluate(
+            """
+            () => {
+              const trigger = document.querySelector('.vote-switch');
+              if (!trigger) {
+                return;
+              }
+              trigger.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter',
+                bubbles: true,
+                cancelable: true,
+              }));
+              trigger.dispatchEvent(new MouseEvent('click', {
+                detail: 0,
+                bubbles: true,
+                cancelable: true,
+              }));
+            }
+            """
+        )
+
+        menu = page.locator(".vote-cell-menu").first
+        menu.wait_for()
+        self.assertEqual(self.active_element_snapshot(page)["text"], "No vote")
+
+    def test_browser_vote_cell_keyboard_menu_is_visibly_rendered(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="vote-keyboard-visible-menu-owner")
+        self.create_poll(
+            title="Vote keyboard visible menu poll",
+            description="Used to verify the keyboard-opened vote menu is visibly rendered.",
+            identifier="vote_keyboard_visible_menu_poll",
+            timezone="Europe/Helsinki",
+            start_date="2026-06-15",
+            end_date="2026-06-15",
+        )
+
+        first_vote_cell = page.locator(".vote-switch").first
+        first_vote_cell.focus()
+        page.keyboard.press("Enter")
+
+        page.wait_for_function(
+            """
+            () => {
+              const cell = document.querySelector('.vote-cell.menu-open');
+              const menu = cell ? cell.querySelector('.vote-cell-menu') : null;
+              const firstItem = menu ? menu.querySelector('.bulk-menu-item') : null;
+              if (!cell || !menu || !firstItem) {
+                return false;
+              }
+              const cellRect = cell.getBoundingClientRect();
+              const itemRect = firstItem.getBoundingClientRect();
+              const probeX = itemRect.left + Math.min(12, Math.max(1, itemRect.width - 1));
+              const probeY = itemRect.top + Math.min(12, Math.max(1, itemRect.height - 1));
+              if (probeX >= window.innerWidth || probeY >= window.innerHeight) {
+                return false;
+              }
+              const hit = document.elementFromPoint(probeX, probeY);
+              return itemRect.top > cellRect.bottom
+                && Boolean(hit)
+                && (hit === firstItem || firstItem.contains(hit));
+            }
+            """
+        )
 
     def test_browser_language_switcher_supports_basic_switching_and_visible_focus(self) -> None:
         page = self.require_page()
@@ -2647,8 +2981,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             has_text="Browser lifecycle poll updated"
         ).wait_for()
 
-        first_yes_button = voter_page.locator(".vote-switch-option-yes").first
-        self.assertFalse(first_yes_button.is_disabled())
+        self.assertFalse(voter_page.locator(".vote-switch").first.is_disabled())
 
         creator_page.get_by_role("button", name="Close poll").click()
         creator_page.get_by_text("Poll is closed").first.wait_for()
@@ -2656,7 +2989,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         voter_page.reload(wait_until="domcontentloaded")
         voter_page.wait_for_load_state("networkidle")
         voter_page.get_by_text("Poll is closed").first.wait_for()
-        self.assertTrue(first_yes_button.is_disabled())
+        self.assertTrue(voter_page.locator(".vote-switch").first.is_disabled())
 
         creator_page.get_by_role("button", name="Reopen poll").click()
         creator_page.get_by_text("Poll is open").first.wait_for()
@@ -2664,7 +2997,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         voter_page.reload(wait_until="domcontentloaded")
         voter_page.wait_for_load_state("networkidle")
         voter_page.get_by_text("Poll is open").first.wait_for()
-        self.assertFalse(first_yes_button.is_disabled())
+        self.assertFalse(voter_page.locator(".vote-switch").first.is_disabled())
 
     def test_browser_profile_open_export_delete_flow(self) -> None:
         page = self.require_page()
@@ -2739,18 +3072,18 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         first_yes_button.click()
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "true")
 
         first_maybe_button.click()
         self.wait_for_first_vote_state(".vote-switch-option-maybe", True, page=page)
-        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "true")
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+        self.assertEqual(first_maybe_button.get_attribute("data-selected"), "true")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
         first_maybe_button.click()
         self.wait_for_first_vote_state(".vote-switch-option-maybe", False, page=page)
         self.wait_for_first_vote_state(".vote-switch-option-yes", False, page=page)
-        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "false")
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+        self.assertEqual(first_maybe_button.get_attribute("data-selected"), "false")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
         page.reload(wait_until="domcontentloaded")
         page.wait_for_load_state("networkidle")
@@ -2763,8 +3096,8 @@ class PollBrowserTests(StaticLiveServerTestCase):
             page.evaluate("() => window.localStorage.getItem('timepoll-language')"),
             "fi",
         )
-        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "false")
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+        self.assertEqual(first_maybe_button.get_attribute("data-selected"), "false")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
     def test_browser_rapid_vote_clicks_coalesce_pending_changes_and_queue_follow_up_sync(self) -> None:
         page = self.require_page()
@@ -2857,7 +3190,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
             """
             () => {
               const selectedYesCount = document.querySelectorAll(
-                '.vote-switch-option-yes[aria-checked="true"]'
+                '.vote-switch-option-yes[data-selected="true"]'
               ).length;
               return selectedYesCount >= 2;
             }
@@ -2872,10 +3205,10 @@ class PollBrowserTests(StaticLiveServerTestCase):
             """
         )
 
-        self.assertFalse(first_maybe_button.is_disabled())
+        self.assertFalse(page.locator(".vote-switch").first.is_disabled())
         first_maybe_button.click()
         self.wait_for_first_vote_state(".vote-switch-option-maybe", True, page=page)
-        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(first_maybe_button.get_attribute("data-selected"), "true")
 
         page.wait_for_function(
             """
@@ -2915,8 +3248,8 @@ class PollBrowserTests(StaticLiveServerTestCase):
         )
         self.assertIn(first_request_votes, [expected_first_only, expected_batched_first], stats)
         self.assertIn(second_request_votes, [expected_follow_up_only, expected_follow_up_with_second], stats)
-        self.assertEqual(first_maybe_button.get_attribute("aria-checked"), "true")
-        self.assertEqual(second_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(first_maybe_button.get_attribute("data-selected"), "true")
+        self.assertEqual(second_yes_button.get_attribute("data-selected"), "true")
         self.assertEqual(page.locator(".feedback.error").count(), 0)
 
     def test_browser_vote_request_recovers_from_csrf_retry(self) -> None:
@@ -2995,7 +3328,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         stats = page.evaluate("() => window.__timepollCsrfRetryStats")
         self.assertEqual(stats["voteStatuses"][:2], [403, 200], stats)
         self.assertGreaterEqual(stats["sessionRefreshCount"], 1, stats)
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "true")
         self.assertEqual(page.locator(".feedback.error").count(), 0)
 
     def test_browser_vote_sync_updates_local_poll_summary_and_defers_poll_list_refresh_until_home(self) -> None:
@@ -3110,7 +3443,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
               return rows.every((row) => {
                 const cell = row.children[columnIndex];
                 const button = cell && cell.querySelector('.vote-switch-option-yes');
-                return Boolean(button) && button.getAttribute('aria-checked') === 'true';
+                return Boolean(button) && button.getAttribute('data-selected') === 'true';
               });
             }
             """
@@ -3132,7 +3465,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
               }
               return cells.every((cell) => {
                 const maybeButton = cell.querySelector('.vote-switch-option-maybe');
-                return Boolean(maybeButton) && maybeButton.getAttribute('aria-checked') === 'true';
+                return Boolean(maybeButton) && maybeButton.getAttribute('data-selected') === 'true';
               });
             }
             """
@@ -3149,7 +3482,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
                 return false;
               }
               const yesButton = firstVoteCell.querySelector('.vote-switch-option-yes');
-              return Boolean(yesButton) && yesButton.getAttribute('aria-checked') === 'true';
+              return Boolean(yesButton) && yesButton.getAttribute('data-selected') === 'true';
             }
             """
         )
@@ -3296,7 +3629,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
         page.get_by_role("button", name="Profile vote delete poll").click()
         page.locator(".details-title").filter(has_text="Profile vote delete poll").wait_for()
-        self.assertEqual(page.locator(".vote-switch-option-yes").first.get_attribute("aria-checked"), "false")
+        self.assertEqual(page.locator(".vote-switch-option-yes").first.get_attribute("data-selected"), "false")
 
     def test_browser_invalid_poll_id_in_url_falls_back_to_list_and_cleans_query(self) -> None:
         page = self.require_page()
@@ -3396,7 +3729,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
                 return false;
               }
               const yesButtons = Array.from(row.querySelectorAll('.vote-switch-option-yes'));
-              return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('aria-checked') === 'true');
+              return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('data-selected') === 'true');
             }
             """,
             arg=visible_days,
@@ -3426,7 +3759,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
                 return false;
               }
               const yesButtons = Array.from(row.querySelectorAll('.vote-switch-option-yes'));
-              return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('aria-checked') === 'false');
+              return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('data-selected') === 'false');
             }
             """,
             arg=second_visible_days,
@@ -3453,7 +3786,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
                 return false;
               }
               const yesButtons = Array.from(row.querySelectorAll('.vote-switch-option-yes'));
-              return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('aria-checked') === 'true');
+              return yesButtons.length === expectedCount && yesButtons.every((button) => button.getAttribute('data-selected') === 'true');
             }
             """,
             arg=visible_days,
@@ -3715,7 +4048,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".details-title").filter(has_text="Logout state poll").wait_for()
         page.get_by_text("Enter your name and PIN to continue.").wait_for()
 
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
         first_yes_button.click()
         page.get_by_role("dialog").wait_for()
@@ -3973,7 +4306,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Logout", exact=True).wait_for()
         page.get_by_role("dialog").wait_for(state="hidden")
         self.wait_for_first_vote_state(".vote-switch-option-yes", True, page=page)
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "true")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "true")
 
     def test_browser_cancelled_auth_dialog_discards_pending_vote_action(self) -> None:
         page = self.require_page()
@@ -3993,7 +4326,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Login").wait_for()
 
         first_yes_button = page.locator(".vote-switch-option-yes").first
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
         first_yes_button.click()
         page.get_by_role("dialog").wait_for()
@@ -4005,7 +4338,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Logout", exact=True).wait_for()
         page.wait_for_load_state("networkidle")
 
-        self.assertEqual(first_yes_button.get_attribute("aria-checked"), "false")
+        self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
     def test_browser_pending_create_action_resumes_after_login(self) -> None:
         page = self.require_page()
@@ -4460,12 +4793,26 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.wait_for_function(
             """
             async () => {
-              const response = await fetch('/api/polls/edit_weekday_lock_poll/', { credentials: 'same-origin' });
-              const poll = await response.json();
-              return (poll.options || []).some((item) => {
-                const counts = item.counts || {};
-                return counts.yes === 1;
-              });
+              try {
+                const response = await fetch('/api/polls/edit_weekday_lock_poll/', {
+                  credentials: 'same-origin',
+                  headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) {
+                  return false;
+                }
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                  return false;
+                }
+                const poll = await response.json();
+                return (poll.options || []).some((item) => {
+                  const counts = item.counts || {};
+                  return counts.yes === 1;
+                });
+              } catch (error) {
+                return false;
+              }
             }
             """
         )
@@ -4559,17 +4906,31 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.wait_for_function(
             """
             async () => {
-              const response = await fetch('/api/polls/edit_date_vote_bounds_poll/', { credentials: 'same-origin' });
-              const poll = await response.json();
-              const option = (poll.options || []).find((item) => {
-                const counts = item.counts || {};
+              try {
+                const response = await fetch('/api/polls/edit_date_vote_bounds_poll/', {
+                  credentials: 'same-origin',
+                  headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) {
+                  return false;
+                }
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                  return false;
+                }
+                const poll = await response.json();
+                const option = (poll.options || []).find((item) => {
+                  const counts = item.counts || {};
+                  return counts.yes === 1;
+                });
+                if (!option) {
+                  return false;
+                }
+                const counts = option.counts || {};
                 return counts.yes === 1;
-              });
-              if (!option) {
+              } catch (error) {
                 return false;
               }
-              const counts = option.counts || {};
-              return counts.yes === 1;
             }
             """
         )
@@ -4769,12 +5130,26 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.wait_for_function(
             """
             async () => {
-              const response = await fetch('/api/polls/edit_hour_vote_bounds_poll/', { credentials: 'same-origin' });
-              const poll = await response.json();
-              return (poll.options || []).some((item) => {
-                const counts = item.counts || {};
-                return counts.yes === 1;
-              });
+              try {
+                const response = await fetch('/api/polls/edit_hour_vote_bounds_poll/', {
+                  credentials: 'same-origin',
+                  headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) {
+                  return false;
+                }
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                  return false;
+                }
+                const poll = await response.json();
+                return (poll.options || []).some((item) => {
+                  const counts = item.counts || {};
+                  return counts.yes === 1;
+                });
+              } catch (error) {
+                return false;
+              }
             }
             """
         )
@@ -4909,30 +5284,44 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.wait_for_function(
             """
             async (pollIdentifier) => {
-              const response = await fetch(`/api/polls/${pollIdentifier}/`, { credentials: 'same-origin' });
-              const poll = await response.json();
-              if (!poll || poll.timezone !== 'Pacific/Honolulu') {
+              try {
+                const response = await fetch(`/api/polls/${pollIdentifier}/`, {
+                  credentials: 'same-origin',
+                  headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) {
+                  return false;
+                }
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                  return false;
+                }
+                const poll = await response.json();
+                if (!poll || poll.timezone !== 'Pacific/Honolulu') {
+                  return false;
+                }
+                if (poll.start_date !== '2026-05-03' || poll.end_date !== '2026-05-04') {
+                  return false;
+                }
+                if (poll.daily_start_hour !== 0 || poll.daily_end_hour !== 15) {
+                  return false;
+                }
+                if (!Array.isArray(poll.allowed_weekdays) || poll.allowed_weekdays.join(',') !== '0,6') {
+                  return false;
+                }
+                if (!Array.isArray(poll.options) || poll.options.length < 2) {
+                  return false;
+                }
+                const option = poll.options.find((item) => item.starts_at === '2026-05-04T00:00:00+00:00');
+                const counts = option && typeof option.counts === 'object' ? option.counts : null;
+                return Boolean(
+                  option
+                  && counts
+                  && counts.yes === 1
+                );
+              } catch (error) {
                 return false;
               }
-              if (poll.start_date !== '2026-05-03' || poll.end_date !== '2026-05-04') {
-                return false;
-              }
-              if (poll.daily_start_hour !== 0 || poll.daily_end_hour !== 15) {
-                return false;
-              }
-              if (!Array.isArray(poll.allowed_weekdays) || poll.allowed_weekdays.join(',') !== '0,6') {
-                return false;
-              }
-              if (!Array.isArray(poll.options) || poll.options.length < 2) {
-                return false;
-              }
-              const option = poll.options.find((item) => item.starts_at === '2026-05-04T00:00:00+00:00');
-              const counts = option && typeof option.counts === 'object' ? option.counts : null;
-              return Boolean(
-                option
-                && counts
-                && counts.yes === 1
-              );
             }
             """,
             arg=poll_identifier,

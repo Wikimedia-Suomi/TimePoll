@@ -142,6 +142,7 @@ make pre-push
 - Authentication with name + PIN (login auto-creates new user if name does not exist)
 - Session-based login state
 - Mobile-friendly and accessibility-focused UI
+- Accessibility notes and Safari/macOS keyboard caveats: [`docs/accessibility.md`](docs/accessibility.md)
 
 ## Tests
 
@@ -238,6 +239,7 @@ To enforce these checks as merge gates in GitHub:
 - The application page loads those two JavaScript files directly without a build step.
 - Browser-run JS unit tests live under `polls/static/polls/js/tests/` and are executed via Playwright.
 - Browser tests also include the axe accessibility smoke test.
+- Accessibility notes and platform-specific keyboard behavior are documented in [`docs/accessibility.md`](docs/accessibility.md).
 - Vue runtime is loaded from Wikimedia CDN: `https://tools-static.wmflabs.org/cdnjs/...`.
 - Required environment variables:
   - `TIMEPOLL_SECRET_KEY`: non-empty secret string

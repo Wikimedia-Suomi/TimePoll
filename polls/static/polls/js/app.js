@@ -172,6 +172,10 @@ const translations = {
       voteNo: "No",
       voteMaybe: "Maybe",
       noVote: "No vote",
+      voteCellKeyboardHelp: "Use arrow keys to move between time options. Press Enter or Space to open vote choices, then choose with arrow keys and confirm with Enter or Space.",
+      voteSavedStatus: "Vote saved: {status}.",
+      voteCleared: "Vote cleared.",
+      votesSaved: "Votes saved.",
       deleteVote: "Delete vote",
       authNeeded: "Enter your name and PIN to continue. A new user is created automatically if needed.",
       authPrompt: "Use your name and PIN. If the name does not exist yet, a new user is created automatically.",
@@ -327,6 +331,10 @@ const translations = {
       voteNo: "Ei",
       voteMaybe: "Ehkä",
       noVote: "Ei ääntä",
+      voteCellKeyboardHelp: "Liiku aikavaihtoehtojen välillä nuolinäppäimillä. Avaa äänivalinnat Enterillä tai välilyönnillä, valitse nuolilla ja vahvista Enterillä tai välilyönnillä.",
+      voteSavedStatus: "Ääni tallennettu: {status}.",
+      voteCleared: "Ääni poistettu.",
+      votesSaved: "Äänet tallennettu.",
       deleteVote: "Poista ääni",
       authNeeded: "Syötä nimi ja PIN-koodi jatkaaksesi. Uusi käyttäjä luodaan automaattisesti tarvittaessa.",
       authPrompt: "Käytä nimeä ja PIN-koodia. Jos nimeä ei ole vielä olemassa, uusi käyttäjä luodaan automaattisesti.",
@@ -473,6 +481,10 @@ const translations = {
       voteNo: "Nej",
       voteMaybe: "Kanske",
       noVote: "Ingen röst",
+      voteCellKeyboardHelp: "Flytta mellan tidsalternativen med piltangenterna. Öppna röstval med Enter eller mellanslag, välj med pilarna och bekräfta med Enter eller mellanslag.",
+      voteSavedStatus: "Röst sparad: {status}.",
+      voteCleared: "Röst borttagen.",
+      votesSaved: "Röster sparade.",
       deleteVote: "Ta bort röst",
       authNeeded: "Ange namn och PIN-kod för att fortsätta. En ny användare skapas automatiskt vid behov.",
       authPrompt: "Använd namn och PIN-kod. Om namnet inte finns skapas en ny användare automatiskt.",
@@ -619,6 +631,10 @@ const translations = {
       voteNo: "Nei",
       voteMaybe: "Kanskje",
       noVote: "Ingen stemme",
+      voteCellKeyboardHelp: "Flytt mellom tidsalternativene med piltastene. Åpne stemmevalgene med Enter eller mellomrom, velg med piltastene og bekreft med Enter eller mellomrom.",
+      voteSavedStatus: "Stemme lagret: {status}.",
+      voteCleared: "Stemme fjernet.",
+      votesSaved: "Stemmer lagret.",
       deleteVote: "Slett stemme",
       authNeeded: "Skriv inn navn og PIN-kode for å fortsette. En ny bruker opprettes automatisk ved behov.",
       authPrompt: "Bruk navn og PIN-kode. Hvis navnet ikke finnes ennå, opprettes en ny bruker automatisk.",
@@ -765,6 +781,10 @@ const translations = {
       voteNo: "Ei",
       voteMaybe: "Võib-olla",
       noVote: "Hääl puudub",
+      voteCellKeyboardHelp: "Liigu ajavalikute vahel nooleklahvidega. Ava häälevalikud Enteri või tühikuklahviga, vali nooltega ja kinnita Enteri või tühikuklahviga.",
+      voteSavedStatus: "Hääl salvestatud: {status}.",
+      voteCleared: "Hääl eemaldatud.",
+      votesSaved: "Hääled salvestatud.",
       deleteVote: "Kustuta hääl",
       authNeeded: "Jätkamiseks sisesta nimi ja PIN-kood. Vajadusel luuakse uus kasutaja automaatselt.",
       authPrompt: "Kasuta nime ja PIN-koodi. Kui nime veel ei ole, luuakse uus kasutaja automaatselt.",
@@ -1427,7 +1447,10 @@ const translations = {
           errorMessage: "",
           successMessage: "",
           successFeedbackTimerId: null,
+          voteStatusAnnouncement: "",
           bulkMenu: null,
+          voteCellMenuPreview: null,
+          activeVoteCellId: "",
           calendarWrapWidth: typeof window !== "undefined" ? window.innerWidth : 0,
           visibleDayCount: detectInitialVisibleDayCount(),
           minYesVotesFilter: 0
@@ -1995,6 +2018,7 @@ const translations = {
       },
       watch: {
         calendarWeeks() {
+          this.syncActiveVoteCell();
           this.$nextTick(() => {
             this.updateVisibleDayCount();
           });
@@ -2007,6 +2031,9 @@ const translations = {
           if (this.minYesVotesFilter < 0) {
             this.minYesVotesFilter = 0;
           }
+        },
+        minYesVotesFilter() {
+          this.syncActiveVoteCell();
         },
         calendarTimezoneMode(newValue) {
           if (newValue !== "custom") {
@@ -2178,6 +2205,83 @@ const translations = {
             return false;
           }
           return this.focusElementIfPossible(document.getElementById(id));
+        },
+        pollListButtons() {
+          return Array.from(document.querySelectorAll("#section-panel-list .poll-item"));
+        },
+        focusPollListHeading() {
+          return this.focusElementById("poll-list-heading");
+        },
+        focusCreatePollButton() {
+          return this.focusElementById("open-create-poll");
+        },
+        focusPollListButtonByIndex(index) {
+          const buttons = this.pollListButtons();
+          if (!buttons.length) {
+            return false;
+          }
+          const normalizedIndex = Math.min(Math.max(Number(index) || 0, 0), buttons.length - 1);
+          return this.focusElementIfPossible(buttons[normalizedIndex]);
+        },
+        pollListButtonIndexForElement(element) {
+          if (!element) {
+            return -1;
+          }
+          return this.pollListButtons().findIndex((button) => button === element);
+        },
+        handlePollListHeadingKeydown(event) {
+          if (this.activeSection !== "list" || event.altKey || event.ctrlKey || event.metaKey) {
+            return;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowRight" || event.key === "Home") {
+            event.preventDefault();
+            if (!this.focusPollListButtonByIndex(0)) {
+              this.focusCreatePollButton();
+            }
+            return;
+          }
+          if (event.key === "End") {
+            event.preventDefault();
+            const buttons = this.pollListButtons();
+            if (!buttons.length) {
+              this.focusCreatePollButton();
+              return;
+            }
+            this.focusPollListButtonByIndex(buttons.length - 1);
+          }
+        },
+        handlePollListItemKeydown(event, pollId) {
+          if (this.activeSection !== "list" || event.altKey || event.ctrlKey || event.metaKey) {
+            return;
+          }
+          const currentTarget = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+          const currentIndex = this.pollListButtonIndexForElement(currentTarget);
+          if (currentIndex < 0) {
+            return;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+            event.preventDefault();
+            this.focusPollListButtonByIndex(Math.min(currentIndex + 1, this.pollListButtons().length - 1));
+            return;
+          }
+          if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+            event.preventDefault();
+            if (currentIndex === 0) {
+              this.focusPollListHeading();
+              return;
+            }
+            this.focusPollListButtonByIndex(currentIndex - 1);
+            return;
+          }
+          if (event.key === "Home") {
+            event.preventDefault();
+            this.focusPollListButtonByIndex(0);
+            return;
+          }
+          if (event.key === "End") {
+            event.preventDefault();
+            this.focusPollListButtonByIndex(this.pollListButtons().length - 1);
+          }
         },
         focusSectionReturnTarget(section, focusId = "") {
           this.$nextTick(() => {
@@ -2675,7 +2779,7 @@ const translations = {
           }
         },
         bulkMenuStatuses() {
-          return ["", "yes", "no", "maybe"];
+          return ["", "yes", "maybe", "no"];
         },
         bulkMenuIdPart(value) {
           return String(value || "").replace(/[^A-Za-z0-9_-]+/g, "-");
@@ -2701,6 +2805,45 @@ const translations = {
           if (menuItem && typeof menuItem.focus === "function") {
             menuItem.focus();
           }
+        },
+        voteCellMenuScopeKey() {
+          return "option";
+        },
+        voteCellTriggerId(optionOrId) {
+          const optionId = typeof optionOrId === "object"
+            ? Number(optionOrId && optionOrId.id)
+            : Number(optionOrId);
+          if (!Number.isInteger(optionId)) {
+            return "";
+          }
+          return this.bulkMenuTriggerId("cell", this.voteCellMenuScopeKey(), optionId);
+        },
+        voteCellMenuId(optionOrId) {
+          const optionId = typeof optionOrId === "object"
+            ? Number(optionOrId && optionOrId.id)
+            : Number(optionOrId);
+          if (!Number.isInteger(optionId)) {
+            return "";
+          }
+          return this.bulkMenuId("cell", this.voteCellMenuScopeKey(), optionId);
+        },
+        voteCellMenuItemId(optionOrId, status) {
+          const optionId = typeof optionOrId === "object"
+            ? Number(optionOrId && optionOrId.id)
+            : Number(optionOrId);
+          if (!Number.isInteger(optionId)) {
+            return "";
+          }
+          return this.bulkMenuItemId("cell", this.voteCellMenuScopeKey(), optionId, status);
+        },
+        isVoteCellMenuOpen(optionOrId) {
+          const optionId = typeof optionOrId === "object"
+            ? Number(optionOrId && optionOrId.id)
+            : Number(optionOrId);
+          if (!Number.isInteger(optionId)) {
+            return false;
+          }
+          return this.isBulkMenuOpen("cell", this.voteCellMenuScopeKey(), optionId);
         },
         t(key) {
           const set = translations[this.language] || translations.en;
@@ -3281,6 +3424,16 @@ const translations = {
           this.errorMessage = "";
           this.successMessage = "";
         },
+        announceVoteStatus(message) {
+          const nextMessage = String(message || "").trim();
+          this.voteStatusAnnouncement = "";
+          if (!nextMessage) {
+            return;
+          }
+          this.$nextTick(() => {
+            this.voteStatusAnnouncement = nextMessage;
+          });
+        },
         resolveError(payload, fallback) {
           if (payload && payload.error && errorMessages[payload.error]) {
             return errorMessages[payload.error][this.language] || errorMessages[payload.error].en;
@@ -3457,12 +3610,28 @@ const translations = {
           }
           return this.normalizeVoteValue(this.voteDraft[option.id], confirmedValue);
         },
+        displayedVoteValueForOption(option) {
+          if (!option || !Number.isInteger(option.id)) {
+            return "";
+          }
+          if (
+            this.bulkMenu
+            && this.bulkMenu.type === "cell"
+            && this.bulkMenu.scopeKey === this.voteCellMenuScopeKey()
+            && Number(this.bulkMenu.key) === option.id
+            && this.voteCellMenuPreview
+            && Number(this.voteCellMenuPreview.optionId) === option.id
+          ) {
+            return this.isVoteStatus(this.voteCellMenuPreview.status) ? this.voteCellMenuPreview.status : "";
+          }
+          return this.voteValueForOption(option);
+        },
         voteCellClass(option) {
           if (!option || typeof option !== "object") {
             return "vote-none";
           }
           if (this.voteDisplayMode === "own") {
-            const ownValue = this.voteValueForOption(option);
+            const ownValue = this.displayedVoteValueForOption(option);
             if (ownValue === "yes") {
               return "vote-yes";
             }
@@ -3485,8 +3654,8 @@ const translations = {
           }
           return "vote-none";
         },
-        isSelectedVoteValue(option, status) {
-          return this.voteValueForOption(option) === status;
+        isDisplayedVoteValue(option, status) {
+          return this.displayedVoteValueForOption(option) === status;
         },
         optionCount(option, status) {
           const baseCount = readOptionCount(option, status);
@@ -3506,11 +3675,6 @@ const translations = {
           }
           return adjustedCount;
         },
-        voteOptionAccessibleLabel(option, status) {
-          const label = this.voteStatusLabel(status);
-          const count = this.optionCount(option, status);
-          return Number.isFinite(count) ? `${label} ${count}` : label;
-        },
         voteStatusLabel(status) {
           if (status === "yes") {
             return this.t("voteYes");
@@ -3529,6 +3693,7 @@ const translations = {
         closeVoteMenus(options = {}) {
           const activeMenu = this.bulkMenu;
           this.bulkMenu = null;
+          this.voteCellMenuPreview = null;
           if (options.restoreFocus && activeMenu) {
             this.$nextTick(() => {
               this.focusBulkTrigger(activeMenu.type, activeMenu.scopeKey, activeMenu.key);
@@ -3877,53 +4042,339 @@ const translations = {
           const visibleDayKeys = Array.isArray(block && block.days) ? block.days.map((day) => day.key) : [];
           await this.applyVotes(this.collectRowOptionIds(row, visibleDayKeys), status);
         },
-        voteStatusOrder() {
-          return ["yes", "maybe", "no"];
+        voteCellCountsAccessibleLabel(option) {
+          if (!option) {
+            return "";
+          }
+          return [
+            `${this.t("yesVotes")}: ${this.optionCount(option, "yes")}`,
+            `${this.t("maybeVotes")}: ${this.optionCount(option, "maybe")}`,
+            `${this.t("noVotes")}: ${this.optionCount(option, "no")}`
+          ].join(". ");
         },
-        voteButtonTabIndex(option, status) {
+        voteCellAccessibleLabel(day, row, option) {
+          const parts = [];
+          const groupLabel = this.voteGroupAccessibleLabel(day, row);
+          if (groupLabel) {
+            parts.push(groupLabel);
+          }
+          if (option) {
+            parts.push(`${this.t("myVote")}: ${this.voteStatusLabel(this.voteValueForOption(option))}`);
+            parts.push(this.voteCellCountsAccessibleLabel(option));
+          }
+          return parts.filter(Boolean).join(". ");
+        },
+        voteCellMenuAccessibleLabel(day, row, option) {
+          const parts = [];
+          const groupLabel = this.voteGroupAccessibleLabel(day, row);
+          if (groupLabel) {
+            parts.push(groupLabel);
+          }
+          if (option) {
+            parts.push(`${this.t("myVote")}: ${this.voteStatusLabel(this.voteValueForOption(option))}`);
+          }
+          return parts.filter(Boolean).join(". ");
+        },
+        voteSyncAnnouncement(votes) {
+          const normalizedVotes = Array.isArray(votes) ? votes : [];
+          if (!normalizedVotes.length) {
+            return "";
+          }
+          if (normalizedVotes.length === 1) {
+            const status = this.normalizeVoteValue(normalizedVotes[0] && normalizedVotes[0].status);
+            if (!status) {
+              return this.t("voteCleared");
+            }
+            return this.formatTemplate(this.t("voteSavedStatus"), {
+              status: this.voteStatusLabel(status)
+            });
+          }
+          return this.t("votesSaved");
+        },
+        visibleVoteCellEntries() {
+          const entries = [];
+          for (const week of this.calendarWeeks) {
+            const blocks = this.weekBlocksForWeek(week);
+            for (const block of blocks) {
+              const rows = this.filteredRowsForBlock(week, block);
+              for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+                const row = rows[rowIndex];
+                for (let dayIndex = 0; dayIndex < block.days.length; dayIndex += 1) {
+                  const day = block.days[dayIndex];
+                  const option = row && row.cells ? row.cells[day.key] : null;
+                  if (!option || !Number.isInteger(option.id)) {
+                    continue;
+                  }
+                  entries.push({
+                    week,
+                    block,
+                    row,
+                    day,
+                    rowIndex,
+                    dayIndex,
+                    option
+                  });
+                }
+              }
+            }
+          }
+          return entries;
+        },
+        firstVisibleVoteCellId() {
+          const firstEntry = this.visibleVoteCellEntries()[0];
+          return firstEntry && firstEntry.option ? firstEntry.option.id : null;
+        },
+        findVisibleVoteCellEntry(optionOrId) {
+          const optionId = typeof optionOrId === "object"
+            ? Number(optionOrId && optionOrId.id)
+            : Number(optionOrId);
+          if (!Number.isInteger(optionId)) {
+            return null;
+          }
+          return this.visibleVoteCellEntries().find((entry) => entry.option.id === optionId) || null;
+        },
+        currentActiveVoteCellId() {
+          const activeId = Number(this.activeVoteCellId);
+          if (Number.isInteger(activeId) && this.findVisibleVoteCellEntry(activeId)) {
+            return activeId;
+          }
+          return this.firstVisibleVoteCellId();
+        },
+        syncActiveVoteCell() {
+          const nextActiveId = this.currentActiveVoteCellId();
+          const normalizedActiveId = Number.isInteger(nextActiveId) ? nextActiveId : "";
+          if (this.activeVoteCellId !== normalizedActiveId) {
+            this.activeVoteCellId = normalizedActiveId;
+          }
+          if (this.bulkMenu && this.bulkMenu.type === "cell" && !this.findVisibleVoteCellEntry(this.bulkMenu.key)) {
+            this.closeVoteMenus();
+          }
+        },
+        setActiveVoteCell(optionOrId) {
+          const optionId = typeof optionOrId === "object"
+            ? Number(optionOrId && optionOrId.id)
+            : Number(optionOrId);
+          if (!Number.isInteger(optionId)) {
+            this.syncActiveVoteCell();
+            return;
+          }
+          this.activeVoteCellId = optionId;
+        },
+        voteCellTabIndex(option) {
           if (!option || !Number.isInteger(option.id)) {
             return -1;
           }
-          const selected = this.voteValueForOption(option);
-          if (selected) {
-            return selected === status ? 0 : -1;
-          }
-          return status === "yes" ? 0 : -1;
+          const activeId = this.currentActiveVoteCellId();
+          return activeId === option.id ? 0 : -1;
         },
-        focusVoteButton(optionId, status) {
-          const selector = `.vote-switch-option[data-vote-option-id="${optionId}"][data-vote-status="${status}"]`;
-          const button = document.querySelector(selector);
-          if (button && typeof button.focus === "function") {
-            button.focus();
-          }
-        },
-        async handleVoteSwitchKeydown(event, option, status) {
-          if (
-            !option
-            || !Number.isInteger(option.id)
-            || !this.canVoteInPoll
-          ) {
+        focusVoteCell(optionOrId) {
+          const triggerId = this.voteCellTriggerId(optionOrId);
+          if (!triggerId) {
             return;
           }
-          const order = this.voteStatusOrder();
-          const currentIndex = order.indexOf(status);
-          let nextStatus = "";
-          if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-            nextStatus = order[(currentIndex + 1) % order.length];
-          } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-            nextStatus = order[(currentIndex - 1 + order.length) % order.length];
+          const trigger = document.getElementById(triggerId);
+          if (trigger && typeof trigger.focus === "function") {
+            trigger.focus();
+          }
+        },
+        openVoteCellMenu(option, options = {}) {
+          if (!option || !Number.isInteger(option.id) || !this.canVoteInPoll) {
+            return;
+          }
+          const focusStatus = Object.prototype.hasOwnProperty.call(options, "focusStatus")
+            ? options.focusStatus
+            : this.voteValueForOption(option);
+          this.setActiveVoteCell(option.id);
+          this.voteCellMenuPreview = {
+            optionId: option.id,
+            status: this.isVoteStatus(focusStatus) ? focusStatus : ""
+          };
+          this.openBulkMenu("cell", this.voteCellMenuScopeKey(), option.id, {
+            focusStatus
+          });
+        },
+        previewVoteCellMenuStatus(option, status) {
+          if (!option || !Number.isInteger(option.id) || !this.isVoteCellMenuOpen(option)) {
+            return;
+          }
+          this.voteCellMenuPreview = {
+            optionId: option.id,
+            status: this.isVoteStatus(status) ? status : ""
+          };
+        },
+        handleVoteCellMenuKeydown(event, option) {
+          if (!option || !Number.isInteger(option.id)) {
+            return;
+          }
+          this.handleBulkMenuKeydown(event, "cell", this.voteCellMenuScopeKey(), option.id);
+        },
+        async chooseVoteCellMenuStatus(option, status) {
+          if (!option || !Number.isInteger(option.id) || !this.canVoteInPoll) {
+            return;
+          }
+          const normalizedStatus = this.isVoteStatus(status) ? status : "";
+          this.closeVoteMenus({ restoreFocus: true });
+          await this.applyVotes([option.id], normalizedStatus);
+        },
+        voteCellStatusFromClickEvent(event) {
+          if (!event || Number(event.detail) === 0) {
+            return "";
+          }
+          const target = event.target instanceof Element ? event.target : null;
+          const segment = target ? target.closest("[data-vote-segment-status]") : null;
+          const status = segment ? segment.getAttribute("data-vote-segment-status") : "";
+          return this.isVoteStatus(status) ? status : "";
+        },
+        handleVoteCellTriggerClick(event, option) {
+          if (!option || !Number.isInteger(option.id) || !this.canVoteInPoll) {
+            return;
+          }
+          this.setActiveVoteCell(option.id);
+          if (Number(event && event.detail) === 0 && this.isVoteCellMenuOpen(option)) {
+            return;
+          }
+          const pointerStatus = this.voteCellStatusFromClickEvent(event);
+          if (pointerStatus) {
+            void this.setVoteStatus(option, pointerStatus);
+            return;
+          }
+          if (this.isVoteCellMenuOpen(option)) {
+            this.closeVoteMenus({ restoreFocus: true });
+            return;
+          }
+          this.openVoteCellMenu(option);
+        },
+        findBlockVoteCellEntry(week, block, rowIndex, dayIndex) {
+          if (!week || !block) {
+            return null;
+          }
+          const rows = this.filteredRowsForBlock(week, block);
+          if (rowIndex < 0 || rowIndex >= rows.length || dayIndex < 0 || dayIndex >= block.days.length) {
+            return null;
+          }
+          const row = rows[rowIndex];
+          const day = block.days[dayIndex];
+          const option = row && row.cells ? row.cells[day.key] : null;
+          if (!option || !Number.isInteger(option.id)) {
+            return null;
+          }
+          return {
+            week,
+            block,
+            row,
+            day,
+            rowIndex,
+            dayIndex,
+            option
+          };
+        },
+        findAdjacentVoteCellEntry(optionOrId, direction) {
+          const currentEntry = this.findVisibleVoteCellEntry(optionOrId);
+          if (!currentEntry) {
+            return null;
+          }
+
+          if (direction === "home" || direction === "end") {
+            let dayIndex = direction === "home" ? 0 : currentEntry.block.days.length - 1;
+            const step = direction === "home" ? 1 : -1;
+            while (dayIndex >= 0 && dayIndex < currentEntry.block.days.length) {
+              const candidate = this.findBlockVoteCellEntry(
+                currentEntry.week,
+                currentEntry.block,
+                currentEntry.rowIndex,
+                dayIndex
+              );
+              if (candidate) {
+                return candidate;
+              }
+              dayIndex += step;
+            }
+            return currentEntry;
+          }
+
+          const horizontalStep = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+          if (horizontalStep) {
+            let dayIndex = currentEntry.dayIndex + horizontalStep;
+            while (dayIndex >= 0 && dayIndex < currentEntry.block.days.length) {
+              const candidate = this.findBlockVoteCellEntry(
+                currentEntry.week,
+                currentEntry.block,
+                currentEntry.rowIndex,
+                dayIndex
+              );
+              if (candidate) {
+                return candidate;
+              }
+              dayIndex += horizontalStep;
+            }
+            return currentEntry;
+          }
+
+          const verticalStep = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+          if (verticalStep) {
+            const rows = this.filteredRowsForBlock(currentEntry.week, currentEntry.block);
+            let rowIndex = currentEntry.rowIndex + verticalStep;
+            while (rowIndex >= 0 && rowIndex < rows.length) {
+              const candidate = this.findBlockVoteCellEntry(
+                currentEntry.week,
+                currentEntry.block,
+                rowIndex,
+                currentEntry.dayIndex
+              );
+              if (candidate) {
+                return candidate;
+              }
+              rowIndex += verticalStep;
+            }
+          }
+
+          return currentEntry;
+        },
+        handleVoteCellTriggerKeydown(event, option) {
+          if (!option || !Number.isInteger(option.id)) {
+            return;
+          }
+          let direction = "";
+          if ((event.key === "Enter" || event.key === " ") && this.canVoteInPoll) {
+            event.preventDefault();
+            if (this.isVoteCellMenuOpen(option)) {
+              this.closeVoteMenus({ restoreFocus: true });
+              return;
+            }
+            this.openVoteCellMenu(option);
+            return;
+          }
+          if (event.key === "ArrowLeft") {
+            direction = "left";
+          } else if (event.key === "ArrowRight") {
+            direction = "right";
+          } else if (event.key === "ArrowUp") {
+            direction = "up";
+          } else if (event.key === "ArrowDown") {
+            direction = "down";
           } else if (event.key === "Home") {
-            nextStatus = order[0];
+            direction = "home";
           } else if (event.key === "End") {
-            nextStatus = order[order.length - 1];
+            direction = "end";
+          } else if (event.key === "Escape" && this.isVoteCellMenuOpen(option)) {
+            event.preventDefault();
+            this.closeVoteMenus({ restoreFocus: true });
+            return;
           } else {
             return;
           }
+
           event.preventDefault();
-          await this.setVoteStatus(option, nextStatus);
-          this.$nextTick(() => {
-            this.focusVoteButton(option.id, nextStatus);
-          });
+          const nextEntry = this.findAdjacentVoteCellEntry(option, direction);
+          if (!nextEntry || !nextEntry.option || !Number.isInteger(nextEntry.option.id)) {
+            return;
+          }
+          this.setActiveVoteCell(nextEntry.option.id);
+          if (nextEntry.option.id !== option.id) {
+            this.$nextTick(() => {
+              this.focusVoteCell(nextEntry.option.id);
+            });
+          }
         },
         async setVoteStatus(option, status) {
           if (!option || !Number.isInteger(option.id)) {
@@ -4136,6 +4587,7 @@ const translations = {
             ) {
               this.selectedPoll = data.poll;
               this.applyVoteDraft({ preserveLocalChanges: true });
+              this.announceVoteStatus(this.voteSyncAnnouncement(votes));
             }
             this.patchPollSummaryFromDetail(data.poll);
             this.pollListNeedsRefresh = true;
@@ -5026,6 +5478,16 @@ const translations = {
         await this.applyPollFromUrl({ replace: true });
         this.$nextTick(() => {
           this.updateVisibleDayCount();
+          if (
+            this.activeSection === "list"
+            && this.selectedPoll === null
+            && (
+              document.activeElement === document.body
+              || document.activeElement === document.documentElement
+            )
+          ) {
+            this.focusPollListHeading();
+          }
         });
       },
       beforeUnmount() {

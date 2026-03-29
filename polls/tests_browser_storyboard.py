@@ -208,7 +208,7 @@ class PollStoryboardBrowserTests(StaticLiveServerTestCase):
                 return false;
               }
               const button = cell.querySelector(`.vote-switch-option-${targetStatus}`);
-              return Boolean(button) && button.getAttribute('aria-checked') === expectedState;
+              return Boolean(button) && button.getAttribute('data-selected') === expectedState;
             }
             """,
             arg=[day_index, time_label, status, expected],
@@ -323,6 +323,101 @@ class PollStoryboardBrowserTests(StaticLiveServerTestCase):
             """,
             arg=[option_id, status],
         )
+
+    def keyboard_navigate_to_vote_cell(
+        self,
+        page: "Page",
+        *,
+        option_id: str,
+        status: str = "",
+        max_steps: int = 200,
+    ) -> dict[str, str]:
+        for _ in range(max_steps):
+            snapshot = self.active_element_snapshot(page)
+            if snapshot["optionId"] == option_id and (not status or snapshot["status"] == status):
+                return snapshot
+
+            next_key = page.evaluate(
+                """
+                ([targetOptionId, activeOptionId]) => {
+                  const buttons = Array.from(document.querySelectorAll('.vote-switch'));
+                  const findButton = (optionId) => buttons.find((button) => (
+                    button.getAttribute('data-vote-option-id') === optionId
+                  ));
+                  const locate = (button) => {
+                    if (!button) {
+                      return null;
+                    }
+                    const row = button.closest('tr');
+                    const cell = button.closest('td.calendar-cell');
+                    const table = button.closest('table');
+                    if (!row || !cell || !table) {
+                      return null;
+                    }
+                    const rows = Array.from(table.querySelectorAll('tbody tr')).filter((candidate) => (
+                      Boolean(candidate.querySelector('td.calendar-cell'))
+                    ));
+                    const cells = Array.from(row.querySelectorAll('td.calendar-cell'));
+                    return {
+                      rowIndex: rows.indexOf(row),
+                      cellIndex: cells.indexOf(cell),
+                    };
+                  };
+
+                  const targetButton = findButton(targetOptionId);
+                  if (!targetButton) {
+                    return '';
+                  }
+                  const activeButton = findButton(activeOptionId);
+                  if (!activeButton) {
+                    return 'Tab';
+                  }
+                  const targetPosition = locate(targetButton);
+                  const activePosition = locate(activeButton);
+                  if (!targetPosition || !activePosition) {
+                    return 'Tab';
+                  }
+                  if (activePosition.rowIndex < targetPosition.rowIndex) {
+                    return 'ArrowDown';
+                  }
+                  if (activePosition.rowIndex > targetPosition.rowIndex) {
+                    return 'ArrowUp';
+                  }
+                  if (activePosition.cellIndex < targetPosition.cellIndex) {
+                    return 'ArrowRight';
+                  }
+                  if (activePosition.cellIndex > targetPosition.cellIndex) {
+                    return 'ArrowLeft';
+                  }
+                  return '';
+                }
+                """,
+                [option_id, snapshot["optionId"]],
+            )
+            if not next_key:
+                break
+            page.keyboard.press(str(next_key))
+
+        raise AssertionError(
+            "Did not reach the requested vote cell with keyboard navigation. "
+            f"option_id={option_id!r} status={status!r} snapshot={self.active_element_snapshot(page)!r}"
+        )
+
+    def choose_focused_vote_with_keyboard(self, page: "Page", *, status: str) -> None:
+        status_steps = {
+            "": 0,
+            "yes": 1,
+            "maybe": 2,
+            "no": 3,
+        }
+        if status not in status_steps:
+            raise AssertionError(f"Unsupported vote status for keyboard selection: {status!r}")
+
+        page.keyboard.press("Enter")
+        page.keyboard.press("Home")
+        for _ in range(status_steps[status]):
+            page.keyboard.press("ArrowRight")
+        page.keyboard.press("Enter")
 
     def test_storyboard_multitimezone_video_call_flow_can_be_completed_end_to_end(self) -> None:
         title = "Maailmanlaajuinen tiimipuhelu"
@@ -440,23 +535,22 @@ class PollStoryboardBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.active_element_snapshot(leila_page)["text"], "No vote")
         leila_page.keyboard.press("ArrowDown")
         leila_page.keyboard.press("ArrowDown")
-        leila_page.keyboard.press("ArrowDown")
         self.assertEqual(self.active_element_snapshot(leila_page)["text"], "Maybe")
         leila_page.keyboard.press("Enter")
         self.assertEqual(self.active_element_snapshot(leila_page)["id"], thursday_trigger_id)
 
         leila_1600_option_id = self.get_cell_option_id(leila_page, day_index=3, time_label="16:00")
         self.assertTrue(leila_1600_option_id)
-        self.tab_until(leila_page, option_id=leila_1600_option_id, status="maybe")
-        leila_page.keyboard.press("ArrowLeft")
+        self.keyboard_navigate_to_vote_cell(leila_page, option_id=leila_1600_option_id, status="maybe")
+        self.choose_focused_vote_with_keyboard(leila_page, status="yes")
         self.wait_for_cell_vote_state(leila_page, day_index=3, time_label="16:00", status="yes", checked=True)
         self.wait_for_active_vote_button(leila_page, option_id=leila_1600_option_id, status="yes")
         self.assertEqual(self.active_element_snapshot(leila_page)["status"], "yes")
 
         leila_1800_option_id = self.get_cell_option_id(leila_page, day_index=3, time_label="18:00")
         self.assertTrue(leila_1800_option_id)
-        self.tab_until(leila_page, option_id=leila_1800_option_id, status="maybe")
-        leila_page.keyboard.press("ArrowRight")
+        self.keyboard_navigate_to_vote_cell(leila_page, option_id=leila_1800_option_id, status="maybe")
+        self.choose_focused_vote_with_keyboard(leila_page, status="no")
         self.wait_for_cell_vote_state(leila_page, day_index=3, time_label="18:00", status="no", checked=True)
         self.wait_for_active_vote_button(leila_page, option_id=leila_1800_option_id, status="no")
 
@@ -477,7 +571,7 @@ class PollStoryboardBrowserTests(StaticLiveServerTestCase):
         maya_page.reload(wait_until="domcontentloaded")
         maya_page.wait_for_load_state("networkidle")
         maya_page.get_by_text("Poll is closed").first.wait_for()
-        self.assertTrue(maya_page.locator(".vote-switch-option-yes").first.is_disabled())
+        self.assertTrue(maya_page.locator(".vote-switch").first.is_disabled())
 
         aino_page.on("dialog", lambda dialog: dialog.accept())
         aino_page.get_by_role("button", name="Poista kysely").click()
@@ -535,22 +629,21 @@ class PollStoryboardBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.active_element_snapshot(leila_page)["text"], "No vote")
         leila_page.keyboard.press("ArrowDown")
         leila_page.keyboard.press("ArrowDown")
-        leila_page.keyboard.press("ArrowDown")
         self.assertEqual(self.active_element_snapshot(leila_page)["text"], "Maybe")
         leila_page.keyboard.press("Enter")
         self.assertEqual(self.active_element_snapshot(leila_page)["id"], thursday_trigger_id)
 
         leila_1600_option_id = self.get_cell_option_id(leila_page, day_index=3, time_label="16:00")
         self.assertTrue(leila_1600_option_id)
-        self.tab_until(leila_page, option_id=leila_1600_option_id, status="maybe")
-        leila_page.keyboard.press("ArrowLeft")
+        self.keyboard_navigate_to_vote_cell(leila_page, option_id=leila_1600_option_id, status="maybe")
+        self.choose_focused_vote_with_keyboard(leila_page, status="yes")
         self.wait_for_cell_vote_state(leila_page, day_index=3, time_label="16:00", status="yes", checked=True)
         self.wait_for_active_vote_button(leila_page, option_id=leila_1600_option_id, status="yes")
         self.assertEqual(self.active_element_snapshot(leila_page)["status"], "yes")
 
         leila_1800_option_id = self.get_cell_option_id(leila_page, day_index=3, time_label="18:00")
         self.assertTrue(leila_1800_option_id)
-        self.tab_until(leila_page, option_id=leila_1800_option_id, status="maybe")
-        leila_page.keyboard.press("ArrowRight")
+        self.keyboard_navigate_to_vote_cell(leila_page, option_id=leila_1800_option_id, status="maybe")
+        self.choose_focused_vote_with_keyboard(leila_page, status="no")
         self.wait_for_cell_vote_state(leila_page, day_index=3, time_label="18:00", status="no", checked=True)
         self.wait_for_active_vote_button(leila_page, option_id=leila_1800_option_id, status="no")

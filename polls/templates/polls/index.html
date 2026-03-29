@@ -67,6 +67,7 @@
         <button
           type="button"
           class="feedback-close"
+          tabindex="-1"
           @click="clearFeedback"
           :aria-label="t('dismissFeedback')"
         >
@@ -74,6 +75,7 @@
         </button>
       </p>
     </div>
+    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">[[ voteStatusAnnouncement ]]</p>
 
     <section class="workspace" aria-label="TimePoll workspace">
       <article
@@ -83,7 +85,7 @@
         aria-labelledby="poll-list-heading"
       >
         <header class="panel-head">
-          <h2 id="poll-list-heading" tabindex="-1">[[ t('polls') ]]</h2>
+          <h2 id="poll-list-heading" tabindex="0" @keydown="handlePollListHeadingKeydown">[[ t('polls') ]]</h2>
           <button
             id="open-create-poll"
             type="button"
@@ -103,6 +105,7 @@
             v-for="poll in polls"
             :key="poll.id"
             @click="openPoll(poll.id, { returnSection: 'list', returnFocusId: pollListItemId(poll.id) })"
+            @keydown="handlePollListItemKeydown($event, poll.id)"
           >
             <span class="poll-item-title">[[ poll.title ]]</span>
             <span class="poll-item-meta">
@@ -899,6 +902,7 @@
           </div>
 
           <div class="calendar-stack" v-if="calendarWeeks.length">
+            <p id="vote-cell-keyboard-help" class="sr-only">[[ t('voteCellKeyboardHelp') ]]</p>
             <section class="calendar-week" v-for="week in calendarWeeks" :key="week.key">
               <h3 class="calendar-week-title">[[ week.title ]]</h3>
               <div class="calendar-week-blocks">
@@ -1008,16 +1012,16 @@
                                   type="button"
                                   role="menuitem"
                                   class="bulk-menu-item"
-                                  :id="bulkMenuItemId('column', block.key, day.key, 'no')"
-                                  @click="chooseBulkVoteForDay(week, day.key, 'no')"
-                                >[[ t('voteNo') ]]</button>
+                                  :id="bulkMenuItemId('column', block.key, day.key, 'maybe')"
+                                  @click="chooseBulkVoteForDay(week, day.key, 'maybe')"
+                                >[[ t('voteMaybe') ]]</button>
                                 <button
                                   type="button"
                                   role="menuitem"
                                   class="bulk-menu-item"
-                                  :id="bulkMenuItemId('column', block.key, day.key, 'maybe')"
-                                  @click="chooseBulkVoteForDay(week, day.key, 'maybe')"
-                                >[[ t('voteMaybe') ]]</button>
+                                  :id="bulkMenuItemId('column', block.key, day.key, 'no')"
+                                  @click="chooseBulkVoteForDay(week, day.key, 'no')"
+                                >[[ t('voteNo') ]]</button>
                               </div>
                             </div>
                           </th>
@@ -1072,16 +1076,16 @@
                                   type="button"
                                   role="menuitem"
                                   class="bulk-menu-item"
-                                  :id="bulkMenuItemId('row', block.key, blockRowMenuKey(block, row), 'no')"
-                                  @click="chooseBulkVoteForRow(block, row, 'no')"
-                                >[[ t('voteNo') ]]</button>
+                                  :id="bulkMenuItemId('row', block.key, blockRowMenuKey(block, row), 'maybe')"
+                                  @click="chooseBulkVoteForRow(block, row, 'maybe')"
+                                >[[ t('voteMaybe') ]]</button>
                                 <button
                                   type="button"
                                   role="menuitem"
                                   class="bulk-menu-item"
-                                  :id="bulkMenuItemId('row', block.key, blockRowMenuKey(block, row), 'maybe')"
-                                  @click="chooseBulkVoteForRow(block, row, 'maybe')"
-                                >[[ t('voteMaybe') ]]</button>
+                                  :id="bulkMenuItemId('row', block.key, blockRowMenuKey(block, row), 'no')"
+                                  @click="chooseBulkVoteForRow(block, row, 'no')"
+                                >[[ t('voteNo') ]]</button>
                               </div>
                             </div>
                           </th>
@@ -1094,65 +1098,117 @@
                             <div
                               v-if="row.cells[day.key]"
                               class="vote-cell"
-                              :class="voteCellClass(row.cells[day.key])"
+                              :class="[
+                                voteCellClass(row.cells[day.key]),
+                                {
+                                  'menu-open': isVoteCellMenuOpen(row.cells[day.key]),
+                                  'is-active-vote-cell': activeVoteCellId === row.cells[day.key].id,
+                                }
+                              ]"
                             >
+                              <button
+                                type="button"
+                                class="vote-switch vote-cell-trigger"
+                                :id="voteCellTriggerId(row.cells[day.key])"
+                                :aria-label="voteCellAccessibleLabel(day, row, row.cells[day.key])"
+                                :aria-describedby="canVoteInPoll ? 'vote-cell-keyboard-help' : null"
+                                :aria-haspopup="canVoteInPoll ? 'menu' : null"
+                                :aria-expanded="canVoteInPoll && isVoteCellMenuOpen(row.cells[day.key]) ? 'true' : 'false'"
+                                :aria-controls="canVoteInPoll && isVoteCellMenuOpen(row.cells[day.key]) ? voteCellMenuId(row.cells[day.key]) : null"
+                                :tabindex="voteCellTabIndex(row.cells[day.key])"
+                                :data-vote-option-id="row.cells[day.key].id"
+                                :data-vote-status="displayedVoteValueForOption(row.cells[day.key])"
+                                :disabled="!canVoteInPoll"
+                                @focus="setActiveVoteCell(row.cells[day.key].id)"
+                                @click.stop="handleVoteCellTriggerClick($event, row.cells[day.key])"
+                                @keydown="handleVoteCellTriggerKeydown($event, row.cells[day.key])"
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  :data-vote-option-id="row.cells[day.key].id"
+                                  :data-label="voteStatusLabel('yes')"
+                                  :data-selected="isDisplayedVoteValue(row.cells[day.key], 'yes') ? 'true' : 'false'"
+                                  data-vote-status="yes"
+                                  data-vote-segment-status="yes"
+                                  class="vote-switch-option vote-switch-option-yes"
+                                  :class="{ 'is-selected': isDisplayedVoteValue(row.cells[day.key], 'yes') }"
+                                >
+                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'yes') ]]</span>
+                                </span>
+                                <span
+                                  aria-hidden="true"
+                                  :data-vote-option-id="row.cells[day.key].id"
+                                  :data-label="voteStatusLabel('maybe')"
+                                  :data-selected="isDisplayedVoteValue(row.cells[day.key], 'maybe') ? 'true' : 'false'"
+                                  data-vote-status="maybe"
+                                  data-vote-segment-status="maybe"
+                                  class="vote-switch-option vote-switch-option-maybe"
+                                  :class="{ 'is-selected': isDisplayedVoteValue(row.cells[day.key], 'maybe') }"
+                                >
+                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'maybe') ]]</span>
+                                </span>
+                                <span
+                                  aria-hidden="true"
+                                  :data-vote-option-id="row.cells[day.key].id"
+                                  :data-label="voteStatusLabel('no')"
+                                  :data-selected="isDisplayedVoteValue(row.cells[day.key], 'no') ? 'true' : 'false'"
+                                  data-vote-status="no"
+                                  data-vote-segment-status="no"
+                                  class="vote-switch-option vote-switch-option-no"
+                                  :class="{ 'is-selected': isDisplayedVoteValue(row.cells[day.key], 'no') }"
+                                >
+                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'no') ]]</span>
+                                </span>
+                              </button>
                               <div
-                                class="vote-switch"
-                                role="radiogroup"
-                                :aria-label="voteGroupAccessibleLabel(day, row)"
+                                v-if="canVoteInPoll && isVoteCellMenuOpen(row.cells[day.key])"
+                                class="bulk-menu vote-cell-menu"
+                                :id="voteCellMenuId(row.cells[day.key])"
+                                role="menu"
+                                :aria-label="voteCellMenuAccessibleLabel(day, row, row.cells[day.key])"
                                 @click.stop
+                                @keydown="handleVoteCellMenuKeydown($event, row.cells[day.key])"
                               >
                                 <button
                                   type="button"
-                                  role="radio"
-                                  :aria-label="voteOptionAccessibleLabel(row.cells[day.key], 'yes')"
-                                  :aria-checked="isSelectedVoteValue(row.cells[day.key], 'yes') ? 'true' : 'false'"
-                                  :tabindex="voteButtonTabIndex(row.cells[day.key], 'yes')"
-                                  :data-vote-option-id="row.cells[day.key].id"
-                                  :data-label="voteStatusLabel('yes')"
-                                  data-vote-status="yes"
-                                  class="vote-switch-option vote-switch-option-yes"
-                                  :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'yes') }"
-                                  :disabled="!canVoteInPoll"
-                                  @click="setVoteStatus(row.cells[day.key], 'yes')"
-                                  @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'yes')"
-                                >
-                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'yes') ]]</span>
-                                </button>
+                                  role="menuitemradio"
+                                  class="bulk-menu-item"
+                                  :class="{ 'is-selected': displayedVoteValueForOption(row.cells[day.key]) === '' }"
+                                  :aria-checked="displayedVoteValueForOption(row.cells[day.key]) === '' ? 'true' : 'false'"
+                                  :id="voteCellMenuItemId(row.cells[day.key], '')"
+                                  @focus="previewVoteCellMenuStatus(row.cells[day.key], '')"
+                                  @click="chooseVoteCellMenuStatus(row.cells[day.key], '')"
+                                >[[ t('noVote') ]]</button>
                                 <button
                                   type="button"
-                                  role="radio"
-                                  :aria-label="voteOptionAccessibleLabel(row.cells[day.key], 'maybe')"
-                                  :aria-checked="isSelectedVoteValue(row.cells[day.key], 'maybe') ? 'true' : 'false'"
-                                  :tabindex="voteButtonTabIndex(row.cells[day.key], 'maybe')"
-                                  :data-vote-option-id="row.cells[day.key].id"
-                                  :data-label="voteStatusLabel('maybe')"
-                                  data-vote-status="maybe"
-                                  class="vote-switch-option vote-switch-option-maybe"
-                                  :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'maybe') }"
-                                  :disabled="!canVoteInPoll"
-                                  @click="setVoteStatus(row.cells[day.key], 'maybe')"
-                                  @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'maybe')"
-                                >
-                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'maybe') ]]</span>
-                                </button>
+                                  role="menuitemradio"
+                                  class="bulk-menu-item"
+                                  :class="{ 'is-selected': displayedVoteValueForOption(row.cells[day.key]) === 'yes' }"
+                                  :aria-checked="displayedVoteValueForOption(row.cells[day.key]) === 'yes' ? 'true' : 'false'"
+                                  :id="voteCellMenuItemId(row.cells[day.key], 'yes')"
+                                  @focus="previewVoteCellMenuStatus(row.cells[day.key], 'yes')"
+                                  @click="chooseVoteCellMenuStatus(row.cells[day.key], 'yes')"
+                                >[[ t('voteYes') ]]</button>
                                 <button
                                   type="button"
-                                  role="radio"
-                                  :aria-label="voteOptionAccessibleLabel(row.cells[day.key], 'no')"
-                                  :aria-checked="isSelectedVoteValue(row.cells[day.key], 'no') ? 'true' : 'false'"
-                                  :tabindex="voteButtonTabIndex(row.cells[day.key], 'no')"
-                                  :data-vote-option-id="row.cells[day.key].id"
-                                  :data-label="voteStatusLabel('no')"
-                                  data-vote-status="no"
-                                  class="vote-switch-option vote-switch-option-no"
-                                  :class="{ 'is-selected': isSelectedVoteValue(row.cells[day.key], 'no') }"
-                                  :disabled="!canVoteInPoll"
-                                  @click="setVoteStatus(row.cells[day.key], 'no')"
-                                  @keydown="handleVoteSwitchKeydown($event, row.cells[day.key], 'no')"
-                                >
-                                  <span class="vote-switch-count">[[ optionCount(row.cells[day.key], 'no') ]]</span>
-                                </button>
+                                  role="menuitemradio"
+                                  class="bulk-menu-item"
+                                  :class="{ 'is-selected': displayedVoteValueForOption(row.cells[day.key]) === 'maybe' }"
+                                  :aria-checked="displayedVoteValueForOption(row.cells[day.key]) === 'maybe' ? 'true' : 'false'"
+                                  :id="voteCellMenuItemId(row.cells[day.key], 'maybe')"
+                                  @focus="previewVoteCellMenuStatus(row.cells[day.key], 'maybe')"
+                                  @click="chooseVoteCellMenuStatus(row.cells[day.key], 'maybe')"
+                                >[[ t('voteMaybe') ]]</button>
+                                <button
+                                  type="button"
+                                  role="menuitemradio"
+                                  class="bulk-menu-item"
+                                  :class="{ 'is-selected': displayedVoteValueForOption(row.cells[day.key]) === 'no' }"
+                                  :aria-checked="displayedVoteValueForOption(row.cells[day.key]) === 'no' ? 'true' : 'false'"
+                                  :id="voteCellMenuItemId(row.cells[day.key], 'no')"
+                                  @focus="previewVoteCellMenuStatus(row.cells[day.key], 'no')"
+                                  @click="chooseVoteCellMenuStatus(row.cells[day.key], 'no')"
+                                >[[ t('voteNo') ]]</button>
                               </div>
                             </div>
                             <div v-else class="vote-cell vote-unavailable">-</div>
