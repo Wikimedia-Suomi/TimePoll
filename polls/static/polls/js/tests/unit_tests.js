@@ -8,6 +8,7 @@ function registerUnitTests(harness) {
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
+    filterTimezoneSuggestionOptions,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
@@ -114,6 +115,22 @@ function registerUnitTests(harness) {
         }
       ]
     );
+  });
+
+  test("filterTimezoneSuggestionOptions filters using timezone id and meta text", () => {
+    const results = filterTimezoneSuggestionOptions(
+      ["UTC", "Europe/Helsinki", "Europe/Stockholm"],
+      "helsinki utc+3",
+      (timeZone) => (timeZone === "Europe/Helsinki" ? "UTC+3" : "")
+    );
+
+    assertDeepEqual(results, [
+      {
+        id: "Europe/Helsinki",
+        meta: "UTC+3",
+        label: "Europe/Helsinki UTC+3"
+      }
+    ]);
   });
 
   test("collectDayOptionIdsFromRows returns ids for one visible day", () => {

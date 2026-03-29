@@ -175,6 +175,34 @@
     ).sort((left, right) => left - right);
   }
 
+  function filterTimezoneSuggestionOptions(timezoneOptions, query, buildMeta, limit = 200) {
+    const metaBuilder = typeof buildMeta === "function" ? buildMeta : () => "";
+    const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 200;
+    const normalizedQuery = String(query || "").trim().toLowerCase();
+    const options = Array.isArray(timezoneOptions)
+      ? timezoneOptions
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+          .map((timeZone) => {
+            const meta = String(metaBuilder(timeZone) || "").trim();
+            const label = meta ? `${timeZone} ${meta}` : timeZone;
+            return {
+              id: timeZone,
+              meta,
+              label
+            };
+          })
+      : [];
+
+    if (!normalizedQuery) {
+      return options.slice(0, normalizedLimit);
+    }
+
+    return options
+      .filter((item) => item.label.toLowerCase().includes(normalizedQuery))
+      .slice(0, normalizedLimit);
+  }
+
   function autoGrowScheduleForm(form, votedBounds) {
     const nextForm = form && typeof form === "object" ? { ...form } : {};
     const normalizedBounds = votedBounds && typeof votedBounds === "object" ? votedBounds : {};
@@ -311,6 +339,7 @@
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
+    filterTimezoneSuggestionOptions,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,

@@ -16,13 +16,16 @@ if TYPE_CHECKING:
 
 sync_playwright_fn: Any = None
 axe_runner_factory: Any = None
+playwright_timeout_error_cls: Any = TimeoutError
 
 try:
     from axe_playwright_python.sync_playwright import Axe as imported_axe_runner
+    from playwright.sync_api import TimeoutError as imported_playwright_timeout_error
     from playwright.sync_api import sync_playwright as imported_sync_playwright
 
     sync_playwright_fn = imported_sync_playwright
     axe_runner_factory = imported_axe_runner
+    playwright_timeout_error_cls = imported_playwright_timeout_error
     PLAYWRIGHT_TESTS_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_TESTS_AVAILABLE = False
@@ -161,8 +164,19 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
     def open_home_page(self, page: Optional["Page"] = None, path: str = "/") -> None:
         page = page or self.require_page()
-        page.goto(path, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_load_state("networkidle", timeout=30000)
+        for attempt in range(2):
+            try:
+                page.goto(path, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_load_state("networkidle", timeout=30000)
+                break
+            except playwright_timeout_error_cls:
+                if attempt == 1:
+                    raise
+                try:
+                    page.goto("about:blank", wait_until="load", timeout=5000)
+                except playwright_timeout_error_cls:
+                    pass
+                page.wait_for_timeout(250)
         page.locator("#app").wait_for(state="visible")
         page.get_by_role("heading", name="TimePoll").wait_for()
 

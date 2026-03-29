@@ -30,6 +30,7 @@
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
+    filterTimezoneSuggestionOptions,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
@@ -48,6 +49,7 @@
     || typeof extractPollIdFromSearch !== "function"
     || typeof filterRowsForVisibleDaysAndMinYesVotes !== "function"
     || typeof filterWeekRowsByMinYesVotes !== "function"
+    || typeof filterTimezoneSuggestionOptions !== "function"
     || typeof isVoteStatusValue !== "function"
     || typeof loadCalendarTimezonePreferenceValue !== "function"
     || typeof matchesYesVoteFilter !== "function"
@@ -1512,78 +1514,22 @@ const translations = {
           ];
         },
         filteredTimezoneOptions() {
-          const options = this.timezoneOptions.map((tz) => {
-            const meta = this.timezoneMeta(tz);
-            const label = meta ? `${tz} ${meta}` : tz;
-            return { id: tz, meta, label };
-          });
-          const rawQuery = (this.createForm.timezone || "").trim().toLowerCase();
-          if (!rawQuery) {
-            return options.slice(0, 200);
-          }
-          return options
-            .filter((item) => item.label.toLowerCase().includes(rawQuery))
-            .slice(0, 200);
+          return this.buildFilteredTimezoneOptions(this.timezoneInputValue("create"));
         },
         filteredEditTimezoneOptions() {
-          const options = this.timezoneOptions.map((tz) => {
-            const meta = this.timezoneMeta(tz);
-            const label = meta ? `${tz} ${meta}` : tz;
-            return { id: tz, meta, label };
-          });
-          const rawQuery = this.editForm && typeof this.editForm.timezone === "string"
-            ? this.editForm.timezone.trim().toLowerCase()
-            : "";
-          if (!rawQuery) {
-            return options.slice(0, 200);
-          }
-          return options
-            .filter((item) => item.label.toLowerCase().includes(rawQuery))
-            .slice(0, 200);
+          return this.buildFilteredTimezoneOptions(this.timezoneInputValue("edit"));
         },
         filteredCalendarTimezoneOptions() {
-          const options = this.timezoneOptions.map((tz) => {
-            const meta = this.timezoneMeta(tz);
-            const label = meta ? `${tz} ${meta}` : tz;
-            return { id: tz, meta, label };
-          });
-          const rawQuery = (this.calendarCustomTimezone || "").trim().toLowerCase();
-          if (!rawQuery) {
-            return options.slice(0, 200);
-          }
-          return options
-            .filter((item) => item.label.toLowerCase().includes(rawQuery))
-            .slice(0, 200);
+          return this.buildFilteredTimezoneOptions(this.timezoneInputValue("calendar"));
         },
         activeCreateTimezoneSuggestionId() {
-          if (
-            !this.showTimezoneSuggestions
-            || this.activeTimezoneSuggestionIndex < 0
-            || this.activeTimezoneSuggestionIndex >= this.filteredTimezoneOptions.length
-          ) {
-            return "";
-          }
-          return this.timezoneSuggestionOptionId("create", this.activeTimezoneSuggestionIndex);
+          return this.activeTimezoneSuggestionIdForScope("create");
         },
         activeEditTimezoneSuggestionId() {
-          if (
-            !this.showEditTimezoneSuggestions
-            || this.activeEditTimezoneSuggestionIndex < 0
-            || this.activeEditTimezoneSuggestionIndex >= this.filteredEditTimezoneOptions.length
-          ) {
-            return "";
-          }
-          return this.timezoneSuggestionOptionId("edit", this.activeEditTimezoneSuggestionIndex);
+          return this.activeTimezoneSuggestionIdForScope("edit");
         },
         activeCalendarTimezoneSuggestionId() {
-          if (
-            !this.showCalendarTimezoneSuggestions
-            || this.activeCalendarTimezoneSuggestionIndex < 0
-            || this.activeCalendarTimezoneSuggestionIndex >= this.filteredCalendarTimezoneOptions.length
-          ) {
-            return "";
-          }
-          return this.timezoneSuggestionOptionId("calendar", this.activeCalendarTimezoneSuggestionIndex);
+          return this.activeTimezoneSuggestionIdForScope("calendar");
         },
         selectedTimezoneDisplay() {
           return this.timezoneDisplay(this.createForm.timezone);
@@ -2598,6 +2544,45 @@ const translations = {
           }
           return this.filteredTimezoneOptions;
         },
+        timezoneInputValue(scope = "create") {
+          if (scope === "calendar") {
+            return this.calendarCustomTimezone;
+          }
+          if (scope === "edit") {
+            return this.editForm && typeof this.editForm.timezone === "string"
+              ? this.editForm.timezone
+              : "";
+          }
+          return this.createForm.timezone;
+        },
+        timezoneSuggestionsOpen(scope = "create") {
+          if (scope === "calendar") {
+            return this.showCalendarTimezoneSuggestions;
+          }
+          if (scope === "edit") {
+            return this.showEditTimezoneSuggestions;
+          }
+          return this.showTimezoneSuggestions;
+        },
+        buildFilteredTimezoneOptions(query = "") {
+          return filterTimezoneSuggestionOptions(
+            this.timezoneOptions,
+            query,
+            (timeZone) => this.timezoneMeta(timeZone)
+          );
+        },
+        activeTimezoneSuggestionIdForScope(scope = "create") {
+          const options = this.timezoneSuggestionOptions(scope);
+          const activeIndex = this.timezoneSuggestionIndex(scope);
+          if (
+            !this.timezoneSuggestionsOpen(scope)
+            || activeIndex < 0
+            || activeIndex >= options.length
+          ) {
+            return "";
+          }
+          return this.timezoneSuggestionOptionId(scope, activeIndex);
+        },
         timezoneSuggestionIndex(scope = "create") {
           if (scope === "calendar") {
             return this.activeCalendarTimezoneSuggestionIndex;
@@ -2634,12 +2619,7 @@ const translations = {
             this.setTimezoneSuggestionIndex(scope, -1);
             return;
           }
-          const rawValue = scope === "calendar"
-            ? this.calendarCustomTimezone
-            : scope === "edit"
-              ? (this.editForm ? this.editForm.timezone : "")
-              : this.createForm.timezone;
-          const normalizedValue = String(rawValue || "").trim().toLowerCase();
+          const normalizedValue = String(this.timezoneInputValue(scope) || "").trim().toLowerCase();
           const matchedIndex = options.findIndex((item) => item.id.toLowerCase() === normalizedValue);
           this.setTimezoneSuggestionIndex(scope, matchedIndex >= 0 ? matchedIndex : 0);
         },
