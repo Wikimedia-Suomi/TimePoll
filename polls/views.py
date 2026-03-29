@@ -569,6 +569,7 @@ def register_identity(request: HttpRequest) -> JsonResponse:
         except IntegrityError as exc:
             raise APIError("name_taken", 409, "This name is already registered.") from exc
 
+        request.session.cycle_key()
         request.session[SESSION_IDENTITY_KEY] = identity.id
         request._cached_identity = identity
         rotate_token(request)
@@ -604,6 +605,7 @@ def login_identity(request: HttpRequest) -> JsonResponse:
         elif not identity.check_pin(pin):
             raise APIError("invalid_credentials", 401, "Incorrect name or PIN.")
 
+        request.session.cycle_key()
         request.session[SESSION_IDENTITY_KEY] = identity.id
         request._cached_identity = identity
         rotate_token(request)

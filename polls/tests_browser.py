@@ -161,8 +161,8 @@ class PollBrowserTests(StaticLiveServerTestCase):
 
     def open_home_page(self, page: Optional["Page"] = None, path: str = "/") -> None:
         page = page or self.require_page()
-        page.goto(path, wait_until="domcontentloaded")
-        page.wait_for_load_state("networkidle")
+        page.goto(path, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_load_state("networkidle", timeout=30000)
         page.locator("#app").wait_for(state="visible")
         page.get_by_role("heading", name="TimePoll").wait_for()
 
@@ -2747,6 +2747,14 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.open_profile_panel(page=page)
 
         download_button = page.get_by_role("button", name="Download JSON")
+        page.wait_for_function(
+            """
+            () => {
+              const button = document.querySelector('#section-panel-profile .profile-actions button:nth-of-type(2)');
+              return Boolean(button) && button.disabled === false;
+            }
+            """
+        )
         download_button.focus()
         self.assertTrue(download_button.evaluate("element => document.activeElement === element"))
 
@@ -4047,6 +4055,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.get_by_role("button", name="Login").wait_for()
         page.locator(".details-title").filter(has_text="Logout state poll").wait_for()
         page.get_by_text("Enter your name and PIN to continue.").wait_for()
+        self.wait_for_first_vote_state(".vote-switch-option-yes", False, page=page)
 
         self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 

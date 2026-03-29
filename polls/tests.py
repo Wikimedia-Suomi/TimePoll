@@ -251,12 +251,50 @@ class PollApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(response.json()["created"])
 
+    def test_login_rotates_session_key_and_preserves_anonymous_session_data(self):
+        session = self.client.session
+        session["transient_key"] = "transient-value"
+        session.save()
+        old_session_key = session.session_key
+        self.assertTrue(old_session_key)
+        self.assertTrue(Session.objects.filter(session_key=old_session_key).exists())
+
+        response = self.login(self.client, "alice", "1234")
+        self.assertEqual(response.status_code, 201)
+
+        refreshed_session = self.client.session
+        self.assertNotEqual(refreshed_session.session_key, old_session_key)
+        self.assertEqual(refreshed_session.get("transient_key"), "transient-value")
+        self.assertEqual(refreshed_session.get(SESSION_IDENTITY_KEY), response.json()["identity"]["id"])
+        self.assertFalse(Session.objects.filter(session_key=old_session_key).exists())
+
     def test_login_existing_user_with_wrong_pin_fails(self):
         create_response = self.login(self.client, "alice", "1234")
         self.assertEqual(create_response.status_code, 201)
 
         fail_response = self.login(self.client, "alice", "9999")
         self.assertEqual(fail_response.status_code, 401)
+
+    def test_register_rotates_session_key_and_preserves_anonymous_session_data(self):
+        session = self.client.session
+        session["transient_key"] = "transient-value"
+        session.save()
+        old_session_key = session.session_key
+        self.assertTrue(old_session_key)
+        self.assertTrue(Session.objects.filter(session_key=old_session_key).exists())
+
+        response = self.client.post(
+            reverse("polls:register_identity"),
+            data=json.dumps({"name": "alice", "pin": "1234"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+        refreshed_session = self.client.session
+        self.assertNotEqual(refreshed_session.session_key, old_session_key)
+        self.assertEqual(refreshed_session.get("transient_key"), "transient-value")
+        self.assertEqual(refreshed_session.get(SESSION_IDENTITY_KEY), response.json()["identity"]["id"])
+        self.assertFalse(Session.objects.filter(session_key=old_session_key).exists())
 
     def test_logout_destroys_session(self):
         login_response = self.login(self.client, "alice", "1234")
