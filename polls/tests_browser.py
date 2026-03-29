@@ -4824,12 +4824,14 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.open_home_page(voter_page, f"/?id={poll_identifier}")
         self.login(name="edit-date-vote-bounds-voter", page=voter_page)
         middle_yes_button = voter_page.locator(".calendar-table tbody tr").first.locator(
-            ".vote-switch-option-yes"
-        ).nth(1)
+            "td.calendar-cell"
+        ).nth(1).locator(".vote-switch-option-yes")
+        middle_option_id = middle_yes_button.get_attribute("data-vote-option-id")
+        self.assertTrue(middle_option_id)
         middle_yes_button.click()
         page.wait_for_function(
             """
-            async () => {
+            (targetOptionId) => (async () => {
               try {
                 const response = await fetch('/api/polls/edit_date_vote_bounds_poll/', {
                   credentials: 'same-origin',
@@ -4843,10 +4845,7 @@ class PollBrowserTests(StaticLiveServerTestCase):
                   return false;
                 }
                 const poll = await response.json();
-                const option = (poll.options || []).find((item) => {
-                  const counts = item.counts || {};
-                  return counts.yes === 1;
-                });
+                const option = (poll.options || []).find((item) => item.id === targetOptionId);
                 if (!option) {
                   return false;
                 }
@@ -4855,8 +4854,10 @@ class PollBrowserTests(StaticLiveServerTestCase):
               } catch (error) {
                 return false;
               }
-            }
+            })()
             """
+            ,
+            arg=middle_option_id,
         )
 
         page.reload(wait_until="domcontentloaded")
@@ -4864,6 +4865,17 @@ class PollBrowserTests(StaticLiveServerTestCase):
         page.locator(".details-title").filter(has_text="Edit date vote bounds poll").wait_for()
         page.get_by_role("button", name="Edit poll").click()
         page.locator("#edit-start-date").wait_for()
+        page.wait_for_function(
+            """
+            () => {
+              const startDate = document.querySelector('#edit-start-date');
+              const endDate = document.querySelector('#edit-end-date');
+              return Boolean(startDate && endDate)
+                && startDate.getAttribute('max') === '2026-05-05'
+                && endDate.getAttribute('min') === '2026-05-05';
+            }
+            """
+        )
 
         self.assertEqual(page.locator("#edit-start-date").get_attribute("max"), "2026-05-05")
         self.assertEqual(page.locator("#edit-end-date").get_attribute("min"), "2026-05-05")
