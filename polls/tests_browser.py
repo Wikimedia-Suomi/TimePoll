@@ -3087,7 +3087,10 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(first_maybe_button.get_attribute("data-selected"), "true")
         self.assertEqual(first_yes_button.get_attribute("data-selected"), "false")
 
-        first_maybe_button.click()
+        with page.expect_response(
+            lambda response: response.request.method == "PUT" and "/api/polls/" in response.url and response.url.endswith("/votes/")
+        ):
+            first_maybe_button.click()
         self.wait_for_first_vote_state(".vote-switch-option-maybe", False, page=page)
         self.wait_for_first_vote_state(".vote-switch-option-yes", False, page=page)
         self.assertEqual(first_maybe_button.get_attribute("data-selected"), "false")
