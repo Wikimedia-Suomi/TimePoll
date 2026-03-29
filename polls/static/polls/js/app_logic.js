@@ -2,11 +2,7 @@
   function extractPollIdFromSearch(search) {
     try {
       const params = new URLSearchParams(String(search || ""));
-      const primaryValue = String(params.get("id") || "").trim();
-      if (primaryValue) {
-        return primaryValue;
-      }
-      return String(params.get("poll") || "").trim();
+      return String(params.get("id") || "").trim();
     } catch (_error) {
       return "";
     }
@@ -18,10 +14,8 @@
 
     if (normalizedPollId) {
       url.searchParams.set("id", normalizedPollId);
-      url.searchParams.delete("poll");
     } else {
       url.searchParams.delete("id");
-      url.searchParams.delete("poll");
     }
 
     return {
@@ -47,21 +41,6 @@
     }
     const count = Number(option.counts[status]);
     return Number.isNaN(count) ? 0 : count;
-  }
-
-  function optionHasVotes(option) {
-    if (!option || typeof option !== "object") {
-      return false;
-    }
-    if (Array.isArray(option.votes)) {
-      return option.votes.length > 0;
-    }
-    return (
-      readOptionCount(option, "yes")
-      + readOptionCount(option, "no")
-      + readOptionCount(option, "maybe")
-      > 0
-    );
   }
 
   function matchesYesVoteFilter(option, minYesVotes) {
@@ -292,17 +271,7 @@
           timezone: normalizeTimeZone(parsed.timezone)
         };
       }
-    } catch (_jsonError) {
-      // Support legacy raw timezone values.
-    }
-
-    const legacyTimeZone = normalizeTimeZone(rawValue);
-    if (legacyTimeZone) {
-      return {
-        mode: "custom",
-        timezone: legacyTimeZone
-      };
-    }
+    } catch (_jsonError) {}
 
     return defaultCalendarTimezonePreference();
   }
@@ -346,7 +315,6 @@
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
     nextVoteStatus,
-    optionHasVotes,
     readOptionCount,
     autoGrowScheduleForm,
     serializeCalendarTimezonePreference,

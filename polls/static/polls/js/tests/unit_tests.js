@@ -12,7 +12,6 @@ function registerUnitTests(harness) {
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
     nextVoteStatus,
-    optionHasVotes,
     readOptionCount,
     serializeCalendarTimezonePreference,
     toggleWeekdaySelection
@@ -20,21 +19,21 @@ function registerUnitTests(harness) {
   const { test, assert, assertEqual, assertDeepEqual } = harness;
 
   test("extractPollIdFromSearch prefers id parameter", () => {
-    assertEqual(extractPollIdFromSearch("?poll=legacy&id=Poll_Name_2026"), "Poll_Name_2026");
+    assertEqual(extractPollIdFromSearch("?id=Poll_Name_2026"), "Poll_Name_2026");
   });
 
-  test("extractPollIdFromSearch falls back to legacy poll parameter", () => {
-    assertEqual(extractPollIdFromSearch("?poll=legacy_value"), "legacy_value");
+  test("extractPollIdFromSearch ignores unrelated query parameters", () => {
+    assertEqual(extractPollIdFromSearch("?poll=legacy_value"), "");
   });
 
-  test("buildPollUrlState stores id and removes legacy poll parameter", () => {
-    const result = buildPollUrlState("https://example.test/?poll=old#section", "New_Poll");
+  test("buildPollUrlState stores id and preserves the hash fragment", () => {
+    const result = buildPollUrlState("https://example.test/#section", "New_Poll");
     assertEqual(result.normalizedPollId, "New_Poll");
     assertEqual(result.nextUrl, "/?id=New_Poll#section");
   });
 
-  test("buildPollUrlState clears id and poll parameters when poll id is blank", () => {
-    const result = buildPollUrlState("https://example.test/?id=Old&poll=legacy", "   ");
+  test("buildPollUrlState clears the id parameter when poll id is blank", () => {
+    const result = buildPollUrlState("https://example.test/?id=Old", "   ");
     assertEqual(result.nextUrl, "/");
   });
 
@@ -49,11 +48,9 @@ function registerUnitTests(harness) {
     assertEqual(nextVoteStatus("yes", "maybe"), "maybe");
   });
 
-  test("readOptionCount and optionHasVotes handle sparse vote payloads", () => {
+  test("readOptionCount handles sparse vote payloads", () => {
     assertEqual(readOptionCount({ counts: { yes: "2" } }, "yes"), 2);
     assertEqual(readOptionCount({ counts: {} }, "maybe"), 0);
-    assertEqual(optionHasVotes({ counts: { no: 1 } }), true);
-    assertEqual(optionHasVotes({ counts: { yes: 0, no: 0, maybe: 0 } }), false);
   });
 
   test("matchesYesVoteFilter checks the yes counter threshold", () => {
@@ -233,11 +230,11 @@ function registerUnitTests(harness) {
     });
   });
 
-  test("loadCalendarTimezonePreferenceValue supports legacy raw timezone values", () => {
+  test("loadCalendarTimezonePreferenceValue resets invalid data to defaults", () => {
     const result = loadCalendarTimezonePreferenceValue("UTC", (value) => String(value || "").trim());
     assertDeepEqual(result, {
-      mode: "custom",
-      timezone: "UTC"
+      mode: "poll",
+      timezone: ""
     });
   });
 

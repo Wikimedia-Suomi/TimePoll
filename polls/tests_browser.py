@@ -4671,7 +4671,6 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(page.locator("#poll-identifier").get_attribute("aria-invalid"), "true")
         self.assertIn("poll-identifier-help", identifier_describedby)
         self.assertIn("create-identifier-error", identifier_describedby)
-        self.assertEqual(page.locator("#poll-identifier").get_attribute("aria-errormessage"), "create-identifier-error")
 
     def test_browser_edit_form_maps_backend_identifier_conflict_to_field(self) -> None:
         page = self.require_page()
@@ -4709,7 +4708,6 @@ class PollBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(page.locator("#edit-identifier").get_attribute("aria-invalid"), "true")
         self.assertIn("edit-poll-identifier-help", identifier_describedby)
         self.assertIn("edit-identifier-error", identifier_describedby)
-        self.assertEqual(page.locator("#edit-identifier").get_attribute("aria-errormessage"), "edit-identifier-error")
 
     def test_browser_edit_form_shows_schedule_conflict_error_for_voted_slot(self) -> None:
         page = self.require_page()

@@ -424,15 +424,10 @@ def serialize_identity_data_export(identity: Identity) -> Dict[str, Any]:
 
 def serialize_poll_summary(poll: Poll, current_identity: Optional[Identity]) -> Dict[str, Any]:
     participant_ids = set()
-    option_count = 0
-    my_vote_count = 0
 
     for option in poll.options.all():
-        option_count += 1
         for vote in option.votes.all():
             participant_ids.add(vote.voter_id)
-            if current_identity and vote.voter_id == current_identity.id:
-                my_vote_count += 1
 
     date_window = poll_start_end_dates(poll)
     return {
@@ -453,9 +448,7 @@ def serialize_poll_summary(poll: Poll, current_identity: Optional[Identity]) -> 
         "created_at": poll.created_at.isoformat(),
         "closed_at": poll.closed_at.isoformat() if poll.closed_at else None,
         "creator": serialize_identity(poll.creator),
-        "option_count": option_count,
         "participant_count": len(participant_ids),
-        "my_vote_count": my_vote_count,
         "can_close": bool(current_identity and poll.creator_id == current_identity.id and not poll.is_closed),
         "can_reopen": bool(current_identity and poll.creator_id == current_identity.id and poll.is_closed),
         "can_delete": bool(current_identity and poll.creator_id == current_identity.id and poll.is_closed),
@@ -489,7 +482,6 @@ def serialize_poll_detail(poll: Poll, current_identity: Optional[Identity]) -> D
                 "starts_at": option.starts_at.isoformat(),
                 "ends_at": option.ends_at.isoformat() if option.ends_at else None,
                 "counts": status_counts,
-                "yes_count": status_counts[PollVote.STATUS_YES],
                 "my_vote": my_vote,
             }
         )
@@ -548,35 +540,6 @@ def auth_session(request: HttpRequest) -> JsonResponse:
             "language": language,
         }
     )
-
-
-@ensure_csrf_cookie
-@require_http_methods(["POST"])
-def register_identity(request: HttpRequest) -> JsonResponse:
-    try:
-        payload = parse_json_body(request)
-        name = validate_name(payload.get("name"))
-        pin = validate_pin(payload.get("pin"))
-        name_key = Identity.build_name_key(name)
-
-        if Identity.objects.filter(name_key=name_key).exists():
-            raise APIError("name_taken", 409, "This name is already registered.")
-
-        identity = Identity(name=name, name_key=name_key)
-        identity.set_pin(pin)
-        try:
-            identity.save()
-        except IntegrityError as exc:
-            raise APIError("name_taken", 409, "This name is already registered.") from exc
-
-        request.session.cycle_key()
-        request.session[SESSION_IDENTITY_KEY] = identity.id
-        request._cached_identity = identity
-        rotate_token(request)
-
-        return JsonResponse({"authenticated": True, "identity": serialize_identity(identity)}, status=201)
-    except APIError as exc:
-        return api_error_response(exc)
 
 
 @ensure_csrf_cookie

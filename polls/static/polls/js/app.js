@@ -34,7 +34,6 @@
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
     nextVoteStatus,
-    optionHasVotes,
     readOptionCount,
     serializeCalendarTimezonePreference,
     toggleWeekdaySelection
@@ -53,7 +52,6 @@
     || typeof loadCalendarTimezonePreferenceValue !== "function"
     || typeof matchesYesVoteFilter !== "function"
     || typeof nextVoteStatus !== "function"
-    || typeof optionHasVotes !== "function"
     || typeof readOptionCount !== "function"
     || typeof serializeCalendarTimezonePreference !== "function"
     || typeof toggleWeekdaySelection !== "function"
@@ -75,7 +73,6 @@ const translations = {
       hello: "Hello,",
       login: "Login",
       logout: "Logout",
-      register: "Register",
       createPoll: "Create new poll",
       sectionPollList: "Poll list",
       sectionCreatePoll: "Create poll dialog",
@@ -181,8 +178,6 @@ const translations = {
       authPrompt: "Use your name and PIN. If the name does not exist yet, a new user is created automatically.",
       name: "Name",
       pin: "PIN code",
-      switchToLogin: "Already registered? Login",
-      switchToRegister: "Need an account? Register",
       createdSuccess: "Poll created successfully.",
       pollUpdatedSuccess: "Poll updated successfully.",
       voteDeleted: "Vote deleted.",
@@ -191,7 +186,6 @@ const translations = {
       pollDeletedSuccess: "Poll deleted.",
       loginSuccess: "Logged in.",
       createdLoginSuccess: "New user created and logged in.",
-      registerSuccess: "Registered and logged in.",
       logoutSuccess: "Logged out.",
       backToPollList: "Back to poll list",
       backToProfile: "Back to my data",
@@ -234,7 +228,6 @@ const translations = {
       hello: "Hei,",
       login: "Kirjaudu",
       logout: "Kirjaudu ulos",
-      register: "Rekisteröidy",
       createPoll: "Luo uusi kysely",
       sectionPollList: "Kyselylista",
       sectionCreatePoll: "Luo kysely dialogi",
@@ -340,8 +333,6 @@ const translations = {
       authPrompt: "Käytä nimeä ja PIN-koodia. Jos nimeä ei ole vielä olemassa, uusi käyttäjä luodaan automaattisesti.",
       name: "Nimi",
       pin: "PIN-koodi",
-      switchToLogin: "Onko tili jo? Kirjaudu",
-      switchToRegister: "Tarvitsetko tilin? Rekisteröidy",
       createdSuccess: "Kysely luotu.",
       pollUpdatedSuccess: "Kysely päivitetty.",
       voteDeleted: "Ääni poistettu.",
@@ -350,7 +341,6 @@ const translations = {
       pollDeletedSuccess: "Kysely poistettu.",
       loginSuccess: "Kirjautuminen onnistui.",
       createdLoginSuccess: "Uusi käyttäjä luotiin ja kirjautuminen onnistui.",
-      registerSuccess: "Rekisteröityminen onnistui.",
       logoutSuccess: "Uloskirjautuminen onnistui.",
       backToPollList: "Takaisin kyselylistaan",
       backToProfile: "Takaisin omiin tietoihin",
@@ -393,7 +383,6 @@ const translations = {
       hello: "Hej,",
       login: "Logga in",
       logout: "Logga ut",
-      register: "Registrera",
       createPoll: "Skapa ny omröstning",
       sectionPollList: "Omröstningslista",
       sectionCreatePoll: "Skapa omröstningsdialog",
@@ -490,8 +479,6 @@ const translations = {
       authPrompt: "Använd namn och PIN-kod. Om namnet inte finns skapas en ny användare automatiskt.",
       name: "Namn",
       pin: "PIN-kod",
-      switchToLogin: "Har du konto? Logga in",
-      switchToRegister: "Behöver du konto? Registrera",
       createdSuccess: "Omröstning skapad.",
       pollUpdatedSuccess: "Omröstning uppdaterad.",
       voteDeleted: "Röst borttagen.",
@@ -500,7 +487,6 @@ const translations = {
       pollDeletedSuccess: "Omröstning borttagen.",
       loginSuccess: "Inloggad.",
       createdLoginSuccess: "Ny användare skapad och inloggad.",
-      registerSuccess: "Registrerad och inloggad.",
       logoutSuccess: "Utloggad.",
       backToPollList: "Tillbaka till omröstningslistan",
       backToProfile: "Tillbaka till mina uppgifter",
@@ -543,7 +529,6 @@ const translations = {
       hello: "Hei,",
       login: "Logg inn",
       logout: "Logg ut",
-      register: "Registrer",
       createPoll: "Opprett ny avstemning",
       sectionPollList: "Avstemningsliste",
       sectionCreatePoll: "Opprett avstemningsdialog",
@@ -640,8 +625,6 @@ const translations = {
       authPrompt: "Bruk navn og PIN-kode. Hvis navnet ikke finnes ennå, opprettes en ny bruker automatisk.",
       name: "Navn",
       pin: "PIN-kode",
-      switchToLogin: "Har du allerede konto? Logg inn",
-      switchToRegister: "Trenger du en konto? Registrer",
       createdSuccess: "Avstemning opprettet.",
       pollUpdatedSuccess: "Avstemning oppdatert.",
       voteDeleted: "Stemme slettet.",
@@ -650,7 +633,6 @@ const translations = {
       pollDeletedSuccess: "Avstemning slettet.",
       loginSuccess: "Innlogget.",
       createdLoginSuccess: "Ny bruker opprettet og innlogget.",
-      registerSuccess: "Registrert og innlogget.",
       logoutSuccess: "Utlogget.",
       backToPollList: "Tilbake til avstemningslisten",
       backToProfile: "Tilbake til mine data",
@@ -693,7 +675,6 @@ const translations = {
       hello: "Tere,",
       login: "Logi sisse",
       logout: "Logi välja",
-      register: "Registreeru",
       createPoll: "Loo uus küsitlus",
       sectionPollList: "Küsitluste loend",
       sectionCreatePoll: "Küsitluse loomise dialoog",
@@ -790,8 +771,6 @@ const translations = {
       authPrompt: "Kasuta nime ja PIN-koodi. Kui nime veel ei ole, luuakse uus kasutaja automaatselt.",
       name: "Nimi",
       pin: "PIN-kood",
-      switchToLogin: "Konto on olemas? Logi sisse",
-      switchToRegister: "Vajad kontot? Registreeru",
       createdSuccess: "Küsitlus loodud.",
       pollUpdatedSuccess: "Küsitlus uuendatud.",
       voteDeleted: "Hääl kustutatud.",
@@ -800,7 +779,6 @@ const translations = {
       pollDeletedSuccess: "Küsitlus kustutatud.",
       loginSuccess: "Sisselogimine õnnestus.",
       createdLoginSuccess: "Loodi uus kasutaja ja logiti sisse.",
-      registerSuccess: "Registreerimine õnnestus.",
       logoutSuccess: "Väljalogimine õnnestus.",
       backToPollList: "Tagasi küsitluste nimekirja",
       backToProfile: "Tagasi minu andmete juurde",
@@ -882,13 +860,6 @@ const translations = {
       sv: "Ogiltig begärandedata.",
       no: "Ugyldige forespørselsdata.",
       et: "Vigased päringuandmed."
-    },
-    name_taken: {
-      en: "This name is already registered.",
-      fi: "Tämä nimi on jo rekisteröity.",
-      sv: "Detta namn är redan registrerat.",
-      no: "Dette navnet er allerede registrert.",
-      et: "See nimi on juba registreeritud."
     },
     invalid_credentials: {
       en: "Incorrect name or PIN.",
@@ -4473,13 +4444,6 @@ const translations = {
           if (!poll || typeof poll !== "object") {
             return null;
           }
-          const options = Array.isArray(poll.options) ? poll.options : [];
-          let myVoteCount = 0;
-          for (const option of options) {
-            if (this.normalizeVoteValue(option && option.my_vote)) {
-              myVoteCount += 1;
-            }
-          }
           return {
             id: poll.id,
             identifier: typeof poll.identifier === "string" ? poll.identifier : "",
@@ -4498,9 +4462,7 @@ const translations = {
             created_at: poll.created_at || "",
             closed_at: poll.closed_at || null,
             creator: poll.creator || null,
-            option_count: options.length,
             participant_count: Number.isInteger(poll.participant_count) ? poll.participant_count : 0,
-            my_vote_count: myVoteCount,
             can_close: Boolean(poll.can_close),
             can_reopen: Boolean(poll.can_reopen),
             can_delete: Boolean(poll.can_delete),

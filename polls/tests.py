@@ -275,27 +275,6 @@ class PollApiTests(TestCase):
         fail_response = self.login(self.client, "alice", "9999")
         self.assertEqual(fail_response.status_code, 401)
 
-    def test_register_rotates_session_key_and_preserves_anonymous_session_data(self):
-        session = self.client.session
-        session["transient_key"] = "transient-value"
-        session.save()
-        old_session_key = session.session_key
-        self.assertTrue(old_session_key)
-        self.assertTrue(Session.objects.filter(session_key=old_session_key).exists())
-
-        response = self.client.post(
-            reverse("polls:register_identity"),
-            data=json.dumps({"name": "alice", "pin": "1234"}),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 201)
-
-        refreshed_session = self.client.session
-        self.assertNotEqual(refreshed_session.session_key, old_session_key)
-        self.assertEqual(refreshed_session.get("transient_key"), "transient-value")
-        self.assertEqual(refreshed_session.get(SESSION_IDENTITY_KEY), response.json()["identity"]["id"])
-        self.assertFalse(Session.objects.filter(session_key=old_session_key).exists())
-
     def test_logout_destroys_session(self):
         login_response = self.login(self.client, "alice", "1234")
         self.assertEqual(login_response.status_code, 201)
@@ -390,22 +369,6 @@ class PollApiTests(TestCase):
         self.assertFalse(login_response.json()["created"])
         self.assertEqual(login_response.json()["identity"]["id"], created_identity_id)
         self.assertEqual(Identity.objects.count(), 1)
-
-    def test_register_rejects_case_insensitive_duplicate_name(self):
-        first = self.client.post(
-            reverse("polls:register_identity"),
-            data=json.dumps({"name": "Alice", "pin": "1234"}),
-            content_type="application/json",
-        )
-        self.assertEqual(first.status_code, 201)
-
-        duplicate = self.other_client.post(
-            reverse("polls:register_identity"),
-            data=json.dumps({"name": "alice", "pin": "4321"}),
-            content_type="application/json",
-        )
-        self.assertEqual(duplicate.status_code, 409)
-        self.assertEqual(duplicate.json()["error"], "name_taken")
 
     def test_creator_can_close_then_delete(self):
         self.login(self.client, "alice")
@@ -718,21 +681,18 @@ class PollApiTests(TestCase):
         voter_open = summary_lookup(voter_response, "open_summary_poll")
 
         self.assertEqual(anonymous_open["participant_count"], 2)
-        self.assertEqual(anonymous_open["my_vote_count"], 0)
         self.assertFalse(anonymous_open["can_close"])
         self.assertFalse(anonymous_open["can_reopen"])
         self.assertFalse(anonymous_open["can_delete"])
         self.assertFalse(anonymous_open["can_edit"])
 
         self.assertEqual(creator_open["participant_count"], 2)
-        self.assertEqual(creator_open["my_vote_count"], 1)
         self.assertTrue(creator_open["can_close"])
         self.assertFalse(creator_open["can_reopen"])
         self.assertFalse(creator_open["can_delete"])
         self.assertTrue(creator_open["can_edit"])
 
         self.assertEqual(voter_open["participant_count"], 2)
-        self.assertEqual(voter_open["my_vote_count"], 2)
         self.assertFalse(voter_open["can_close"])
         self.assertFalse(voter_open["can_reopen"])
         self.assertFalse(voter_open["can_delete"])
@@ -743,21 +703,18 @@ class PollApiTests(TestCase):
         voter_closed = summary_lookup(voter_response, "closed_summary_poll")
 
         self.assertEqual(anonymous_closed["participant_count"], 2)
-        self.assertEqual(anonymous_closed["my_vote_count"], 0)
         self.assertFalse(anonymous_closed["can_close"])
         self.assertFalse(anonymous_closed["can_reopen"])
         self.assertFalse(anonymous_closed["can_delete"])
         self.assertFalse(anonymous_closed["can_edit"])
 
         self.assertEqual(creator_closed["participant_count"], 2)
-        self.assertEqual(creator_closed["my_vote_count"], 1)
         self.assertFalse(creator_closed["can_close"])
         self.assertTrue(creator_closed["can_reopen"])
         self.assertTrue(creator_closed["can_delete"])
         self.assertFalse(creator_closed["can_edit"])
 
         self.assertEqual(voter_closed["participant_count"], 2)
-        self.assertEqual(voter_closed["my_vote_count"], 1)
         self.assertFalse(voter_closed["can_close"])
         self.assertFalse(voter_closed["can_reopen"])
         self.assertFalse(voter_closed["can_delete"])
@@ -1167,7 +1124,6 @@ class PollApiTests(TestCase):
         poll_id = create.json()["poll"]["id"]
 
         cases: list[tuple[str, Client, str, str, list[str], str]] = [
-            ("register", self.client, "POST", "polls:register_identity", [], "{"),
             ("login", self.client, "POST", "polls:login_identity", [], "{"),
             ("language", self.client, "POST", "polls:set_language", [], "{"),
             ("poll-create", self.client, "POST", "polls:polls_collection", [], "{"),
@@ -1181,7 +1137,7 @@ class PollApiTests(TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(response.json()["error"], "invalid_json")
 
-    def test_login_and_register_reject_invalid_name_and_pin_payloads(self):
+    def test_login_rejects_invalid_name_and_pin_payloads(self):
         cases: list[tuple[str, dict[str, object], str]] = [
             ("name-not-string", {"name": 1234, "pin": "1234"}, "invalid_name"),
             ("name-too-short", {"name": "a", "pin": "1234"}, "invalid_name"),
@@ -1192,35 +1148,17 @@ class PollApiTests(TestCase):
             ("pin-too-long", {"name": "alice", "pin": "1" * 13}, "invalid_pin"),
         ]
 
-        endpoints = [
-            ("register", self.client, "polls:register_identity"),
-            ("login", self.client, "polls:login_identity"),
-        ]
-
-        for endpoint_label, client, url_name in endpoints:
-            for case_label, payload, expected_error in cases:
-                with self.subTest(endpoint=endpoint_label, case=case_label):
-                    response = client.post(
-                        reverse(url_name),
-                        data=json.dumps(payload),
-                        content_type="application/json",
-                    )
-                    self.assertEqual(response.status_code, 400)
-                    self.assertEqual(response.json()["error"], expected_error)
-
-    def test_register_and_login_handle_integrity_race_paths(self):
-        register_lookup = MagicMock()
-        register_lookup.exists.return_value = False
-
-        with patch("polls.views.Identity.objects.filter", return_value=register_lookup):
-            with patch("polls.views.Identity.save", side_effect=IntegrityError()):
-                register_response = self.client.post(
-                    reverse("polls:register_identity"),
-                    data=json.dumps({"name": "alice", "pin": "1234"}),
+        for case_label, payload, expected_error in cases:
+            with self.subTest(case=case_label):
+                response = self.client.post(
+                    reverse("polls:login_identity"),
+                    data=json.dumps(payload),
                     content_type="application/json",
                 )
-        self.assertEqual(register_response.status_code, 409)
-        self.assertEqual(register_response.json()["error"], "name_taken")
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], expected_error)
+
+    def test_login_handles_integrity_race_path(self):
 
         first_lookup = MagicMock()
         first_lookup.first.return_value = None

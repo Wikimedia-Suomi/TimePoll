@@ -7,7 +7,6 @@ app_name = "polls"
 urlpatterns = [
     path("", views.index, name="index"),
     path("api/auth/session/", views.auth_session, name="auth_session"),
-    path("api/auth/register/", views.register_identity, name="register_identity"),
     path("api/auth/login/", views.login_identity, name="login_identity"),
     path("api/auth/logout/", views.logout_identity, name="logout_identity"),
     path("api/auth/me/", views.auth_me_data, name="auth_me_data"),
