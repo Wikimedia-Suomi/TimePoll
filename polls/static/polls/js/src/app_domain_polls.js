@@ -214,8 +214,27 @@
         await this.ensureAuthenticated(async () => {
           this.clearFeedback();
           try {
+            const deletedPollId = String(this.selectedPoll.id || "").trim();
             await apiFetch(`/api/polls/${this.selectedPoll.id}/`, { method: "DELETE" });
             this.resetVoteSyncState();
+            if (deletedPollId) {
+              this.polls = Array.isArray(this.polls)
+                ? this.polls.filter((poll) => String(poll && poll.id || "").trim() !== deletedPollId)
+                : [];
+              if (this.profileData && Array.isArray(this.profileData.created_polls)) {
+                this.profileData = {
+                  ...this.profileData,
+                  created_polls: this.profileData.created_polls.filter(
+                    (poll) => String(poll && poll.id || "").trim() !== deletedPollId
+                  ),
+                  votes: Array.isArray(this.profileData.votes)
+                    ? this.profileData.votes.filter(
+                        (vote) => String(vote && vote.poll && vote.poll.id || "").trim() !== deletedPollId
+                      )
+                    : this.profileData.votes
+                };
+              }
+            }
             this.selectedPoll = null;
             this.isEditingPoll = false;
             this.editForm = null;

@@ -4,6 +4,7 @@
   domains.createFormDomainMethods = function createFormDomainMethods({
     autoGrowScheduleForm,
     buildTimeZoneMeta,
+    createPollFormValidator,
     defaultCreateForm,
     editFormFromPoll,
     filterTimezoneSuggestionOptions,
@@ -14,6 +15,18 @@
     pollFormWeekdaySelectorByScope,
     toggleWeekdaySelection
   }) {
+    const pollFormValidator = createPollFormValidator({
+      fieldValidationMessage(context, fieldKey, kind) {
+        return context.fieldValidationMessage(fieldKey, kind);
+      },
+      resolveError(context, payload, fallback) {
+        return context.resolveError(payload, fallback);
+      },
+      hasScheduleConflictWithVotes(context, form) {
+        return context.hasScheduleConflictWithVotes(form);
+      }
+    });
+
     return {
       fieldErrorId(scope, field) {
         return `${scope}-${String(field || "").replaceAll("_", "-")}-error`;
@@ -587,103 +600,7 @@
         return false;
       },
       buildPollFormErrors(form, scope = "create") {
-        const errors = {};
-        if (!form) {
-          return errors;
-        }
-
-        const title = String(form.title || "").trim();
-        const identifier = String(form.identifier || "").trim();
-        const startDateRaw = String(form.start_date || "").trim();
-        const endDateRaw = String(form.end_date || "").trim();
-        const timezoneName = String(form.timezone || "").trim();
-
-        if (!title) {
-          errors.title = this.fieldValidationMessage("title", "required");
-        } else if (title.length > 160) {
-          errors.title = this.fieldValidationMessage("title", "tooLong");
-        }
-
-        if (identifier) {
-          if (identifier.length > 80 || !/^[A-Za-z0-9_]+$/.test(identifier)) {
-            errors.identifier = this.resolveError({ error: "invalid_poll_identifier" }, "");
-          }
-        }
-
-        const startDate = parseIsoDateValue(startDateRaw);
-        const endDate = parseIsoDateValue(endDateRaw);
-
-        if (!startDateRaw) {
-          errors.start_date = this.fieldValidationMessage("startDate", "required");
-        } else if (!startDate) {
-          errors.start_date = this.resolveError(
-            { error: "invalid_date" },
-            this.fieldValidationMessage("startDate", "invalid")
-          );
-        }
-
-        if (!endDateRaw) {
-          errors.end_date = this.fieldValidationMessage("endDate", "required");
-        } else if (!endDate) {
-          errors.end_date = this.resolveError(
-            { error: "invalid_date" },
-            this.fieldValidationMessage("endDate", "invalid")
-          );
-        }
-
-        if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
-          const rangeError = this.resolveError({ error: "invalid_date_range" }, "");
-          errors.start_date = rangeError;
-          errors.end_date = rangeError;
-        }
-
-        if (!Number.isInteger(form.daily_start_hour)) {
-          errors.daily_start_hour = this.fieldValidationMessage("dailyStartHour", "required");
-        } else if (form.daily_start_hour < 0 || form.daily_start_hour > 23) {
-          errors.daily_start_hour = this.fieldValidationMessage("dailyStartHour", "invalid");
-        }
-
-        if (!Number.isInteger(form.daily_end_hour)) {
-          errors.daily_end_hour = this.fieldValidationMessage("dailyEndHour", "required");
-        } else if (form.daily_end_hour < 1 || form.daily_end_hour > 24) {
-          errors.daily_end_hour = this.fieldValidationMessage("dailyEndHour", "invalid");
-        }
-
-        if (
-          Number.isInteger(form.daily_start_hour) &&
-          Number.isInteger(form.daily_end_hour) &&
-          form.daily_end_hour <= form.daily_start_hour
-        ) {
-          const hoursError = this.resolveError({ error: "invalid_daily_hours" }, "");
-          errors.daily_start_hour = hoursError;
-          errors.daily_end_hour = hoursError;
-        }
-
-        if (!Array.isArray(form.allowed_weekdays) || form.allowed_weekdays.length === 0) {
-          errors.allowed_weekdays = this.resolveError({ error: "invalid_weekdays" }, "");
-        }
-
-        if (!timezoneName) {
-          errors.timezone = this.fieldValidationMessage("timezone", "required");
-        } else if (!isValidTimeZoneName(timezoneName)) {
-          errors.timezone = this.resolveError({ error: "invalid_timezone" }, "");
-        }
-
-        if (
-          scope === "edit" &&
-          Object.keys(errors).length === 0 &&
-          this.hasScheduleConflictWithVotes(form)
-        ) {
-          const conflictError = this.resolveError({ error: "schedule_conflicts_with_votes" }, "");
-          errors.timezone = conflictError;
-          errors.start_date = conflictError;
-          errors.end_date = conflictError;
-          errors.daily_start_hour = conflictError;
-          errors.daily_end_hour = conflictError;
-          errors.allowed_weekdays = conflictError;
-        }
-
-        return errors;
+        return pollFormValidator.buildErrors(this, form, { scope });
       },
       validateFormScope(scope = "create") {
         const form = this.formForScope(scope);
@@ -692,31 +609,7 @@
         return errors;
       },
       backendErrorFields(errorCode) {
-        if (errorCode === "invalid_title") {
-          return ["title"];
-        }
-        if (errorCode === "invalid_poll_identifier" || errorCode === "poll_identifier_taken") {
-          return ["identifier"];
-        }
-        if (errorCode === "invalid_timezone") {
-          return ["timezone"];
-        }
-        if (errorCode === "invalid_date_range" || errorCode === "invalid_date") {
-          return ["start_date", "end_date"];
-        }
-        if (errorCode === "invalid_daily_hours") {
-          return ["daily_start_hour", "daily_end_hour"];
-        }
-        if (errorCode === "invalid_weekdays") {
-          return ["allowed_weekdays"];
-        }
-        if (errorCode === "too_many_options") {
-          return ["start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"];
-        }
-        if (errorCode === "schedule_conflicts_with_votes") {
-          return ["timezone", "start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"];
-        }
-        return [];
+        return pollFormValidator.backendErrorFields(errorCode);
       },
       applyBackendFormError(scope, payload) {
         if (!payload || typeof payload !== "object" || typeof payload.error !== "string") {

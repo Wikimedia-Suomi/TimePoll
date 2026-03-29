@@ -175,6 +175,189 @@
     ).sort((left, right) => left - right);
   }
 
+  function isValidTimeZoneName(value) {
+    if (typeof value !== "string" || !value.trim()) {
+      return false;
+    }
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value.trim() }).format(new Date());
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function parseIsoDateValue(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const trimmed = value.trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (
+      parsed.getUTCFullYear() !== year ||
+      parsed.getUTCMonth() + 1 !== month ||
+      parsed.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return parsed;
+  }
+
+  const pollFormBackendErrorFieldMap = {
+    invalid_title: ["title"],
+    invalid_poll_identifier: ["identifier"],
+    poll_identifier_taken: ["identifier"],
+    invalid_timezone: ["timezone"],
+    invalid_date_range: ["start_date", "end_date"],
+    invalid_date: ["start_date", "end_date"],
+    invalid_daily_hours: ["daily_start_hour", "daily_end_hour"],
+    invalid_weekdays: ["allowed_weekdays"],
+    too_many_options: ["start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"],
+    schedule_conflicts_with_votes: [
+      "timezone",
+      "start_date",
+      "end_date",
+      "daily_start_hour",
+      "daily_end_hour",
+      "allowed_weekdays"
+    ]
+  };
+
+  function createPollFormValidator({
+    fieldValidationMessage,
+    hasScheduleConflictWithVotes,
+    resolveError
+  } = {}) {
+    const resolveFieldValidationMessage =
+      typeof fieldValidationMessage === "function"
+        ? fieldValidationMessage
+        : (_context, _fieldKey, _kind) => "";
+    const resolveFieldError =
+      typeof resolveError === "function"
+        ? resolveError
+        : (_context, payload, fallback) => fallback || String(payload && payload.error || "");
+    const checkScheduleConflict =
+      typeof hasScheduleConflictWithVotes === "function"
+        ? hasScheduleConflictWithVotes
+        : () => false;
+
+    return {
+      backendErrorFields(errorCode) {
+        return Array.isArray(pollFormBackendErrorFieldMap[errorCode])
+          ? [...pollFormBackendErrorFieldMap[errorCode]]
+          : [];
+      },
+      buildErrors(context, form, options = {}) {
+        const scope = options.scope === "edit" ? "edit" : "create";
+        const errors = {};
+        if (!form || typeof form !== "object") {
+          return errors;
+        }
+
+        const title = String(form.title || "").trim();
+        const identifier = String(form.identifier || "").trim();
+        const startDateRaw = String(form.start_date || "").trim();
+        const endDateRaw = String(form.end_date || "").trim();
+        const timezoneName = String(form.timezone || "").trim();
+
+        if (!title) {
+          errors.title = resolveFieldValidationMessage(context, "title", "required");
+        } else if (title.length > 160) {
+          errors.title = resolveFieldValidationMessage(context, "title", "tooLong");
+        }
+
+        if (identifier && (identifier.length > 80 || !/^[A-Za-z0-9_]+$/.test(identifier))) {
+          errors.identifier = resolveFieldError(context, { error: "invalid_poll_identifier" }, "");
+        }
+
+        const startDate = parseIsoDateValue(startDateRaw);
+        const endDate = parseIsoDateValue(endDateRaw);
+
+        if (!startDateRaw) {
+          errors.start_date = resolveFieldValidationMessage(context, "startDate", "required");
+        } else if (!startDate) {
+          errors.start_date = resolveFieldError(
+            context,
+            { error: "invalid_date" },
+            resolveFieldValidationMessage(context, "startDate", "invalid")
+          );
+        }
+
+        if (!endDateRaw) {
+          errors.end_date = resolveFieldValidationMessage(context, "endDate", "required");
+        } else if (!endDate) {
+          errors.end_date = resolveFieldError(
+            context,
+            { error: "invalid_date" },
+            resolveFieldValidationMessage(context, "endDate", "invalid")
+          );
+        }
+
+        if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
+          const rangeError = resolveFieldError(context, { error: "invalid_date_range" }, "");
+          errors.start_date = rangeError;
+          errors.end_date = rangeError;
+        }
+
+        if (!Number.isInteger(form.daily_start_hour)) {
+          errors.daily_start_hour = resolveFieldValidationMessage(context, "dailyStartHour", "required");
+        } else if (form.daily_start_hour < 0 || form.daily_start_hour > 23) {
+          errors.daily_start_hour = resolveFieldValidationMessage(context, "dailyStartHour", "invalid");
+        }
+
+        if (!Number.isInteger(form.daily_end_hour)) {
+          errors.daily_end_hour = resolveFieldValidationMessage(context, "dailyEndHour", "required");
+        } else if (form.daily_end_hour < 1 || form.daily_end_hour > 24) {
+          errors.daily_end_hour = resolveFieldValidationMessage(context, "dailyEndHour", "invalid");
+        }
+
+        if (
+          Number.isInteger(form.daily_start_hour)
+          && Number.isInteger(form.daily_end_hour)
+          && form.daily_end_hour <= form.daily_start_hour
+        ) {
+          const hoursError = resolveFieldError(context, { error: "invalid_daily_hours" }, "");
+          errors.daily_start_hour = hoursError;
+          errors.daily_end_hour = hoursError;
+        }
+
+        if (!Array.isArray(form.allowed_weekdays) || form.allowed_weekdays.length === 0) {
+          errors.allowed_weekdays = resolveFieldError(context, { error: "invalid_weekdays" }, "");
+        }
+
+        if (!timezoneName) {
+          errors.timezone = resolveFieldValidationMessage(context, "timezone", "required");
+        } else if (!isValidTimeZoneName(timezoneName)) {
+          errors.timezone = resolveFieldError(context, { error: "invalid_timezone" }, "");
+        }
+
+        if (
+          scope === "edit"
+          && Object.keys(errors).length === 0
+          && checkScheduleConflict(context, form)
+        ) {
+          const conflictError = resolveFieldError(
+            context,
+            { error: "schedule_conflicts_with_votes" },
+            ""
+          );
+          for (const field of this.backendErrorFields("schedule_conflicts_with_votes")) {
+            errors[field] = conflictError;
+          }
+        }
+
+        return errors;
+      }
+    };
+  }
+
   function filterTimezoneSuggestionOptions(timezoneOptions, query, buildMeta, limit = 200) {
     const metaBuilder = typeof buildMeta === "function" ? buildMeta : () => "";
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 200;
@@ -332,6 +515,7 @@
   }
 
   window.TimePollLogic = {
+    createPollFormValidator,
     buildPollUrlState,
     calendarTimezonePreferenceStorageKeyForSession,
     collectDayOptionIdsFromRows,
@@ -340,10 +524,12 @@
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
     filterTimezoneSuggestionOptions,
+    isValidTimeZoneName,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
     nextVoteStatus,
+    parseIsoDateValue,
     readOptionCount,
     autoGrowScheduleForm,
     serializeCalendarTimezonePreference,

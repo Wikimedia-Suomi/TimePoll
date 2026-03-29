@@ -5,14 +5,17 @@ function registerUnitTests(harness) {
     calendarTimezonePreferenceStorageKeyForSession,
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
+    createPollFormValidator,
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
     filterTimezoneSuggestionOptions,
+    isValidTimeZoneName,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
     nextVoteStatus,
+    parseIsoDateValue,
     readOptionCount,
     serializeCalendarTimezonePreference,
     toggleWeekdaySelection
@@ -133,6 +136,16 @@ function registerUnitTests(harness) {
     ]);
   });
 
+  test("parseIsoDateValue rejects invalid dates and accepts canonical YYYY-MM-DD values", () => {
+    assertEqual(parseIsoDateValue("2026-04-31"), null);
+    assertEqual(parseIsoDateValue("2026-04-30") instanceof Date, true);
+  });
+
+  test("isValidTimeZoneName accepts known IANA zones", () => {
+    assertEqual(isValidTimeZoneName("Europe/Helsinki"), true);
+    assertEqual(isValidTimeZoneName("Europe/Not-A-Timezone"), false);
+  });
+
   test("collectDayOptionIdsFromRows returns ids for one visible day", () => {
     const rows = [
       { cells: { "2026-04-01": { id: 11 }, "2026-04-02": { id: 12 } } },
@@ -158,6 +171,46 @@ function registerUnitTests(harness) {
   test("toggleWeekdaySelection sorts and de-duplicates weekday values", () => {
     assertDeepEqual(toggleWeekdaySelection([4, 2, 2], 1), [1, 2, 4]);
     assertDeepEqual(toggleWeekdaySelection([1, 2, 4], 2), [1, 4]);
+  });
+
+  test("createPollFormValidator centralizes create form rules and backend field mapping", () => {
+    const validator = createPollFormValidator({
+      fieldValidationMessage: (_context, fieldKey, kind) => `${fieldKey}:${kind}`,
+      resolveError: (_context, payload, fallback) => payload.error || fallback || "",
+      hasScheduleConflictWithVotes: () => false
+    });
+
+    assertDeepEqual(
+      validator.buildErrors(
+        {},
+        {
+          title: "",
+          identifier: "bad slug",
+          start_date: "2026-05-10",
+          end_date: "2026-05-09",
+          daily_start_hour: 12,
+          daily_end_hour: 12,
+          allowed_weekdays: [],
+          timezone: "Europe/Not-A-Timezone"
+        },
+        { scope: "create" }
+      ),
+      {
+        title: "title:required",
+        identifier: "invalid_poll_identifier",
+        start_date: "invalid_date_range",
+        end_date: "invalid_date_range",
+        daily_start_hour: "invalid_daily_hours",
+        daily_end_hour: "invalid_daily_hours",
+        allowed_weekdays: "invalid_weekdays",
+        timezone: "invalid_timezone"
+      }
+    );
+
+    assertDeepEqual(
+      validator.backendErrorFields("too_many_options"),
+      ["start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"]
+    );
   });
 
   test("autoGrowScheduleForm expands days, hours and weekdays to keep votes in range", () => {

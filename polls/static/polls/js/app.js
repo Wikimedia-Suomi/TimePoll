@@ -27,14 +27,17 @@
     calendarTimezonePreferenceStorageKeyForSession,
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
+    createPollFormValidator,
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
     filterTimezoneSuggestionOptions,
+    isValidTimeZoneName,
     isVoteStatusValue,
     loadCalendarTimezonePreferenceValue,
     matchesYesVoteFilter,
     nextVoteStatus,
+    parseIsoDateValue,
     readOptionCount,
     serializeCalendarTimezonePreference,
     toggleWeekdaySelection
@@ -46,14 +49,17 @@
     || typeof calendarTimezonePreferenceStorageKeyForSession !== "function"
     || typeof collectDayOptionIdsFromRows !== "function"
     || typeof collectRowOptionIdsFromCells !== "function"
+    || typeof createPollFormValidator !== "function"
     || typeof extractPollIdFromSearch !== "function"
     || typeof filterRowsForVisibleDaysAndMinYesVotes !== "function"
     || typeof filterWeekRowsByMinYesVotes !== "function"
     || typeof filterTimezoneSuggestionOptions !== "function"
+    || typeof isValidTimeZoneName !== "function"
     || typeof isVoteStatusValue !== "function"
     || typeof loadCalendarTimezonePreferenceValue !== "function"
     || typeof matchesYesVoteFilter !== "function"
     || typeof nextVoteStatus !== "function"
+    || typeof parseIsoDateValue !== "function"
     || typeof readOptionCount !== "function"
     || typeof serializeCalendarTimezonePreference !== "function"
     || typeof toggleWeekdaySelection !== "function"
@@ -1028,41 +1034,6 @@ const translations = {
     ];
   }
 
-  function isValidTimeZoneName(value) {
-    if (typeof value !== "string" || !value.trim()) {
-      return false;
-    }
-    try {
-      new Intl.DateTimeFormat("en-US", { timeZone: value.trim() }).format(new Date());
-      return true;
-    } catch (_error) {
-      return false;
-    }
-  }
-
-  function parseIsoDateValue(value) {
-    if (typeof value !== "string") {
-      return null;
-    }
-    const trimmed = value.trim();
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-    if (!match) {
-      return null;
-    }
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-    if (
-      parsed.getUTCFullYear() !== year ||
-      parsed.getUTCMonth() + 1 !== month ||
-      parsed.getUTCDate() !== day
-    ) {
-      return null;
-    }
-    return parsed;
-  }
-
   function parseWholeHourTimeKey(value) {
     if (typeof value !== "string") {
       return null;
@@ -1379,6 +1350,7 @@ const translations = {
     ...createFormDomainMethods({
       autoGrowScheduleForm,
       buildTimeZoneMeta,
+      createPollFormValidator,
       defaultCreateForm,
       editFormFromPoll,
       filterTimezoneSuggestionOptions,
