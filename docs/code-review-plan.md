@@ -11,6 +11,7 @@ Suunnitelma on tarkoitettu erityisesti näihin teemoihin:
 - koodin laatu yleisesti
 - koodin ymmärrettävyys yleisesti
 - ohjelman yleinen saavutettavuus eri päätelaitteilla
+- käyttöliittymätekstien ja käännösten kattavuus sekä kieliversioiden keskinäinen synkka
 - muut merkittävät riskit, joita ei kannata jättää review’n ulkopuolelle
 
 ## Periaatteet
@@ -62,7 +63,8 @@ Review kannattaa tehdä tässä järjestyksessä:
 2. refaktorointijäämät ja käyttämätön koodi
 3. koodin laatu ja ymmärrettävyys
 4. saavutettavuus ja päätelaitteet
-5. muut poikkileikkaavat riskit
+5. käännökset ja käyttöliittymätekstit
+6. muut poikkileikkaavat riskit
 
 Tätä järjestystä kannattaa noudattaa erityisesti silloin, kun review tehdään ajan kanssa useassa osassa.
 
@@ -246,13 +248,67 @@ Tämän vaiheen painopiste ei ole vain mekaaninen WCAG-tarkastus, vaan se, onko 
 - workflow-löydökset
 - päätelaite- tai selainkohtaiset caveatit
 
-## Vaihe 5: Muut poikkileikkaavat riskit
+## Vaihe 5: Käännökset ja käyttöliittymätekstit
+
+Tämän vaiheen tarkoitus on tarkistaa, että käyttöliittymätekstit ovat kattavasti käännettyjä ja että eri kieliversiot ovat keskenään linjassa.
+
+Painopiste on käyttäjälle näkyvässä käyttöliittymässä:
+
+- näkyvät napit, otsikot, ohjetekstit, lomaketekstit, placeholderit ja vahvistukset
+- ruudunlukijalle näkyvät labelit, `aria-label`-tekstit ja muut saavutettavat nimet
+- frontendin fallback- ja virhetekstit silloin, kun ne ovat osa käyttöliittymää
+
+Tähän vaiheeseen ei tarvitse laskea mukaan kaikkia taustajärjestelmästä tulevia raakavirheilmoituksia.
+
+### Kysymykset
+
+- Onko käyttöliittymätekstit kattavasti käännettynä?
+- Onko eri kieliversioissa samat käännösavaimet?
+- Onko kaikkien tekstien käännökset keskenään synkassa eikä siellä ole eri tekstejä eri kielillä?
+- Fallbackaako puuttuva avain käyttäjälle näkyvästi väärälle kielelle?
+- Onko templateissa, CSS:n kautta näkyvissä fallbackeissa tai bootstrap-JS:ssä kovakoodattuja tekstejä, jotka ohittavat käännösjärjestelmän?
+- Ovatko saavutettavuustekstit, kuten `aria-label`it ja ruudunlukijalle tarkoitetut ohjeet, mukana samalla tasolla kuin näkyvät UI-tekstit?
+
+### Pääkohteet
+
+- `polls/templates/polls/index.html`
+- `polls/static/polls/js/app.js`
+- `polls/static/polls/js/src/`
+- mahdolliset locale-tiedostot
+- `docs/accessibility.md`, jos siinä viitataan käyttöliittymäteksteihin tai saavutettaviin nimiin
+
+### Tarkistuslista
+
+- näkyvät tekstit tulevat `t(...)`-avaimista tai palvelinpuolen i18n:stä
+- myös pienet kenttälabelit ja metatiedot, kuten profiilin `ID`-kentän nimi, tulevat käännöksistä eivätkä jää kovakoodatuiksi
+- no-script- ja bootstrap-fallback-tekstit eivät jää kovakoodatuiksi vain englanniksi
+- `aria-label`-, `aria-describedby`-, dialogi- ja region-nimet ovat käännettyjä
+- placeholderit ja apu-/vihjetekstit ovat mukana käännöksissä
+- kaikissa kielissä on samat avaimet
+- placeholder-tokenit kuten `{field}`, `{date}`, `{hour}` ovat samat kaikissa kielissä
+- saman avaimen sisältö ei ole eri kielissä merkitykseltään ristiriitainen
+- puuttuvat avaimet eivät johda siihen, että osa käyttöliittymästä näkyy sekoituksena eri kieliä
+
+### Menetelmä
+
+- tarkista translation-avainten symmetria kieliblokkien välillä
+- etsi templateista ja frontend-JS:stä käyttäjälle näkyvät kovakoodatut merkkijonot
+- käy läpi myös pienet labelit, statustekstit ja profiili-/metadata-kenttien otsikot, koska juuri ne jäävät helposti templateen suoraan kirjoitettuina
+- tarkista erikseen saavutettavuustekstit ja fallback-polut
+- erottele UI-tekstit backendin raakavirheistä, joita ei tarvitse laskea tämän vaiheen puutteiksi
+
+### Tuotos
+
+- lista puuttuvista tai kovakoodatuista UI-teksteistä
+- lista kieliversioiden epäsynkista avaimista tai merkityseroista
+- arvio siitä, näkyvätkö puutteet käyttäjälle todellisessa workflow’ssa vai vain harvinaisissa fallback-tiloissa
+
+## Vaihe 6: Muut poikkileikkaavat riskit
 
 Vaikka ne eivät olisi review’n pääteemoja, nämä kannattaa tarkistaa lopuksi:
 
 - suorituskyky
 - timezone- ja päivämäärälogiikan oikeellisuus
-- i18n/l10n-konsistenssi
 - testien flakeys
 - operoitavuus ja diagnosoitavuus
 - dokumentaation ajantasaisuus
@@ -261,7 +317,6 @@ Vaikka ne eivät olisi review’n pääteemoja, nämä kannattaa tarkistaa lopuk
 
 - Skaalautuuko iso polli tai tiheä kalenteri järkevästi?
 - Onko DST- ja timezone-logiikassa vaikeasti havaittavia reunatapauksia?
-- Ovatko käännökset, labelit ja virheilmoitukset yhtenäisiä?
 - Onko testisuite luotettava vai sisältääkö paljon satunnaisesti rikkoutuvia odotuksia?
 - Löytyykö käyttäytymisestä jotain, mitä nykyinen dokumentaatio ei kerro?
 
@@ -334,5 +389,6 @@ Tässä repossa hyvä oletus on tehdä review neljänä eränä:
 2. refaktorointijäämät ja kuollut koodi
 3. koodin laatu ja ymmärrettävyys
 4. saavutettavuus ja päätelaitteet
+5. käännökset ja käyttöliittymätekstit
 
 Tätä mallia kannattaa käyttää myös jatkossa, jotta eri review-kierrokset ovat vertailukelpoisia keskenään.

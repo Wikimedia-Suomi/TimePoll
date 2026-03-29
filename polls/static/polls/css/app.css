@@ -796,9 +796,14 @@ td {
 }
 
 .calendar-nav-btn {
-  min-width: 2rem;
-  padding: 0.22rem 0.5rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.75rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
 }
 
 .calendar-nav-range {
@@ -1384,6 +1389,8 @@ td {
 
   .calendar-nav-btn {
     width: auto !important;
+    min-width: 3rem;
+    min-height: 3rem;
   }
 
   .calendar-timezone-mode-list,

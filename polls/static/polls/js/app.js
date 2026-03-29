@@ -1,10 +1,81 @@
 (() => {
+  const bootstrapTranslations = {
+    en: {
+      appLogicLoadError: "TimePoll app logic failed to load.",
+      vueLoadError: "Vue.js did not load."
+    },
+    fi: {
+      appLogicLoadError: "TimePoll-sovelluslogiikan lataus epäonnistui.",
+      vueLoadError: "Vue.js:n lataus epäonnistui."
+    },
+    sv: {
+      appLogicLoadError: "TimePolls applogik kunde inte laddas.",
+      vueLoadError: "Vue.js kunde inte laddas."
+    },
+    no: {
+      appLogicLoadError: "TimePoll-appens logikk kunne ikke lastes inn.",
+      vueLoadError: "Vue.js kunne ikke lastes inn."
+    },
+    et: {
+      appLogicLoadError: "TimePolli rakendusloogika laadimine ebaonnestus.",
+      vueLoadError: "Vue.js-i laadimine ebaonnestus."
+    }
+  };
+
+  function detectBootstrapLanguage() {
+    const candidates = [];
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        candidates.push(window.localStorage.getItem("timepoll-language"));
+      }
+    } catch (error) {
+      void error;
+    }
+
+    if (typeof document !== "undefined" && document.documentElement) {
+      candidates.push(document.documentElement.lang);
+    }
+
+    if (typeof navigator !== "undefined") {
+      candidates.push(navigator.language);
+      if (Array.isArray(navigator.languages)) {
+        candidates.push(...navigator.languages);
+      }
+    }
+
+    for (const candidate of candidates) {
+      const normalized = String(candidate || "").trim().toLowerCase();
+      if (!normalized) {
+        continue;
+      }
+      const base = normalized.split(/[-_]/)[0];
+      if (bootstrapTranslations[base]) {
+        return base;
+      }
+    }
+
+    return "en";
+  }
+
+  function bootstrapText(key) {
+    const language = detectBootstrapLanguage();
+    return bootstrapTranslations[language][key] || bootstrapTranslations.en[key] || key;
+  }
+
+  function renderBootstrapError(messageKey) {
+    const root = document.getElementById("app");
+    if (!root) {
+      return;
+    }
+    const feedback = document.createElement("p");
+    feedback.className = "feedback error";
+    feedback.textContent = bootstrapText(messageKey);
+    root.replaceChildren(feedback);
+  }
+
   function showAppLogicLoadError() {
     const renderError = () => {
-      const root = document.getElementById("app");
-      if (root) {
-        root.innerHTML = "<p class='feedback error'>TimePoll app logic failed to load.</p>";
-      }
+      renderBootstrapError("appLogicLoadError");
     };
 
     if (document.readyState === "loading") {
@@ -86,6 +157,7 @@ const translations = {
       sectionCreatePoll: "Create poll dialog",
       sectionSelectedPoll: "Selected poll",
       workspaceSections: "Workspace sections",
+      workspaceRegion: "TimePoll workspace",
       noSelectedPoll: "Select a poll from the list.",
       createHelp: "Select full start/end days. Time slots are generated automatically in 60-minute blocks.",
       pollIdentifier: "Poll identifier",
@@ -107,6 +179,7 @@ const translations = {
       noRowsMatchFilter: "No options match the current Yes filter.",
       timezoneHelp: "Start typing to filter IANA timezones, for example Europe/Helsinki or UTC.",
       timezoneSelected: "Selected timezone",
+      timezoneSuggestions: "Timezone suggestions",
       validationRequired: "{field} is required.",
       validationInvalid: "{field} is invalid.",
       validationTooLong: "{field} is too long.",
@@ -202,6 +275,7 @@ const translations = {
       discardCreateConfirm: "Discard this draft and return to the poll list?",
       confirmDeletePoll: "Delete this poll permanently?",
       dismissFeedback: "Dismiss notification",
+      profileId: "ID",
       profileTitle: "My data",
       profileRefresh: "Refresh",
       profileLoading: "Loading your data...",
@@ -241,6 +315,7 @@ const translations = {
       sectionCreatePoll: "Luo kysely dialogi",
       sectionSelectedPoll: "Valittu kysely",
       workspaceSections: "Työtilan osiot",
+      workspaceRegion: "TimePoll-työtila",
       noSelectedPoll: "Valitse kysely listasta.",
       createHelp: "Valitse alku- ja loppupäivät. Aikavaihtoehdot luodaan automaattisesti 60 minuutin jaksoina.",
       pollIdentifier: "Kyselyn tunniste",
@@ -262,6 +337,7 @@ const translations = {
       noRowsMatchFilter: "Yksikään valinta ei täytä nykyistä Kyllä-suodatinta.",
       timezoneHelp: "Ala kirjoittaa suodattaaksesi IANA-aikavyöhykkeitä, esimerkiksi Europe/Helsinki tai UTC.",
       timezoneSelected: "Valittu aikavyöhyke",
+      timezoneSuggestions: "Aikavyöhyke-ehdotukset",
       validationRequired: "{field} on pakollinen.",
       validationInvalid: "{field} on virheellinen.",
       validationTooLong: "{field} on liian pitkä.",
@@ -357,6 +433,7 @@ const translations = {
       discardCreateConfirm: "Hylätäänkö luonnos ja palataan kyselylistaan?",
       confirmDeletePoll: "Poistetaanko kysely pysyvästi?",
       dismissFeedback: "Sulje ilmoitus",
+      profileId: "ID",
       profileTitle: "Omat tiedot",
       profileRefresh: "Päivitä",
       profileLoading: "Ladataan tietojasi...",
@@ -396,6 +473,7 @@ const translations = {
       sectionCreatePoll: "Skapa omröstningsdialog",
       sectionSelectedPoll: "Vald omröstning",
       workspaceSections: "Arbetsytans sektioner",
+      workspaceRegion: "TimePoll-arbetsyta",
       noSelectedPoll: "Välj en omröstning från listan.",
       createHelp: "Välj hela start- och slutdagar. Tidsalternativ skapas automatiskt i 60-minutersblock.",
       pollIdentifier: "Omröstningsidentifierare",
@@ -417,6 +495,7 @@ const translations = {
       noRowsMatchFilter: "Inga alternativ matchar det aktuella Ja-filtret.",
       timezoneHelp: "Börja skriva för att filtrera IANA-tidszoner, till exempel Europe/Helsinki eller UTC.",
       timezoneSelected: "Vald tidszon",
+      timezoneSuggestions: "Tidszonsförslag",
       validationRequired: "{field} är obligatoriskt.",
       validationInvalid: "{field} är ogiltigt.",
       validationTooLong: "{field} är för långt.",
@@ -450,6 +529,15 @@ const translations = {
       deletePoll: "Ta bort omröstning",
       editPoll: "Redigera omröstning",
       editHelp: "Du kan redigera omröstningens inställningar. Tidslots med röster kan inte tas bort.",
+      editStartDateBoundByEndDate: "Startdatum kan inte vara senare än det valda slutdatumet.",
+      editStartDateBoundByVotes: "Befintliga röster kräver att startdatumet är senast {date}.",
+      editEndDateBoundByStartDate: "Slutdatum kan inte vara tidigare än det valda startdatumet.",
+      editEndDateBoundByVotes: "Befintliga röster kräver att slutdatumet är tidigast {date}.",
+      editStartHourBoundByEndHour: "Dagens starttimme måste vara före den valda sluttimmen.",
+      editStartHourBoundByVotes: "Befintliga röster kräver att dagens starttimme är senast {hour}.",
+      editEndHourBoundByStartHour: "Dagens sluttimme måste vara senare än den valda starttimmen.",
+      editEndHourBoundByVotes: "Befintliga röster kräver att dagens sluttimme är tidigast {hour}.",
+      editAllowedWeekdaysBoundByVotes: "Befintliga röster kräver att dessa veckodagar förblir valda: {days}.",
       editTimezoneAutoGrowNotice: "Byte av tidszon utökade schemat så att befintliga röster fortfarande är giltiga.",
       editTimezoneConfirmTitle: "Bekräfta byte av tidszon",
       editTimezoneConfirmDescription:
@@ -503,6 +591,7 @@ const translations = {
       discardCreateConfirm: "Kassera utkastet och återgå till omröstningslistan?",
       confirmDeletePoll: "Ta bort denna omröstning permanent?",
       dismissFeedback: "Stäng meddelande",
+      profileId: "ID",
       profileTitle: "Mina uppgifter",
       profileRefresh: "Uppdatera",
       profileLoading: "Laddar dina uppgifter...",
@@ -542,6 +631,7 @@ const translations = {
       sectionCreatePoll: "Opprett avstemningsdialog",
       sectionSelectedPoll: "Valgt avstemning",
       workspaceSections: "Arbeidsområdeseksjoner",
+      workspaceRegion: "TimePoll-arbeidsområde",
       noSelectedPoll: "Velg en avstemning fra listen.",
       createHelp: "Velg hele start- og sluttdager. Tidsalternativer opprettes automatisk i 60-minuttersblokker.",
       pollIdentifier: "Avstemningsidentifikator",
@@ -563,6 +653,7 @@ const translations = {
       noRowsMatchFilter: "Ingen alternativer samsvarer med gjeldende Ja-filter.",
       timezoneHelp: "Begynn å skrive for å filtrere IANA-tidssoner, for eksempel Europe/Helsinki eller UTC.",
       timezoneSelected: "Valgt tidssone",
+      timezoneSuggestions: "Tidssoneforslag",
       validationRequired: "{field} er obligatorisk.",
       validationInvalid: "{field} er ugyldig.",
       validationTooLong: "{field} er for lang.",
@@ -596,6 +687,15 @@ const translations = {
       deletePoll: "Slett avstemning",
       editPoll: "Rediger avstemning",
       editHelp: "Du kan redigere avstemningsinnstillingene. Tidsluker som allerede har stemmer kan ikke fjernes.",
+      editStartDateBoundByEndDate: "Startdato kan ikke være senere enn den valgte sluttdatoen.",
+      editStartDateBoundByVotes: "Eksisterende stemmer krever at startdatoen er senest {date}.",
+      editEndDateBoundByStartDate: "Sluttdato kan ikke være tidligere enn den valgte startdatoen.",
+      editEndDateBoundByVotes: "Eksisterende stemmer krever at sluttdatoen er tidligst {date}.",
+      editStartHourBoundByEndHour: "Den daglige starttimen må være før den valgte slutttimen.",
+      editStartHourBoundByVotes: "Eksisterende stemmer krever at den daglige starttimen er senest {hour}.",
+      editEndHourBoundByStartHour: "Den daglige slutttimen må være senere enn den valgte starttimen.",
+      editEndHourBoundByVotes: "Eksisterende stemmer krever at den daglige slutttimen er tidligst {hour}.",
+      editAllowedWeekdaysBoundByVotes: "Eksisterende stemmer krever at disse ukedagene forblir valgt: {days}.",
       editTimezoneAutoGrowNotice: "Bytte av tidssone utvidet planen slik at eksisterende stemmer fortsatt er gyldige.",
       editTimezoneConfirmTitle: "Bekreft bytte av tidssone",
       editTimezoneConfirmDescription:
@@ -649,6 +749,7 @@ const translations = {
       discardCreateConfirm: "Forkaste utkastet og gå tilbake til avstemningslisten?",
       confirmDeletePoll: "Slette denne avstemningen permanent?",
       dismissFeedback: "Lukk varsel",
+      profileId: "ID",
       profileTitle: "Mine data",
       profileRefresh: "Oppdater",
       profileLoading: "Laster inn dataene dine...",
@@ -688,6 +789,7 @@ const translations = {
       sectionCreatePoll: "Küsitluse loomise dialoog",
       sectionSelectedPoll: "Valitud küsitlus",
       workspaceSections: "Tööala osad",
+      workspaceRegion: "TimePoll tööala",
       noSelectedPoll: "Vali loendist küsitlus.",
       createHelp: "Vali täis algus- ja lõpppäevad. Ajavalikud luuakse automaatselt 60-minutiliste plokkidena.",
       pollIdentifier: "Küsitluse tunnus",
@@ -709,6 +811,7 @@ const translations = {
       noRowsMatchFilter: "Ükski valik ei vasta praegusele Jah-filtrile.",
       timezoneHelp: "IANA ajavööndite filtreerimiseks hakka kirjutama, näiteks Europe/Helsinki või UTC.",
       timezoneSelected: "Valitud ajavöönd",
+      timezoneSuggestions: "Ajavööndi soovitused",
       validationRequired: "{field} on kohustuslik.",
       validationInvalid: "{field} on vigane.",
       validationTooLong: "{field} on liiga pikk.",
@@ -742,6 +845,15 @@ const translations = {
       deletePoll: "Kustuta küsitlus",
       editPoll: "Muuda küsitlust",
       editHelp: "Saad küsitluse seadeid muuta. Ajapesasid, millel on hääled, ei saa eemaldada.",
+      editStartDateBoundByEndDate: "Alguskuupäev ei saa olla hilisem kui valitud lõppkuupäev.",
+      editStartDateBoundByVotes: "Olemasolevad hääled nõuavad, et alguskuupäev oleks hiljemalt {date}.",
+      editEndDateBoundByStartDate: "Lõppkuupäev ei saa olla varasem kui valitud alguskuupäev.",
+      editEndDateBoundByVotes: "Olemasolevad hääled nõuavad, et lõppkuupäev oleks kõige varem {date}.",
+      editStartHourBoundByEndHour: "Päeva algustund peab olema enne valitud lõputundi.",
+      editStartHourBoundByVotes: "Olemasolevad hääled nõuavad, et päeva algustund oleks hiljemalt {hour}.",
+      editEndHourBoundByStartHour: "Päeva lõputund peab olema hilisem kui valitud algustund.",
+      editEndHourBoundByVotes: "Olemasolevad hääled nõuavad, et päeva lõputund oleks kõige varem {hour}.",
+      editAllowedWeekdaysBoundByVotes: "Olemasolevad hääled nõuavad, et need nädalapäevad jääksid valituks: {days}.",
       editTimezoneAutoGrowNotice: "Ajavööndi vahetus laiendas ajakava, et olemasolevad hääled jääksid kehtima.",
       editTimezoneConfirmTitle: "Kinnita ajavööndi vahetus",
       editTimezoneConfirmDescription:
@@ -795,6 +907,7 @@ const translations = {
       discardCreateConfirm: "Kas loobuda mustandist ja minna tagasi küsitluste nimekirja?",
       confirmDeletePoll: "Kas kustutada see küsitlus jäädavalt?",
       dismissFeedback: "Sulge teavitus",
+      profileId: "ID",
       profileTitle: "Minu andmed",
       profileRefresh: "Värskenda",
       profileLoading: "Sinu andmeid laaditakse...",
@@ -2174,10 +2287,7 @@ const translations = {
       return;
     }
     if (attemptsLeft <= 0) {
-      const root = document.getElementById("app");
-      if (root) {
-        root.innerHTML = "<p class='feedback error'>Vue.js did not load.</p>";
-      }
+      renderBootstrapError("vueLoadError");
       return;
     }
     window.setTimeout(() => waitForVueAndMount(attemptsLeft - 1), 100);

@@ -1,6 +1,7 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
 <!doctype html>
-<html lang="en">
+<html lang="{{ CURRENT_LANGUAGE|default:'en' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,7 +23,17 @@
 </head>
 <body>
   <noscript>
-    <p class="no-script">TimePoll requires JavaScript.</p>
+    {% if CURRENT_LANGUAGE == "fi" %}
+      <p class="no-script">TimePoll vaatii JavaScriptin.</p>
+    {% elif CURRENT_LANGUAGE == "sv" %}
+      <p class="no-script">TimePoll kräver JavaScript.</p>
+    {% elif CURRENT_LANGUAGE == "no" %}
+      <p class="no-script">TimePoll krever JavaScript.</p>
+    {% elif CURRENT_LANGUAGE == "et" %}
+      <p class="no-script">TimePoll vajab JavaScripti.</p>
+    {% else %}
+      <p class="no-script">TimePoll requires JavaScript.</p>
+    {% endif %}
   </noscript>
 
   <main id="app" v-cloak @click="closeVoteMenus">
@@ -82,7 +93,7 @@
     </div>
     <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">[[ voteStatusAnnouncement ]]</p>
 
-    <section class="workspace" aria-label="TimePoll workspace">
+    <section class="workspace" :aria-label="t('workspaceRegion')">
       <article
         class="panel workspace-panel"
         v-if="activeSection === 'list'"
@@ -177,7 +188,7 @@
             <h3>[[ t('profileIdentity') ]]</h3>
             <dl class="profile-definition-list">
               <div class="profile-definition-item">
-                <dt>ID</dt>
+                <dt>[[ t('profileId') ]]</dt>
                 <dd>[[ profileData.identity.id ]]</dd>
               </div>
               <div class="profile-definition-item">
@@ -349,7 +360,7 @@
               v-if="showTimezoneSuggestions && filteredTimezoneOptions.length"
               class="timezone-suggestions"
               role="listbox"
-              aria-label="Timezone suggestions"
+              :aria-label="t('timezoneSuggestions')"
             >
               <li v-for="(tz, index) in filteredTimezoneOptions" :key="`tz-${tz.id}`" role="presentation">
                 <button
@@ -606,7 +617,7 @@
                   v-if="showEditTimezoneSuggestions && filteredEditTimezoneOptions.length"
                   class="timezone-suggestions"
                   role="listbox"
-                  aria-label="Timezone suggestions"
+                  :aria-label="t('timezoneSuggestions')"
                 >
                   <li v-for="(tz, index) in filteredEditTimezoneOptions" :key="`edit-tz-${tz.id}`" role="presentation">
                     <button
@@ -841,7 +852,7 @@
                 v-if="showCalendarTimezoneSuggestions && filteredCalendarTimezoneOptions.length"
                 class="timezone-suggestions"
                 role="listbox"
-                aria-label="Timezone suggestions"
+                :aria-label="t('timezoneSuggestions')"
               >
                 <li
                   v-for="(tz, index) in filteredCalendarTimezoneOptions"
