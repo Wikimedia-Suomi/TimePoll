@@ -210,6 +210,37 @@
     return parsed;
   }
 
+  const suggestedPollIdentifierAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const suggestedPollIdentifierLength = 5;
+
+  function createSuggestedPollIdentifier(randomValueProvider) {
+    const characters = [];
+    const alphabetLength = suggestedPollIdentifierAlphabet.length;
+    const customRandomProvider = typeof randomValueProvider === "function" ? randomValueProvider : null;
+    const cryptoApi = typeof globalThis !== "undefined" && globalThis.crypto ? globalThis.crypto : null;
+    const cryptoArray = !customRandomProvider && cryptoApi && typeof cryptoApi.getRandomValues === "function"
+      ? new Uint32Array(suggestedPollIdentifierLength)
+      : null;
+
+    if (cryptoArray) {
+      cryptoApi.getRandomValues(cryptoArray);
+    }
+
+    for (let index = 0; index < suggestedPollIdentifierLength; index += 1) {
+      const rawValue = customRandomProvider
+        ? Number(customRandomProvider(index))
+        : cryptoArray
+          ? cryptoArray[index] / 0x1_0000_0000
+          : Math.random();
+      const normalizedValue = Number.isFinite(rawValue) ? rawValue : 0;
+      const boundedValue = Math.min(Math.max(normalizedValue, 0), 0.9999999999999999);
+      const characterIndex = Math.floor(boundedValue * alphabetLength);
+      characters.push(suggestedPollIdentifierAlphabet[characterIndex]);
+    }
+
+    return characters.join("");
+  }
+
   const pollFormBackendErrorFieldMap = {
     invalid_title: ["title"],
     invalid_poll_identifier: ["identifier"],
@@ -516,6 +547,7 @@
 
   window.TimePollLogic = {
     createPollFormValidator,
+    createSuggestedPollIdentifier,
     buildPollUrlState,
     calendarTimezonePreferenceStorageKeyForSession,
     collectDayOptionIdsFromRows,

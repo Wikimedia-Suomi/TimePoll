@@ -196,6 +196,9 @@
           if (this.activeSection === "selected" && this.selectedPoll) {
             await this.openPoll(this.selectedPoll.id, { preserveFeedback: true });
           }
+          if (this.activeSection === "create" && !String(this.createForm && this.createForm.identifier || "").trim()) {
+            await this.refreshCreateIdentifierSuggestion();
+          }
 
           if (this.pendingAction) {
             const action = this.pendingAction;

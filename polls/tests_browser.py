@@ -694,6 +694,51 @@ class PollBrowserTests(StaticLiveServerTestCase):
         results = self.run_accessibility_audit(page=page)
         self.assert_no_axe_violations(results, page_name="create form validation error state")
 
+    def test_browser_create_form_prefills_generated_identifier_after_login(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="generated-identifier-owner")
+        page.get_by_role("button", name="Create new poll").click()
+        page.wait_for_function(
+            """
+            () => {
+              const input = document.querySelector('#poll-identifier');
+              return Boolean(input) && /^[A-Z0-9]{5}$/.test(input.value);
+            }
+            """
+        )
+
+    def test_browser_create_form_saves_prefilled_generated_identifier(self) -> None:
+        page = self.require_page()
+
+        self.open_home_page()
+        self.login(name="generated-identifier-submit-owner")
+        page.get_by_role("button", name="Create new poll").click()
+        page.wait_for_function(
+            """
+            () => {
+              const input = document.querySelector('#poll-identifier');
+              return Boolean(input) && /^[A-Z0-9]{5}$/.test(input.value);
+            }
+            """
+        )
+        suggested_identifier = page.locator("#poll-identifier").input_value().strip()
+
+        page.locator("#poll-title").fill("Generated identifier submit poll")
+        page.locator("#poll-description").fill("Uses the prefilled generated identifier.")
+        page.locator("#poll-timezone").fill("Europe/Helsinki")
+        page.locator("#start-date").fill("2026-05-04")
+        page.locator("#end-date").fill("2026-05-04")
+        page.locator("#section-panel-create button[type='submit']").click()
+
+        page.locator(".details-title").filter(has_text="Generated identifier submit poll").wait_for()
+        self.assertIn(f"id={suggested_identifier}", page.url)
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_load_state("networkidle")
+        page.locator(".details-title").filter(has_text="Generated identifier submit poll").wait_for()
+        self.assertIn(f"id={suggested_identifier}", page.url)
+
     def test_create_form_identifier_conflict_state_has_no_accessibility_violations(self) -> None:
         page = self.require_page()
 
@@ -819,6 +864,12 @@ class PollBrowserTests(StaticLiveServerTestCase):
         voter_page.wait_for_load_state("networkidle")
         voter_page.get_by_text("Poll is closed").first.wait_for()
         self.assertTrue(voter_page.locator(".vote-switch").first.is_disabled())
+        self.assertEqual(
+            voter_page.locator(".vote-switch").first.evaluate(
+                "element => window.getComputedStyle(element).opacity"
+            ),
+            "1",
+        )
 
         results = self.run_accessibility_audit(page=voter_page)
         self.assert_no_axe_violations(results, page_name="closed poll details state")

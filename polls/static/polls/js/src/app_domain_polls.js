@@ -84,6 +84,9 @@
       async submitPoll() {
         await this.ensureAuthenticated(async () => {
           this.clearFeedback();
+          if (!String(this.createForm && this.createForm.identifier || "").trim()) {
+            await this.refreshCreateIdentifierSuggestion({ force: true });
+          }
           const validationError = this.validatePollForm(this.createForm);
           if (validationError) {
             this.setError(validationError);
@@ -98,7 +101,9 @@
             });
 
             this.createForm = defaultCreateForm();
+            this.createIdentifierBaseline = "";
             this.resetFormValidation("create");
+            await this.refreshCreateIdentifierSuggestion({ force: true });
 
             this.setSuccess(this.t("createdSuccess"));
             await this.fetchPolls();

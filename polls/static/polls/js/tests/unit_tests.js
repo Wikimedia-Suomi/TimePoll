@@ -6,6 +6,7 @@ function registerUnitTests(harness) {
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
     createPollFormValidator,
+    createSuggestedPollIdentifier,
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
@@ -211,6 +212,12 @@ function registerUnitTests(harness) {
       validator.backendErrorFields("too_many_options"),
       ["start_date", "end_date", "daily_start_hour", "daily_end_hour", "allowed_weekdays"]
     );
+  });
+
+  test("createSuggestedPollIdentifier generates five uppercase alphanumeric characters", () => {
+    const identifier = createSuggestedPollIdentifier((index) => [0, 0.25, 0.5, 0.75, 0.999][index]);
+    assertEqual(identifier.length, 5);
+    assertEqual(/^[A-Z0-9]{5}$/.test(identifier), true);
   });
 
   test("autoGrowScheduleForm expands days, hours and weekdays to keep votes in range", () => {

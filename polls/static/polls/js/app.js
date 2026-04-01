@@ -99,6 +99,7 @@
     collectDayOptionIdsFromRows,
     collectRowOptionIdsFromCells,
     createPollFormValidator,
+    createSuggestedPollIdentifier,
     extractPollIdFromSearch,
     filterRowsForVisibleDaysAndMinYesVotes,
     filterWeekRowsByMinYesVotes,
@@ -121,6 +122,7 @@
     || typeof collectDayOptionIdsFromRows !== "function"
     || typeof collectRowOptionIdsFromCells !== "function"
     || typeof createPollFormValidator !== "function"
+    || typeof createSuggestedPollIdentifier !== "function"
     || typeof extractPollIdFromSearch !== "function"
     || typeof filterRowsForVisibleDaysAndMinYesVotes !== "function"
     || typeof filterWeekRowsByMinYesVotes !== "function"
@@ -162,7 +164,7 @@ const translations = {
       createHelp: "Select full start/end days. Time slots are generated automatically in 60-minute blocks.",
       pollIdentifier: "Poll identifier",
       pollIdentifierHelp:
-        "Optional. Used in the poll link. Allowed characters: A-Z, a-z, 0-9 and underscore (_). Example: Poll_Name_2026",
+        "Used in the poll link. New polls start with an automatic 5-character value, but you can change it. Allowed characters: A-Z, a-z, 0-9 and underscore (_). Example: Q7M2K",
       title: "Title",
       description: "Description",
       startDate: "Start date",
@@ -320,7 +322,7 @@ const translations = {
       createHelp: "Valitse alku- ja loppupäivät. Aikavaihtoehdot luodaan automaattisesti 60 minuutin jaksoina.",
       pollIdentifier: "Kyselyn tunniste",
       pollIdentifierHelp:
-        "Valinnainen. Tunnistetta käytetään kyselyyn viittaavassa linkissä. Sallitut merkit: A-Z, a-z, 0-9 ja alaviiva (_). Esimerkki: Poll_Name_2026",
+        "Tunnistetta käytetään kyselyn linkissä. Uudet kyselyt alkavat automaattisella 5 merkin arvolla, mutta voit muuttaa sitä. Sallitut merkit: A-Z, a-z, 0-9 ja alaviiva (_). Esimerkki: Q7M2K",
       title: "Otsikko",
       description: "Kuvaus",
       startDate: "Alkupäivä",
@@ -478,7 +480,7 @@ const translations = {
       createHelp: "Välj hela start- och slutdagar. Tidsalternativ skapas automatiskt i 60-minutersblock.",
       pollIdentifier: "Omröstningsidentifierare",
       pollIdentifierHelp:
-        "Valfritt. Identifieraren används i länken till omröstningen. Tillåtna tecken: A-Z, a-z, 0-9 och understreck (_). Exempel: Poll_Name_2026",
+        "Identifieraren används i länken till omröstningen. Nya omröstningar börjar med ett automatiskt värde på 5 tecken, men du kan ändra det. Tillåtna tecken: A-Z, a-z, 0-9 och understreck (_). Exempel: Q7M2K",
       title: "Titel",
       description: "Beskrivning",
       startDate: "Startdatum",
@@ -636,7 +638,7 @@ const translations = {
       createHelp: "Velg hele start- og sluttdager. Tidsalternativer opprettes automatisk i 60-minuttersblokker.",
       pollIdentifier: "Avstemningsidentifikator",
       pollIdentifierHelp:
-        "Valgfritt. Identifikatoren brukes i lenken til avstemningen. Tillatte tegn: A-Z, a-z, 0-9 og understrek (_). Eksempel: Poll_Name_2026",
+        "Identifikatoren brukes i lenken til avstemningen. Nye avstemninger starter med en automatisk verdi på 5 tegn, men du kan endre den. Tillatte tegn: A-Z, a-z, 0-9 og understrek (_). Eksempel: Q7M2K",
       title: "Tittel",
       description: "Beskrivelse",
       startDate: "Startdato",
@@ -794,7 +796,7 @@ const translations = {
       createHelp: "Vali täis algus- ja lõpppäevad. Ajavalikud luuakse automaatselt 60-minutiliste plokkidena.",
       pollIdentifier: "Küsitluse tunnus",
       pollIdentifierHelp:
-        "Valikuline. Tunnust kasutatakse küsitlusele viitavas lingis. Lubatud märgid: A-Z, a-z, 0-9 ja alakriips (_). Näide: Poll_Name_2026",
+        "Tunnust kasutatakse küsitluse lingis. Uued küsitlused algavad automaatse 5-märgilise väärtusega, kuid sa võid seda muuta. Lubatud märgid: A-Z, a-z, 0-9 ja alakriips (_). Näide: Q7M2K",
       title: "Pealkiri",
       description: "Kirjeldus",
       startDate: "Alguskuupäev",
@@ -1464,6 +1466,7 @@ const translations = {
       autoGrowScheduleForm,
       buildTimeZoneMeta,
       createPollFormValidator,
+      createSuggestedPollIdentifier,
       defaultCreateForm,
       editFormFromPoll,
       filterTimezoneSuggestionOptions,
@@ -1532,6 +1535,7 @@ const translations = {
           activeSection: "list",
           voteDraft: {},
           createForm: defaultCreateForm(),
+          createIdentifierBaseline: "",
           createSectionReturnFocusId: "open-create-poll",
           editForm: null,
           formErrors: {

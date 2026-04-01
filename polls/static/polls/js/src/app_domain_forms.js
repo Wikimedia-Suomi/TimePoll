@@ -5,6 +5,7 @@
     autoGrowScheduleForm,
     buildTimeZoneMeta,
     createPollFormValidator,
+    createSuggestedPollIdentifier,
     defaultCreateForm,
     editFormFromPoll,
     filterTimezoneSuggestionOptions,
@@ -93,18 +94,46 @@
       resetCreateFormState() {
         this.closeTimezoneSuggestions("create");
         this.createForm = defaultCreateForm();
+        this.createIdentifierBaseline = "";
         this.resetFormValidation("create");
+      },
+      async refreshCreateIdentifierSuggestion(options = {}) {
+        const force = options.force === true;
+        const currentValue = String(this.createForm && this.createForm.identifier || "").trim();
+        const baselineValue = String(this.createIdentifierBaseline || "").trim();
+        if (!force && currentValue && currentValue !== baselineValue) {
+          return currentValue;
+        }
+
+        const suggestedIdentifier = typeof createSuggestedPollIdentifier === "function"
+          ? String(createSuggestedPollIdentifier() || "").trim()
+          : "";
+        if (!suggestedIdentifier || !this.createForm) {
+          return "";
+        }
+
+        const liveValue = String(this.createForm.identifier || "").trim();
+        const liveBaseline = String(this.createIdentifierBaseline || "").trim();
+        const canApply = force || !liveValue || liveValue === liveBaseline || liveValue === currentValue;
+        if (!canApply) {
+          return suggestedIdentifier;
+        }
+
+        this.createForm.identifier = suggestedIdentifier;
+        this.createIdentifierBaseline = suggestedIdentifier;
+        return suggestedIdentifier;
       },
       createFormHasUnsavedChanges() {
         const form = this.createForm || defaultCreateForm();
         const baseline = defaultCreateForm();
+        const baselineIdentifier = String(this.createIdentifierBaseline || baseline.identifier || "");
         const normalizeWeekdays = (values) => (Array.isArray(values) ? values : [])
           .map((value) => Number(value))
           .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
           .sort((left, right) => left - right)
           .join(",");
         return (
-          String(form.identifier || "") !== String(baseline.identifier || "")
+          String(form.identifier || "") !== baselineIdentifier
           || String(form.title || "") !== String(baseline.title || "")
           || String(form.description || "") !== String(baseline.description || "")
           || String(form.start_date || "") !== String(baseline.start_date || "")
@@ -128,6 +157,9 @@
           : "";
         this.createSectionReturnFocusId = requestedFocusId || activeElementId || "open-create-poll";
         this.setActiveSection("create", { forceFocus: true });
+        if (!String(this.createForm && this.createForm.identifier || "").trim()) {
+          void this.refreshCreateIdentifierSuggestion();
+        }
       },
       cancelCreate(options = {}) {
         if (!this.discardCreateDraftConfirmed()) {
